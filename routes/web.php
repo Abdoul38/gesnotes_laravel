@@ -25,5 +25,7 @@ Route::middleware('auth')->group(function () {
         // Accueil : sans permission, comme dans l'ancien routeur (sinon un
         // refus de permission, qui ramène à l'accueil, tournerait en boucle).
         Route::get('/accueil', AccueilController::class)->name('accueil');
+
+        require __DIR__.'/structure.php';
     });
 });

@@ -22,6 +22,7 @@ abstract class TestCase extends BaseTestCase
         'utilisateurs', 'parametres', 'role_permissions', 'facultes', 'departements',
         'journal_audit', 'audit_log', 'annees_academiques', 'etudiants', 'filieres',
         'niveaux', 'promotions', 'inscriptions', 'inscriptions_pedagogiques', 'semestres', 'signataires',
+        'grille_tarifaire', 'tarifs_niveaux',
     ];
 
     protected function setUp(): void
@@ -81,6 +82,21 @@ abstract class TestCase extends BaseTestCase
     protected function hashAncien(string $motDePasse): string
     {
         return password_hash($motDePasse, PASSWORD_DEFAULT);
+    }
+
+    /** Promotion complète (filière + niveau créés au besoin) pour une année. */
+    protected function creerPromotion(int $anneeId, array $attributs = []): int
+    {
+        $filiere = $attributs['filiere_id'] ?? DB::table('filieres')->insertGetId(['code' => 'F'.uniqid(), 'libelle' => 'Filière test', 'departement' => 'Dépt test']);
+        $niveau = $attributs['niveau_id'] ?? DB::table('niveaux')->insertGetId(['code' => substr('N'.uniqid(), -10), 'libelle' => 'Niveau test']);
+
+        return DB::table('promotions')->insertGetId(['filiere_id' => $filiere, 'niveau_id' => $niveau, 'annee_id' => $anneeId]);
+    }
+
+    /** Requêtes suivantes faites par $u, avec une session valide sur l'université $code. */
+    protected function connecte(Utilisateur $u, string $code = 'udh'): static
+    {
+        return $this->actingAs($u)->withSession(['universite' => $code, 'derniere_activite' => time()]);
     }
 
     protected function url(string $chemin, string $code = 'udh'): string

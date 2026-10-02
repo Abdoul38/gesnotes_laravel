@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\EntetesSecurite;
 use App\Http\Middleware\ExigerPermission;
+use App\Http\Middleware\ExigerPermissionPage;
+use App\Http\Middleware\ExigerRoles;
 use App\Http\Middleware\ResoudreUniversite;
 use App\Http\Middleware\SessionActive;
 use App\Http\Middleware\VerifierLicence;
@@ -24,7 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'permission' => ExigerPermission::class,
+            'page' => ExigerPermissionPage::class,
             'licence' => VerifierLicence::class,
+            'roles' => ExigerRoles::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
