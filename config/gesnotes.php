@@ -9,9 +9,10 @@ return [
     // l'ancienne application. {code} = code de l'université (udh, uam…).
     'ancienne_url' => env('ANCIENNE_APP_URL', 'https://{code}.cursus-niger.net'),
 
-    // Dossier de l'ancienne application : photos, logos, pièces y restent
-    // jusqu'à la migration des fichiers (servis par FichierController).
-    'ancienne_app_chemin' => env('ANCIENNE_APP_CHEMIN'),
+    // Dossier uploads/ de l'ancienne application : photos, logos, pièces y
+    // restent pendant la migration, lus et écrits par les deux versions
+    // (App\Services\Fichiers, FichierController).
+    'dossier_uploads' => env('DOSSIER_UPLOADS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/uploads' : null),
 
     // Pages hors menu : même permission que leur page parente
     // (copie de $permissionsPages dans l'ancien index.php).

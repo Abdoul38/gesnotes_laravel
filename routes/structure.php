@@ -5,6 +5,7 @@
 // son entrée de menu (page:…) et les rôles que l'ancienne page exigeait.
 
 use App\Http\Controllers\Structure\AnneesController;
+use App\Http\Controllers\Structure\FacultesController;
 use App\Http\Controllers\Structure\NiveauxController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,4 +20,11 @@ Route::middleware('page:niveaux')->group(function () {
     Route::get('/niveaux', [NiveauxController::class, 'index'])->name('niveaux');
     Route::post('/niveaux', [NiveauxController::class, 'enregistrer'])->name('niveaux.enregistrer');
     Route::post('/niveaux/supprimer', [NiveauxController::class, 'supprimer'])->name('niveaux.supprimer');
+});
+
+Route::middleware('page:facultes')->group(function () {
+    Route::get('/facultes', [FacultesController::class, 'index'])->name('facultes');
+    Route::post('/facultes', [FacultesController::class, 'enregistrer'])->name('facultes.enregistrer');
+    Route::post('/facultes/supprimer', [FacultesController::class, 'supprimer'])->name('facultes.supprimer');
+    Route::post('/facultes/basculer', [FacultesController::class, 'basculer'])->name('facultes.basculer');
 });
