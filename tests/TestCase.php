@@ -22,7 +22,7 @@ abstract class TestCase extends BaseTestCase
         'utilisateurs', 'parametres', 'role_permissions', 'facultes', 'departements',
         'journal_audit', 'audit_log', 'annees_academiques', 'etudiants', 'filieres',
         'niveaux', 'promotions', 'inscriptions', 'inscriptions_pedagogiques', 'semestres', 'signataires',
-        'grille_tarifaire', 'tarifs_niveaux',
+        'grille_tarifaire', 'tarifs_niveaux', 'salles', 'permissions',
     ];
 
     protected function setUp(): void

@@ -7,6 +7,7 @@
 use App\Http\Controllers\Structure\AnneesController;
 use App\Http\Controllers\Structure\FacultesController;
 use App\Http\Controllers\Structure\NiveauxController;
+use App\Http\Controllers\Structure\SallesController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['page:annees', 'roles:admin,secretaire,sc_centrale'])->group(function () {
@@ -27,4 +28,12 @@ Route::middleware('page:facultes')->group(function () {
     Route::post('/facultes', [FacultesController::class, 'enregistrer'])->name('facultes.enregistrer');
     Route::post('/facultes/supprimer', [FacultesController::class, 'supprimer'])->name('facultes.supprimer');
     Route::post('/facultes/basculer', [FacultesController::class, 'basculer'])->name('facultes.basculer');
+});
+
+// Ancienne page : permission du menu + permission propre salles_gerer
+Route::middleware(['page:salles', 'permission:salles_gerer'])->group(function () {
+    Route::get('/salles', [SallesController::class, 'index'])->name('salles');
+    Route::post('/salles', [SallesController::class, 'enregistrer'])->name('salles.enregistrer');
+    Route::post('/salles/basculer', [SallesController::class, 'basculer'])->name('salles.basculer');
+    Route::post('/salles/supprimer', [SallesController::class, 'supprimer'])->name('salles.supprimer');
 });

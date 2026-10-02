@@ -29,7 +29,7 @@ const Toast = {
     };
     const c = colors[type] || colors.info;
     const el = document.createElement('div');
-    el.innerHTML = msg;
+    el.textContent = msg; // texte seul : un message peut contenir une saisie (nom, code…)
     Object.assign(el.style, {
       padding:'10px 16px', borderRadius:'8px', fontSize:'13px',
       border:`1px solid ${c.border}`, background:c.bg, color:c.color,
