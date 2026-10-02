@@ -51,6 +51,15 @@ class Menu
         return config('gesnotes.permissions_pages')[$page] ?? null;
     }
 
+    /**
+     * Lien vers une page, où qu'elle soit pendant la migration : la route
+     * Laravel du même nom si elle existe, sinon l'ancienne application.
+     */
+    public function lien(string $page, array $parametres = []): string
+    {
+        return Route::has($page) ? route($page, $parametres) : $this->ancienneUrl($page, $parametres);
+    }
+
     /** Lien vers la même page dans l'ancienne application. */
     public function ancienneUrl(string $page, array $parametres = []): string
     {

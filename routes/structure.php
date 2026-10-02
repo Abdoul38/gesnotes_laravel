@@ -7,6 +7,7 @@
 use App\Http\Controllers\Structure\AnneesController;
 use App\Http\Controllers\Structure\FacultesController;
 use App\Http\Controllers\Structure\NiveauxController;
+use App\Http\Controllers\Structure\PromotionsController;
 use App\Http\Controllers\Structure\SallesController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,4 +37,11 @@ Route::middleware(['page:salles', 'permission:salles_gerer'])->group(function ()
     Route::post('/salles', [SallesController::class, 'enregistrer'])->name('salles.enregistrer');
     Route::post('/salles/basculer', [SallesController::class, 'basculer'])->name('salles.basculer');
     Route::post('/salles/supprimer', [SallesController::class, 'supprimer'])->name('salles.supprimer');
+});
+
+Route::middleware('page:promotions')->group(function () {
+    Route::get('/promotions', [PromotionsController::class, 'index'])->name('promotions');
+    Route::post('/promotions/generer', [PromotionsController::class, 'generer'])->name('promotions.generer');
+    Route::post('/promotions/copier', [PromotionsController::class, 'copier'])->name('promotions.copier');
+    Route::post('/promotions/supprimer', [PromotionsController::class, 'supprimer'])->name('promotions.supprimer');
 });

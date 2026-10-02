@@ -17,13 +17,8 @@ use RuntimeException;
  */
 abstract class TestCase extends BaseTestCase
 {
-    /** Tables vidées avant chaque test, dans chaque base de test. */
-    protected array $tablesAVider = [
-        'utilisateurs', 'parametres', 'role_permissions', 'facultes', 'departements',
-        'journal_audit', 'audit_log', 'annees_academiques', 'etudiants', 'filieres',
-        'niveaux', 'promotions', 'inscriptions', 'inscriptions_pedagogiques', 'semestres', 'signataires',
-        'grille_tarifaire', 'tarifs_niveaux', 'salles', 'permissions',
-    ];
+    /** @var array<string, list<string>> tables de chaque base de test */
+    private static array $tables = [];
 
     protected function setUp(): void
     {
@@ -31,17 +26,36 @@ abstract class TestCase extends BaseTestCase
 
         foreach (['uam', 'udh'] as $code) {
             $this->universite($code);
-            $base = DB::connection()->getDatabaseName();
-            if (! str_contains((string) $base, '_test')) {
-                throw new RuntimeException("Les tests refusent de tourner sur « $base » (base non test).");
-            }
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
-            foreach ($this->tablesAVider as $table) {
-                DB::table($table)->truncate();
-            }
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            $this->viderBase();
         }
         // UDH par défaut, comme l'application hors requête web
+    }
+
+    /**
+     * Vide toutes les tables qui contiennent des lignes (une requête pour
+     * les trouver, puis DELETE) : plus rapide que TRUNCATE partout, et
+     * aucune liste à tenir à jour quand un module ajoute des tables.
+     */
+    private function viderBase(): void
+    {
+        $base = (string) DB::connection()->getDatabaseName();
+        if (! str_contains($base, '_test')) {
+            throw new RuntimeException("Les tests refusent de tourner sur « $base » (base non test).");
+        }
+        self::$tables[$base] ??= DB::table('information_schema.tables')
+            ->where('table_schema', $base)->where('table_type', 'BASE TABLE')
+            ->pluck('table_name')->all();
+
+        $sql = implode(' UNION ALL ', array_map(fn ($t) => "(SELECT '$t' AS t FROM `$t` LIMIT 1)", self::$tables[$base]));
+        $remplies = array_column(DB::select($sql), 't');
+        if (! $remplies) {
+            return;
+        }
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        foreach ($remplies as $table) {
+            DB::table($table)->delete();
+        }
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
     }
 
     /** Bascule la connexion vers la base de test de l'université $code. */
