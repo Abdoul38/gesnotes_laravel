@@ -97,6 +97,53 @@ class Candidatures
         return array_values(array_map(fn ($p) => $p[2], array_filter(self::PIECES, fn ($p) => $p[3] && empty($dossier->{$p[0]}))));
     }
 
+    /**
+     * Change le statut d'un dossier (administration). Accepté : n° de dépôt
+     * « <sigle> + 6 chiffres » attribué s'il manque. Retourne le n° de dépôt.
+     */
+    public function changerStatut(object $dossier, string $statut, int $utilisateur, string $sigle): ?string
+    {
+        $maj = ['statut' => $statut, 'traite_par' => $utilisateur, 'date_traitement' => now()];
+        $depot = $dossier->numero_depot ?: null;
+        if ($statut === 'accepte' && ! $depot) {
+            do {
+                $depot = strtolower($sigle).random_int(100000, 999999);
+            } while (DB::table('candidatures')->where('numero_depot', $depot)->exists());
+            $maj['numero_depot'] = $depot;
+        }
+        DB::table('candidatures')->where('id', $dossier->id)->update($maj);
+
+        return $depot;
+    }
+
+    /**
+     * Crée la fiche étudiant d'un dossier (matricule à attribuer) et accepte
+     * le dossier. Null si une fiche est déjà liée.
+     */
+    public function creerEtudiant(object $dossier, int $utilisateur, string $sigle): ?int
+    {
+        if ($dossier->etudiant_id) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($dossier, $utilisateur, $sigle) {
+            $depot = $this->changerStatut($dossier, 'accepte', $utilisateur, $sigle);
+            $annee = preg_match('/(\d{4})$/', (string) $dossier->bac_annee, $m) ? $m[1] : null;
+            $id = DB::table('etudiants')->insertGetId([
+                'numero' => null, 'numero_dossier' => $dossier->numero_dossier, 'numero_depot' => $depot,
+                'nom' => $dossier->nom, 'prenoms' => $dossier->prenom, 'sexe' => $dossier->sexe ?: 'M',
+                'date_naissance' => $dossier->date_naissance, 'lieu_naissance' => $dossier->lieu_naissance, 'nationalite' => $dossier->nationalite,
+                'telephone' => $dossier->telephone, 'email' => $dossier->email, 'adresse' => $dossier->adresse,
+                'nom_pere' => $dossier->nom_pere, 'nom_mere' => $dossier->nom_mere, 'tel_urgence' => $dossier->tel_urgence,
+                'bac_serie' => $dossier->bac_type, 'bac_annee' => $annee, 'bac_mention' => $dossier->bac_mention,
+                'etablissement_origine' => $dossier->bac_etablissement,
+            ]);
+            DB::table('candidatures')->where('id', $dossier->id)->update(['etudiant_id' => $id]);
+
+            return $id;
+        });
+    }
+
     private function requete()
     {
         return DB::table('candidatures as c')

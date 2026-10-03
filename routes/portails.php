@@ -42,3 +42,20 @@ Route::middleware('roles:recteur,admin')->controller(RectoratController::class)-
     Route::get('/rectorat/pv/{id}/impression', 'impressionPv')->whereNumber('id')->name('rectorat.pv_impression');
     Route::post('/rectorat/mot-de-passe', 'motDePasse')->name('rectorat.mot_de_passe');
 });
+
+// Administration des candidatures (ancien hasRole admin / secrétaire / sc_centrale)
+Route::middleware(['page:portail_candidats_admin', 'roles:admin,secretaire,sc_centrale'])
+    ->controller(\App\Http\Controllers\Candidature\CandidaturesAdminController::class)->group(function () {
+        Route::get('/candidatures', 'index')->name('portail_candidats_admin');
+        Route::post('/candidatures', 'creerDossier')->name('portail_candidats_admin.creer');
+        Route::post('/candidatures/statut', 'statut')->name('portail_candidats_admin.statut');
+        Route::post('/candidatures/note', 'note')->name('portail_candidats_admin.note');
+        Route::post('/candidatures/etudiant', 'creerEtudiant')->name('portail_candidats_admin.etudiant');
+        Route::post('/candidatures/configuration', 'config')->name('portail_candidats_admin.config');
+        Route::post('/candidatures/configuration/restrictions', 'reinitialiserRestrictions')->name('portail_candidats_admin.restrictions');
+        Route::get('/candidatures/export', 'export')->name('portail_export');
+        Route::get('/candidatures/{id}', 'dossier')->whereNumber('id')->name('dossier_candidat');
+        Route::post('/candidatures/{id}', 'modifierDossier')->whereNumber('id')->name('dossier_candidat.modifier');
+        Route::get('/candidatures/{id}/quitus', 'quitus')->whereNumber('id')->name('portail_candidats_admin.quitus');
+        Route::get('/candidatures/{id}/pieces/{type}', 'piece')->whereNumber('id')->whereAlpha('type')->name('portail_candidats_admin.piece');
+    });
