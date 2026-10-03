@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // API mobile : université résolue par le sous-domaine, sans session ni CSRF
+        then: fn () => Illuminate\Support\Facades\Route::middleware([ResoudreUniversite::class, 'throttle:120,1'])
+            ->group(__DIR__.'/../routes/api_mobile.php'),
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Ordre : université (choix de la base) → session → contrôles de

@@ -156,7 +156,18 @@ Plan en 13 étapes (section 11 de l'inventaire).
     (renvoyait nom et accès au reçu de n'importe quel matricule), l'administration à mot de passe partagé du portail
     (`candidature/pages/admin.php`, `admin_export.php`, remplacée par `portail_candidats_admin`) et `portail_admin`
     (ancien portail, tables `portail_dossiers` / `portail_paiements`, hors menu — voir « Décisions »).
-- [ ] Étapes 11 à 13
+- [x] **Étape 11 — API mobile** : `api_mobile.php?action=…` (même adresse, mêmes 17 actions, même format
+      `{success, message, data}`), aussi sous `/api/mobile`. Routes `routes/api_mobile.php`, sans session (jeton Bearer).
+  - Version reproduite : `pages/api/api_mobile.php` (réinitialisation par code SMS/e-mail), celle qu'appelle
+    l'application `MOBILE/` du dépôt ; l'ancien fichier racine n'a pas été modifié.
+  - Non repris : `api/notes.php`, `api/promotions.php`, `api/resultats.php`, `api/stats.php`, `api/test_session.php`
+    (aucune page ne les appelle) ; `ajax_recalcul_queue` est devenu `pv_detail.file` (étape 5).
+- [ ] **Pages encore dans l'ancienne application** (hors des étapes du plan, à porter avant la bascule) :
+      statistiques (`stats`), historique académique (`historique`), présence (`presence`, avec `api_matieres_promotion`),
+      planning des examens (`planning`), emploi du temps (`emploi_temps`), rapports (`rapports`, `rapports_export`),
+      suivi d'exécution (`suivi_execution`), utilisateurs et rôles (`utilisateurs`, `utilisateur_form`, `roles`),
+      signataires, paramètres (`parametres`), licence (`parametres_licence`), sauvegarde, journaux (`logs`).
+- [ ] Étapes 12 et 13
 
 ## Comportements volontairement modifiés
 
@@ -327,6 +338,13 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Litiges KomiPay : cherchaient dans `paiements` une colonne absente (page toujours vide) | portent sur les inscriptions payées en ligne ; confirmation = inscription finalisée ; journalisés | |
 | Demandes d'inscription : aucune permission, chaque acceptation créait une fiche, inscription sans date (en échec) | gestion des inscriptions ; une fois ; inscription complète | |
 | Session du personnel expirée sur une page publique (portail candidats, parents, vérification) : renvoi à la connexion du personnel ; étudiant connecté renvoyé de l'inscription en ligne vers son portail | session du personnel fermée sans gêner la page ; pages publiques ouvertes à tous | |
+| **Étape 11** | | |
+| API mobile : jetons enregistrés en clair ; jeton accepté dans l'adresse (`?token=`) | empreinte SHA-256 (anciens jetons acceptés jusqu'à expiration) ; en-tête seulement | une copie de la base donnait des sessions ; jetons dans les journaux |
+| Résultats et réclamations : PV « finalisés » (non publiés) visibles, résultats de PV en brouillon aussi | PV publiés seulement | même règle que le portail étudiant |
+| Photo et cachet servis depuis le dossier public | photo par adresse signée (1 h) ; cachet plus fourni | faux documents |
+| « Marquer lu » : tout message portant le même numéro de destinataire ; reçu en erreur (colonne inexistante) ; annonces par niveau jamais affichées | messages adressés à l'étudiant ; réparé ; affichées | |
+| Version racine en Latin-1 : réponses JSON vides dès qu'un message contenait un accent | UTF-8 | |
+| Mot de passe de 6 caractères ; licence non vérifiée | 8 caractères, lettres et chiffres ; licence vérifiée (réponse JSON) | |
 
 ## Décisions à prendre (université)
 
@@ -370,6 +388,12 @@ Plan en 13 étapes (section 11 de l'inventaire).
   menu. Vérifier si ces tables contiennent encore des dossiers à traiter ; sinon les archiver.
 - **Délai de paiement de 15 minutes** compté depuis l'identification (repris tel quel) et non depuis le paiement :
   un étudiant lent à choisir son moyen de paiement voit son paiement expirer plus tôt. Le compter depuis le paiement ?
+- **Délai de réclamation (72 h) compté depuis la dernière modification du PV** (repris tel quel : pas de date de
+  publication en base) : toute modification après publication (verrouillage, correction) rouvre le délai. Ajouter une
+  colonne `publie_le` renseignée à la publication ?
+- **Application mobile** : la version publiée de l'application (ancienne réinitialisation par date de naissance)
+  recevra « mettez à jour l'application » pour le mot de passe oublié. Publier la version du dépôt (`MOBILE/`) avant la
+  bascule de l'API, et y remplacer l'adresse du serveur.
 - **Relevé et attestation depuis le portail étudiant** : comme avant, l'étudiant consulte ses résultats publiés mais
   ne peut pas imprimer lui-même son relevé de notes ni son attestation (documents délivrés par la scolarité, numérotés
   au registre). Les ouvrir aux étudiants (version « non officielle » sans numéro, ou numérotée) ?
