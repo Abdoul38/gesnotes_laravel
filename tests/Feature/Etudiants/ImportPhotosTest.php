@@ -74,9 +74,9 @@ class ImportPhotosTest extends TestCase
     public function test_zip_par_nom_et_entrees_ignorees(): void
     {
         $id = $this->etudiant('00007', 'MOUSSA', 'Hadiza Ali');
-        $chemin = tempnam(sys_get_temp_dir(), 'zip');
+        $chemin = \App\Support\FichierTemporaire::chemin('zip', '.zip');
         $zip = new ZipArchive;
-        $zip->open($chemin, ZipArchive::OVERWRITE);
+        $zip->open($chemin, ZipArchive::CREATE);
         $zip->addEmptyDir('photos');
         $zip->addFromString('photos/Moussa_Hadiza Ali.PNG', base64_decode(self::PNG));
         $zip->addFromString('photos/99999.png', base64_decode(self::PNG));

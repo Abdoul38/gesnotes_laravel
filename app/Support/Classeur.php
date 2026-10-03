@@ -62,9 +62,9 @@ final class Classeur
         }
         $sst .= '</sst>';
 
-        $chemin = tempnam(sys_get_temp_dir(), 'xlsx_');
+        $chemin = FichierTemporaire::chemin('xlsx_', '.xlsx');
         $zip = new ZipArchive;
-        $zip->open($chemin, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip->open($chemin, ZipArchive::CREATE);
         $zip->addFromString('[Content_Types].xml', $entete.'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
             .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
             .'<Default Extension="xml" ContentType="application/xml"/>'

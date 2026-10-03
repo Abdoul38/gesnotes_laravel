@@ -124,7 +124,7 @@ class InscriptionScolariteTest extends TestCase
 
         $this->connecte($this->admin)->get($this->url('inscriptions/scolarite?matricule=d915839'))->assertOk()
             ->assertSee('SALEY Amina')->assertSee('1 inscription')->assertSee('En cours')->assertSee('mobile money')
-            ->assertSee('recu_inscription', false);
+            ->assertSee('/inscriptions/recu?', false);
         $this->get($this->url('inscriptions/scolarite?matricule=99999'))->assertSee('Aucun étudiant trouvé');
     }
 

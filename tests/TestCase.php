@@ -155,9 +155,9 @@ abstract class TestCase extends BaseTestCase
             $xml .= '</row>';
         }
         $sst = implode('', array_map(fn ($s) => '<si><t>'.htmlspecialchars($s, ENT_XML1).'</t></si>', $partagees));
-        $chemin = tempnam(sys_get_temp_dir(), 'xlsx');
+        $chemin = \App\Support\FichierTemporaire::chemin('xlsx', '.xlsx');
         $zip = new \ZipArchive;
-        $zip->open($chemin, \ZipArchive::OVERWRITE);
+        $zip->open($chemin, \ZipArchive::CREATE);
         $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.$sst.'</sst>');
         $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$xml.'</sheetData></worksheet>');
         $zip->close();

@@ -86,9 +86,9 @@ final class ModeleImportEtudiants
             .'<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0"/></cellXfs>'
             .'</styleSheet>';
 
-        $chemin = tempnam(sys_get_temp_dir(), 'xlsx_');
+        $chemin = FichierTemporaire::chemin('xlsx_', '.xlsx');
         $zip = new ZipArchive;
-        $zip->open($chemin, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip->open($chemin, ZipArchive::CREATE);
         $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
             .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
