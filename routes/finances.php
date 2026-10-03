@@ -4,6 +4,7 @@
 // routes/web.php.
 
 use App\Http\Controllers\Finances\PaiementsController;
+use App\Http\Controllers\Finances\RecuInscriptionController;
 use App\Http\Controllers\Finances\RecuPaiementController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,3 +15,4 @@ Route::middleware(['page:paiements', 'permission:paiements_gerer'])->group(funct
 });
 // Reçu : rôles et permission vérifiés dans le contrôleur (l'étudiant y accède pour lui-même)
 Route::get('/paiements/recu', RecuPaiementController::class)->name('recu_paiement');
+Route::get('/inscriptions/recu', RecuInscriptionController::class)->name('recu_inscription');

@@ -132,4 +132,16 @@ class PaiementsTest extends TestCase
         $this->donnerPermissions('enseignant', ['paiements_voir']);
         $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url("paiements/recu?id=$id"))->assertRedirect($this->url('accueil'));
     }
+
+    public function test_recu_inscription(): void
+    {
+        $ins = DB::table('inscriptions')->where('etudiant_id', $this->etA)->value('id');
+        $this->connecte($this->admin)->get($this->url("inscriptions/recu?et_id={$this->etA}"))->assertOk()
+            ->assertSee("Reçu d'Inscription", false)->assertSee('ALPHA X')->assertSee('2025-2026')->assertSee('INS-2025-'.str_pad((string) $ins, 6, '0', STR_PAD_LEFT));
+        // Inscription annulée : plus de reçu « officiellement inscrit »
+        DB::table('inscriptions')->where('id', $ins)->update(['statut' => 'annule']);
+        $this->get($this->url("inscriptions/recu?et_id={$this->etA}&ins_id=$ins"))->assertSessionHas('erreur');
+        // Autre faculté
+        $this->connecte($this->agentFaculteA())->get($this->url("inscriptions/recu?et_id={$this->etB}"))->assertSessionHas('erreur');
+    }
 }
