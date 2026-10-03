@@ -89,7 +89,7 @@ class SessionEtAccesTest extends TestCase
         // Page migrée → route Laravel ; page non migrée → ancienne application
         $page->assertSee('href="http://udh.localhost/accueil"', false);
         $page->assertSee('href="http://udh.localhost/etudiants"', false);
-        $page->assertSee('href="http://udh.localhost/index.php?page=portail_enseignant"', false);
+        $page->assertSee('href="http://udh.localhost/portail/enseignant"', false);
     }
 
     public function test_etudiant_renvoye_vers_son_portail(): void

@@ -7,8 +7,8 @@ use App\Models\Utilisateur;
 use App\Services\Journal;
 use App\Services\Pv;
 use App\Services\Resultats;
+use App\Services\SaisieNotes;
 use App\Support\Classeur;
-use App\Support\Tableur;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +39,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class NotesImportController extends Controller
 {
-    public function __construct(private readonly Pv $pvs, private readonly Resultats $resultats, private readonly Journal $journal) {}
+    public function __construct(private readonly Pv $pvs, private readonly Resultats $resultats, private readonly Journal $journal, private readonly SaisieNotes $saisie) {}
 
     public function index(Request $request): View|RedirectResponse
     {
@@ -50,7 +50,7 @@ class NotesImportController extends Controller
 
         return view('notes.import', [
             'pv' => $pv,
-            'matieres' => $this->matieres($pv),
+            'matieres' => $this->saisie->matieres($pv),
             'nbEtudiants' => $this->pvs->etudiants($pv)->count(),
             'matiereChoisie' => (int) $request->query('mat_id'),
             'importComplet' => $this->peutImporterTout($request->user()),
@@ -62,7 +62,7 @@ class NotesImportController extends Controller
     {
         $matId = (int) $request->query('mat_id');
         $pv = $this->pvAutorise($request, (int) $request->query('pv_id'), $matId);
-        $mat = $pv ? $this->matieres($pv)->firstWhere('id', $matId) : null;
+        $mat = $pv ? $this->saisie->matieres($pv)->firstWhere('id', $matId) : null;
         if (! $mat) {
             return redirect()->route('notes')->with('erreur', 'Matière introuvable.');
         }
@@ -90,12 +90,12 @@ class NotesImportController extends Controller
         $matId = (int) $request->input('mat_id');
         $pv = $this->pvAutorise($request, $pvId, $matId);
         $retour = route('notes_importer', ['pv_id' => $pvId]);
-        $mat = $pv ? $this->matieres($pv)->firstWhere('id', $matId) : null;
+        $mat = $pv ? $this->saisie->matieres($pv)->firstWhere('id', $matId) : null;
         if (! $pv || ! $mat) {
             return redirect($retour)->with('erreur', 'Matière introuvable.');
         }
         $fichier = $request->file('fichier');
-        $lignes = $fichier && $fichier->isValid() ? $this->lire($fichier->getRealPath(), strtolower($fichier->getClientOriginalExtension())) : [];
+        $lignes = $fichier && $fichier->isValid() ? $this->saisie->lire($fichier->getRealPath(), strtolower($fichier->getClientOriginalExtension())) : [];
         if (! $lignes) {
             return redirect($retour)->with('erreur', 'Fichier vide ou illisible.');
         }
@@ -119,7 +119,7 @@ class NotesImportController extends Controller
         $iExam ??= 3;
         $iTd = $avecTd ? ($iTd ?? 4) : null;
 
-        $index = $this->parMatricule($pv);
+        $index = $this->saisie->parMatricule($pv);
         $acquises = DB::table('notes')->where(['pv_id' => $pv->id, 'matiere_id' => $matId])->whereIn('observation', ['AV', 'AC'])->pluck('etudiant_id')->flip();
         $saisies = [];
         $resultat = ['ok' => 0, 'ignorees' => 0, 'erreurs' => 0, 'absents' => 0, 'lignes' => [], 'matiere' => $mat->libelle];
@@ -128,7 +128,7 @@ class NotesImportController extends Controller
             if ($matricule === '') {
                 continue;
             }
-            $et = $this->trouver($index, $matricule);
+            $et = $this->saisie->trouver($index, $matricule);
             if (! $et) {
                 $resultat['lignes'][] = "Ligne $num : étudiant « $matricule » introuvable";
                 $resultat['erreurs']++;
@@ -140,7 +140,7 @@ class NotesImportController extends Controller
 
                 continue;
             }
-            [$exam, $td, $erreur] = $this->valeurs($l, $iExam, $iTd, $mat);
+            [$exam, $td, $erreur] = $this->saisie->valeurs($l, $iExam, $iTd, $mat);
             if ($erreur) {
                 $resultat['lignes'][] = "Ligne $num ({$et->nom}) : $erreur";
                 $resultat['erreurs']++;
@@ -156,10 +156,10 @@ class NotesImportController extends Controller
         }
 
         $resultat['ok'] = DB::transaction(function () use ($pv, $saisies, $matId, $request, &$resultat) {
-            $nb = $this->enregistrer($pv, $saisies, $request->user()->id);
+            $nb = $this->saisie->enregistrer($pv, $saisies, $request->user()->id);
             $touches = array_keys($saisies);
             if ($pv->type_session === 'rattrapage' && $pv->pv_normale_id) {
-                $absents = $this->marquerAbsents($pv, [$matId], $saisies, $request->user()->id);
+                $absents = $this->saisie->marquerAbsents($pv, [$matId], $saisies, $request->user()->id);
                 $resultat['absents'] = count($absents);
                 $touches = array_unique([...$touches, ...$absents]);
             }
@@ -184,11 +184,11 @@ class NotesImportController extends Controller
             return redirect()->route('notes_importer', ['pv_id' => $pvId])->with('erreur', "Vous n'êtes pas autorisé à importer le PV complet.");
         }
         $fichier = $request->file('fichier_pv');
-        $lignes = $fichier && $fichier->isValid() ? $this->lire($fichier->getRealPath(), strtolower($fichier->getClientOriginalExtension())) : [];
+        $lignes = $fichier && $fichier->isValid() ? $this->saisie->lire($fichier->getRealPath(), strtolower($fichier->getClientOriginalExtension())) : [];
         if (! $lignes) {
             return redirect()->route('notes_importer', ['pv_id' => $pvId])->with('erreur', 'Impossible de lire le fichier.');
         }
-        $matieres = $this->matieres($pv)->values();
+        $matieres = $this->saisie->matieres($pv)->values();
 
         // Colonnes : la ligne des sous-titres (« Exam./40 », « TD/20 », …, « Obs. » termine une matière)
         $colonnes = [];
@@ -214,7 +214,7 @@ class NotesImportController extends Controller
             return redirect()->route('notes_importer', ['pv_id' => $pvId])->with('erreur', "Format non reconnu : utilisez le fichier produit par « Exporter Excel » du PV.");
         }
 
-        $index = $this->parMatricule($pv);
+        $index = $this->saisie->parMatricule($pv);
         $parId = $matieres->keyBy('id');
         $saisies = [];
         $erreurs = [];
@@ -223,7 +223,7 @@ class NotesImportController extends Controller
             if ($matricule === '') {
                 continue;
             }
-            $et = $this->trouver($index, $matricule);
+            $et = $this->saisie->trouver($index, $matricule);
             if (! $et) {
                 $erreurs[] = "Matricule introuvable : $matricule";
 
@@ -235,7 +235,7 @@ class NotesImportController extends Controller
             }
             foreach ($parMatiere as $mid => $v) {
                 $mat = $parId[$mid];
-                [$exam, $td, $erreur] = $this->valeurs([$v['exam'] ?? '', $v['td'] ?? ''], 0, (float) $mat->note_max_cc > 0 ? 1 : null, $mat);
+                [$exam, $td, $erreur] = $this->saisie->valeurs([$v['exam'] ?? '', $v['td'] ?? ''], 0, (float) $mat->note_max_cc > 0 ? 1 : null, $mat);
                 if ($erreur) {
                     $erreurs[] = "Ligne $num ({$et->nom}, {$mat->libelle}) : $erreur";
                 } elseif ($exam !== null || $td !== null) {
@@ -259,10 +259,10 @@ class NotesImportController extends Controller
         $saisies = array_filter($saisies);
 
         DB::transaction(function () use ($pv, $saisies, $matieres, $request) {
-            $this->enregistrer($pv, $saisies, $request->user()->id);
+            $this->saisie->enregistrer($pv, $saisies, $request->user()->id);
             $touches = array_keys($saisies);
             if ($pv->type_session === 'rattrapage' && $pv->pv_normale_id) {
-                $touches = array_unique([...$touches, ...$this->marquerAbsents($pv, $matieres->pluck('id')->all(), $saisies, $request->user()->id)]);
+                $touches = array_unique([...$touches, ...$this->saisie->marquerAbsents($pv, $matieres->pluck('id')->all(), $saisies, $request->user()->id)]);
             }
             foreach ($touches as $et) {
                 $this->resultats->recalculer($pv->id, (int) $et);
@@ -275,126 +275,6 @@ class NotesImportController extends Controller
         }
 
         return redirect()->route('pv_detail', ['id' => $pv->id])->with('succes', "✅ Import PV complet réussi — $nb étudiant(s) mis à jour.".($erreurs ? ' ('.count($erreurs).' ligne(s) non reconnue(s))' : ''));
-    }
-
-    /**
-     * Enregistre les notes [étudiant][matière] = [examen, TD]. En rattrapage,
-     * la meilleure note entre 1ère session et rattrapage est gardée.
-     */
-    private function enregistrer(object $pv, array $saisies, int $utilisateur): int
-    {
-        $matieres = $this->matieres($pv)->keyBy('id');
-        $normale = ($pv->type_session === 'rattrapage' && $pv->pv_normale_id)
-            ? DB::table('notes')->where('pv_id', $pv->pv_normale_id)->get()->groupBy('etudiant_id')->map->keyBy('matiere_id') : collect();
-        $lignes = [];
-        foreach ($saisies as $et => $mats) {
-            foreach ($mats as $mid => [$exam, $td]) {
-                $avecTd = (float) $matieres[$mid]->note_max_cc > 0;
-                // Note finale seulement si l'examen ET le TD prévu sont saisis
-                $finale = ($exam !== null && (! $avecTd || $td !== null)) ? $exam + ($td ?? 0) : null;
-                $n1 = $normale[$et][$mid] ?? null;
-                if ($n1 && $n1->note_finale !== null) {
-                    $garderSession1 = $finale === null ? (float) $n1->note_finale != 0.0 : (float) $n1->note_finale > $finale;
-                    if ($garderSession1) {
-                        [$exam, $td, $finale] = [$n1->note_examen, $n1->note_cc, (float) $n1->note_finale];
-                    }
-                }
-                $lignes[] = ['pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mid, 'note_examen' => $exam, 'note_cc' => $td,
-                    'note_finale' => $finale, 'defaillant' => 0, 'saisie_par' => $utilisateur, 'updated_at' => now()];
-            }
-        }
-        foreach (array_chunk($lignes, 500) as $paquet) {
-            DB::table('notes')->upsert($paquet, ['pv_id', 'etudiant_id', 'matiere_id'], ['note_examen', 'note_cc', 'note_finale', 'updated_at']);
-        }
-
-        return count($lignes);
-    }
-
-    /**
-     * Rattrapage : un étudiant du PV sans note dans le fichier pour une
-     * matière qu'il n'avait pas acquise en 1ère session est absent — note
-     * vide, matière défaillante. Retourne les étudiants concernés.
-     */
-    private function marquerAbsents(object $pv, array $matieres, array $saisies, int $utilisateur): array
-    {
-        $acquisesS1 = DB::table('notes')->where('pv_id', $pv->pv_normale_id)->whereIn('observation', ['AV', 'AC'])
-            ->get(['etudiant_id', 'matiere_id'])->map(fn ($n) => $n->etudiant_id.'-'.$n->matiere_id)->flip();
-        $absents = [];
-        foreach ($this->pvs->etudiants($pv)->pluck('e.id') as $et) {
-            foreach ($matieres as $mid) {
-                if (isset($saisies[$et][$mid]) || $acquisesS1->has($et.'-'.$mid)) {
-                    continue;
-                }
-                DB::table('notes')->upsert([['pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mid, 'note_examen' => null, 'note_cc' => null,
-                    'note_finale' => null, 'defaillant' => 1, 'saisie_par' => $utilisateur]], ['pv_id', 'etudiant_id', 'matiere_id'],
-                    ['note_examen', 'note_cc', 'note_finale', 'defaillant']);
-                $absents[$et] = true;
-            }
-        }
-
-        return array_keys($absents);
-    }
-
-    /** @return array{0: ?float, 1: ?float, 2: ?string} examen, TD, erreur */
-    private function valeurs(array $ligne, int $iExam, ?int $iTd, object $mat): array
-    {
-        $lire = function (?int $i, float $max, string $nom) use ($ligne) {
-            if ($i === null) {
-                return [null, null];
-            }
-            $v = str_replace([' ', "\xc2\xa0", ','], ['', '', '.'], trim((string) ($ligne[$i] ?? '')));
-            if ($v === '' || $v === '—' || $v === '-' || ! is_numeric($v)) {
-                return [null, null];
-            }
-            if ((float) $v < 0 || (float) $v > $max) {
-                return [null, "note $nom $v hors de 0 à $max"];
-            }
-
-            return [round((float) $v, 2), null];
-        };
-        [$exam, $e1] = $lire($iExam, (float) $mat->note_max_examen, 'examen');
-        [$td, $e2] = $lire($iTd, (float) $mat->note_max_cc, 'TD');
-
-        return [$exam, $td, $e1 ?? $e2];
-    }
-
-    /** @return array<int, list<string>> */
-    private function lire(string $chemin, string $extension): array
-    {
-        if ($extension === 'xlsx') {
-            return Tableur::xlsx($chemin);
-        }
-        $texte = Tableur::texteCsv($chemin);
-        $lignes = array_values(array_filter(explode("\n", $texte), fn ($l) => trim($l) !== ''));
-        $echantillon = implode("\n", array_slice($lignes, 0, 5));
-        $sep = substr_count($echantillon, "\t") > max(substr_count($echantillon, ';'), substr_count($echantillon, ',')) ? "\t"
-            : (substr_count($echantillon, ',') > substr_count($echantillon, ';') ? ',' : ';');
-        $resultat = [];
-        foreach ($lignes as $i => $l) {
-            // Séparateur autre que la virgule : « 12,5 » est une décimale
-            $resultat[$i + 1] = str_getcsv($sep !== ',' ? preg_replace('/(\d),(\d)/', '$1.$2', $l) : $l, $sep, '"', '');
-        }
-
-        return $resultat;
-    }
-
-    /** Étudiants du PV indexés par matricule. */
-    private function parMatricule(object $pv): array
-    {
-        return $this->pvs->etudiants($pv)->get(['e.id', 'e.numero', 'e.nom'])->keyBy(fn ($e) => (string) $e->numero)->all();
-    }
-
-    private function trouver(array $index, string $matricule): ?object
-    {
-        return $index[$matricule] ?? $index[ltrim($matricule, '0')] ?? $index[str_pad(ltrim($matricule, '0'), 5, '0', STR_PAD_LEFT)] ?? null;
-    }
-
-    private function matieres(object $pv)
-    {
-        return DB::table('matieres as m')->join('unites_enseignement as ue', 'ue.id', '=', 'm.ue_id')
-            ->where(['ue.promotion_id' => $pv->promotion_id, 'ue.semestre_id' => $pv->semestre_id, 'm.actif' => 1])
-            ->orderBy('ue.ordre')->orderBy('m.ordre')
-            ->get(['m.id', 'm.code', 'm.libelle', 'm.note_max_examen', 'm.note_max_cc', 'm.note_max_totale', 'ue.code as ue_code', 'ue.libelle as ue_libelle']);
     }
 
     private function peutImporterTout(Utilisateur $u): bool

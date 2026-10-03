@@ -4,6 +4,7 @@
 // routes/web.php.
 
 use App\Http\Controllers\Portails\GestionParentsController;
+use App\Http\Controllers\Portails\PortailEnseignantController;
 use App\Http\Controllers\Portails\PortailEtudiantController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,4 +20,15 @@ Route::middleware(['page:gestion_parents', 'roles:admin,secretaire,sc_centrale,s
     Route::post('/parents/comptes/statut', 'basculer')->name('gestion_parents.basculer');
     Route::post('/parents/comptes/lier', 'lier')->name('gestion_parents.lier');
     Route::post('/parents/comptes/delier', 'delier')->name('gestion_parents.delier');
+});
+
+// Portail enseignant (permission notes_saisir ; modes et périmètres dans le contrôleur)
+Route::middleware('page:portail_enseignant')->controller(PortailEnseignantController::class)->group(function () {
+    Route::get('/portail/enseignant', 'index')->name('portail_enseignant');
+    Route::get('/portail/enseignant/modele', 'modele')->name('portail_enseignant.modele');
+    Route::post('/portail/enseignant/notes', 'saisir')->name('portail_enseignant.saisir');
+    Route::post('/portail/enseignant/import', 'importer')->name('portail_enseignant.importer');
+    Route::post('/portail/enseignant/finalisation', 'finalisation')->name('portail_enseignant.finalisation');
+    Route::post('/portail/enseignant/heures', 'heures')->name('portail_enseignant.heures');
+    Route::post('/portail/enseignant/volume', 'volume')->name('portail_enseignant.volume');
 });

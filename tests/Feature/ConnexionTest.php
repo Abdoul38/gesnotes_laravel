@@ -84,7 +84,7 @@ class ConnexionTest extends TestCase
         $this->creerUtilisateur('enseignant');
 
         $this->post($this->url('connexion'), ['email' => 'enseignant@test.local', 'mot_de_passe' => 'MotDePasse1'])
-            ->assertRedirect('http://udh.localhost/index.php?page=portail_enseignant');
+            ->assertRedirect('http://udh.localhost/portail/enseignant');
     }
 
     public function test_deconnexion(): void
