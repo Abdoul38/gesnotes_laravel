@@ -15,7 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
  *    avec le message « session expirée » sur la page de connexion ;
  *  - déconnexion immédiate d'un compte désactivé (nouveau : l'ancienne
  *    application ne le vérifiait qu'à la connexion) ;
- *  - étudiant et recteur cantonnés à leur portail (ancien index.php) ;
+ *  - étudiant et recteur cantonnés à leur portail et aux pages publiques
+ *    (ancien index.php) ;
  *  - session liée à une seule université.
  */
 class SessionActive
@@ -57,7 +58,7 @@ class SessionActive
 
         // Portails pas encore migrés : ouverts dans l'ancienne application.
         $portail = ['etudiant' => 'portail_etudiant', 'recteur' => 'rectorat'][$utilisateur->role] ?? null;
-        if ($portail && ! $request->routeIs($portail, 'logout')) {
+        if ($portail && ! $request->routeIs($portail, 'logout', 'verifier_diplome')) {
             return redirect()->away($this->menu->ancienneUrl($portail));
         }
 

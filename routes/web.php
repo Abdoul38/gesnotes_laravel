@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccueilController;
 use App\Http\Controllers\Auth\ConnexionController;
+use App\Http\Controllers\Documents\VerifierDocumentController;
 use App\Http\Controllers\FichierController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,9 @@ Route::middleware('guest')->group(function () {
     Route::get('/connexion', [ConnexionController::class, 'formulaire'])->name('login');
     Route::post('/connexion', [ConnexionController::class, 'connecter'])->name('login.envoyer');
 });
+
+// Vérification publique des documents (cible des QR codes) : sans connexion.
+Route::get('/verification', VerifierDocumentController::class)->name('verifier_diplome');
 
 Route::get('/fichiers/logos/{fichier}', [FichierController::class, 'logo'])->name('fichiers.logo');
 
