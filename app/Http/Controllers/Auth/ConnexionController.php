@@ -73,7 +73,7 @@ class ConnexionController extends Controller
         $this->journal->action('connexion', 'auth', 'Connexion réussie', $utilisateur->id);
 
         // Même destination selon le rôle que l'ancien login.php ;
-        // les portails non migrés s'ouvrent dans l'ancienne application.
+        // un portail pas encore migré s'ouvre dans l'ancienne application.
         $destination = match ($utilisateur->role) {
             'etudiant' => 'portail_etudiant',
             'enseignant', 'chef_departement' => 'portail_enseignant',
@@ -81,9 +81,7 @@ class ConnexionController extends Controller
             default => 'accueil',
         };
 
-        return $destination === 'accueil'
-            ? redirect()->route('accueil')
-            : redirect()->away($menu->ancienneUrl($destination));
+        return redirect()->to($menu->lien($destination));
     }
 
     public function deconnecter(Request $request): RedirectResponse

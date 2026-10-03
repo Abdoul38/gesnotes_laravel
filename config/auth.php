@@ -42,6 +42,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // Espace Parents : comptes de la table `parents`, session distincte
+        'parent' => [
+            'driver' => 'session',
+            'provider' => 'parents',
+        ],
     ],
 
     /*
@@ -65,6 +70,10 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', Utilisateur::class),
+        ],
+        'parents' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\ParentEleve::class,
         ],
 
         // 'users' => [

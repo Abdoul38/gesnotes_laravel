@@ -4,6 +4,8 @@ use App\Http\Controllers\AccueilController;
 use App\Http\Controllers\Auth\ConnexionController;
 use App\Http\Controllers\Documents\VerifierDocumentController;
 use App\Http\Controllers\FichierController;
+use App\Http\Controllers\Portails\ConnexionParentController;
+use App\Http\Controllers\Portails\PortailParentController;
 use Illuminate\Support\Facades\Route;
 
 // Les noms de route reprennent les noms de page de l'ancienne application
@@ -19,6 +21,15 @@ Route::middleware('guest')->group(function () {
 
 // Vérification publique des documents (cible des QR codes) : sans connexion.
 Route::get('/verification', VerifierDocumentController::class)->name('verifier_diplome');
+
+// Espace Parents : comptes et session distincts du personnel (garde « parent »)
+Route::get('/parents/connexion', [ConnexionParentController::class, 'formulaire'])->name('login_parent');
+Route::post('/parents/connexion', [ConnexionParentController::class, 'connecter'])->name('login_parent.envoyer');
+Route::middleware(['parent', 'licence'])->group(function () {
+    Route::get('/parents', [PortailParentController::class, 'index'])->name('portail_parent');
+    Route::post('/parents/compte', [PortailParentController::class, 'compte'])->name('portail_parent.compte');
+    Route::post('/parents/deconnexion', [ConnexionParentController::class, 'deconnecter'])->name('logout_parent');
+});
 
 Route::get('/fichiers/logos/{fichier}', [FichierController::class, 'logo'])->name('fichiers.logo');
 

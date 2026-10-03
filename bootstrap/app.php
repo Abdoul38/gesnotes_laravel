@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'page' => ExigerPermissionPage::class,
             'licence' => VerifierLicence::class,
             'roles' => ExigerRoles::class,
+            'parent' => \App\Http\Middleware\ParentConnecte::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
