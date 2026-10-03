@@ -5,6 +5,7 @@
 
 use App\Http\Controllers\Etudiants\CartesController;
 use App\Http\Controllers\Etudiants\DossierEtudiantController;
+use App\Http\Controllers\Etudiants\EtudiantImporterController;
 use App\Http\Controllers\Etudiants\EtudiantsController;
 use App\Http\Controllers\Etudiants\FicheEtudiantController;
 use App\Http\Controllers\Etudiants\ImportPhotosController;
@@ -46,6 +47,12 @@ Route::middleware(['page:carte_etudiant', 'roles:admin,secretaire,sc_centrale,sc
 Route::middleware('page:import_photos')->controller(ImportPhotosController::class)->group(function () {
     Route::get('/etudiants/photos/import', 'formulaire')->name('import_photos');
     Route::post('/etudiants/photos/import', 'importer')->name('import_photos.importer');
+});
+
+Route::middleware('page:etudiant_importer')->group(function () {
+    Route::get('/etudiants/importer', [EtudiantImporterController::class, 'formulaire'])->name('etudiant_importer');
+    Route::post('/etudiants/importer', [EtudiantImporterController::class, 'importer'])->name('etudiant_importer.importer');
+    Route::get('/fichiers/modele-import-etudiants', [FichierController::class, 'modeleImport'])->name('fichiers.modele_import');
 });
 
 // Cachet et signature : ne sont plus servis publiquement, seulement aux utilisateurs connectés

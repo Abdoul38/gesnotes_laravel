@@ -132,6 +132,47 @@ abstract class TestCase extends BaseTestCase
         return DB::table($table)->insertGetId($valeurs);
     }
 
+    /**
+     * Fichier .xlsx minimal déposé par un formulaire. $lignes : numéro de
+     * ligne Excel => cellules ; texte en chaînes partagées, nombres tels quels.
+     */
+    protected function fichierXlsx(array $lignes, string $nom = 'import.xlsx'): \Illuminate\Http\UploadedFile
+    {
+        $partagees = [];
+        $xml = '';
+        foreach ($lignes as $numero => $cellules) {
+            $xml .= '<row r="'.$numero.'">';
+            foreach (array_values($cellules) as $i => $valeur) {
+                $ref = chr(65 + $i % 26);
+                $ref = ($i >= 26 ? chr(64 + intdiv($i, 26)) : '').$ref.$numero;
+                if (is_int($valeur)) {
+                    $xml .= "<c r=\"$ref\"><v>$valeur</v></c>";
+                } elseif ($valeur !== '') {
+                    $partagees[] = $valeur;
+                    $xml .= "<c r=\"$ref\" t=\"s\"><v>".(count($partagees) - 1).'</v></c>';
+                }
+            }
+            $xml .= '</row>';
+        }
+        $sst = implode('', array_map(fn ($s) => '<si><t>'.htmlspecialchars($s, ENT_XML1).'</t></si>', $partagees));
+        $chemin = tempnam(sys_get_temp_dir(), 'xlsx');
+        $zip = new \ZipArchive;
+        $zip->open($chemin, \ZipArchive::OVERWRITE);
+        $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.$sst.'</sst>');
+        $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$xml.'</sheetData></worksheet>');
+        $zip->close();
+
+        return new \Illuminate\Http\UploadedFile($chemin, $nom, null, null, true);
+    }
+
+    protected function fichierTexte(string $contenu, string $nom = 'import.csv'): \Illuminate\Http\UploadedFile
+    {
+        $chemin = tempnam(sys_get_temp_dir(), 'csv');
+        file_put_contents($chemin, $contenu);
+
+        return new \Illuminate\Http\UploadedFile($chemin, $nom, null, null, true);
+    }
+
     protected function url(string $chemin, string $code = 'udh'): string
     {
         return "http://$code.localhost/".ltrim($chemin, '/');

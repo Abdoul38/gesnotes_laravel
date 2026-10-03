@@ -26,6 +26,17 @@ class FichierController extends Controller
         return $this->servir(config('gesnotes.dossier_uploads'), 'logos', $fichier, ['png', 'jpg', 'jpeg']);
     }
 
+    /** Modèle Excel de l'import d'étudiants (ancien lien direct uploads/modele_import_etudiants.xlsx). */
+    public function modeleImport(): BinaryFileResponse
+    {
+        $chemin = rtrim((string) config('gesnotes.dossier_uploads'), '/\\').DIRECTORY_SEPARATOR.'modele_import_etudiants.xlsx';
+        abort_unless(config('gesnotes.dossier_uploads') && is_file($chemin), 404);
+
+        return response()->download($chemin, 'modele_import_etudiants.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
     /** Photos d'étudiants : données personnelles, réservées au personnel (route protégée). */
     public function photo(string $fichier): BinaryFileResponse
     {
