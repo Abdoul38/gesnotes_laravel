@@ -3,6 +3,7 @@
 // Module « Finances » (étape 7). Chargé dans le groupe auth + licence de
 // routes/web.php.
 
+use App\Http\Controllers\Finances\FinancesController;
 use App\Http\Controllers\Finances\PaiementsController;
 use App\Http\Controllers\Finances\RecuInscriptionController;
 use App\Http\Controllers\Finances\RecuPaiementController;
@@ -16,3 +17,12 @@ Route::middleware(['page:paiements', 'permission:paiements_gerer'])->group(funct
 // Reçu : rôles et permission vérifiés dans le contrôleur (l'étudiant y accède pour lui-même)
 Route::get('/paiements/recu', RecuPaiementController::class)->name('recu_paiement');
 Route::get('/inscriptions/recu', RecuInscriptionController::class)->name('recu_inscription');
+
+Route::get('/finances', [FinancesController::class, 'index'])->middleware('page:finances')->name('finances');
+Route::middleware(['page:finances', 'permission:paiements_gerer'])->controller(FinancesController::class)->group(function () {
+    Route::post('/finances/tarifs', 'enregistrerTarif')->name('finances.tarif');
+    Route::post('/finances/tarifs/supprimer', 'supprimerTarif')->name('finances.tarif.supprimer');
+    Route::post('/finances/depenses/categories', 'ajouterCategorie')->name('finances.categorie');
+    Route::post('/finances/depenses', 'enregistrerDepense')->name('finances.depense');
+    Route::post('/finances/depenses/supprimer', 'supprimerDepense')->name('finances.depense.supprimer');
+});

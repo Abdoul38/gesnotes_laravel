@@ -144,4 +144,56 @@ class PaiementsTest extends TestCase
         // Autre faculté
         $this->connecte($this->agentFaculteA())->get($this->url("inscriptions/recu?et_id={$this->etB}"))->assertSessionHas('erreur');
     }
+
+    public function test_finances_apercu_sans_doublons(): void
+    {
+        // ALPHA a deux inscriptions dans la faculté A : son paiement ne doit compter qu'une fois
+        $promo2 = $this->creerPromotion($this->annee, ['filiere_id' => DB::table('filieres')->where('code', 'FA1')->value('id')]);
+        DB::table('inscriptions')->insert(['etudiant_id' => $this->etA, 'promotion_id' => $promo2, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
+        $this->paiement($this->etA, ['montant_paye' => 20000, 'date_paiement' => date('Y-m-d')]);
+        $this->paiement($this->etB, ['montant_paye' => 7000]);
+        $cat = DB::table('categories_depenses')->insertGetId(['libelle' => 'Loyer', 'predefinie' => 1]);
+        DB::table('depenses')->insert(['categorie_id' => $cat, 'libelle' => 'Loyer octobre', 'montant' => 5000, 'date_depense' => date('Y-m-d'), 'annee_id' => $this->annee]);
+
+        $this->connecte($this->admin)->get($this->url('finances'))->assertOk()
+            ->assertSee('27 000 FCFA')->assertSee('5 000 FCFA')->assertSee('22 000 FCFA')->assertSee('donnees-finances', false);
+        $this->connecte($this->agentFaculteA())->get($this->url('finances'))->assertOk()->assertSee('20 000 FCFA')->assertDontSee('40 000 FCFA');
+    }
+
+    public function test_tarifs_et_depenses(): void
+    {
+        $filA = DB::table('filieres')->where('code', 'FA1')->value('id');
+        $filB = DB::table('filieres')->where('code', 'FB1')->value('id');
+        $niveau = DB::table('promotions')->value('niveau_id');
+        $this->connecte($this->admin);
+        $this->post($this->url('finances/tarifs'), ['filiere_id' => $filA, 'niveau_id' => $niveau, 'type_paiement' => 'inscription', 'montant' => '15000'])
+            ->assertSessionHas('succes');
+        $this->post($this->url('finances/tarifs'), ['filiere_id' => $filA, 'niveau_id' => $niveau, 'type_paiement' => 'inscription', 'montant' => '18000']);
+        $this->assertEquals([1, 18000], [DB::table('grille_tarifaire')->count(), (float) DB::table('grille_tarifaire')->value('montant')]);
+        $this->post($this->url('finances/tarifs'), ['filiere_id' => $filA, 'niveau_id' => $niveau, 'type_paiement' => 'cadeau', 'montant' => '1'])->assertSessionHas('erreur');
+        $this->get($this->url('finances?tab=tarifs'))->assertOk()->assertSee('18 000 FCFA');
+
+        $cat = DB::table('categories_depenses')->insertGetId(['libelle' => 'Transport', 'predefinie' => 1]);
+        $dep = ['categorie_id' => $cat, 'libelle' => 'Carburant', 'montant' => '12000', 'date_depense' => '2025-11-02', 'mode_paiement' => 'especes', 'annee_id' => $this->annee];
+        $this->post($this->url('finances/depenses'), $dep)->assertSessionHas('succes');
+        $this->post($this->url('finances/depenses'), ['montant' => '-5'] + $dep)->assertSessionHas('erreur');
+        $this->post($this->url('finances/depenses'), ['categorie_id' => 9999] + $dep)->assertSessionHas('erreur');
+        $id = DB::table('depenses')->value('id');
+        $this->post($this->url('finances/depenses'), ['action' => 'modifier', 'id' => $id, 'montant' => '13000'] + $dep)->assertSessionHas('succes');
+        $this->assertEquals(13000, DB::table('depenses')->value('montant'));
+        $this->get($this->url('finances?tab=depenses'))->assertOk()->assertSee('Carburant')->assertSee('Électricité &amp; eau', false);
+
+        // Agent de la faculté A : tarifs de sa faculté seulement, pas de modification des dépenses (communes)
+        $agent = $this->agentFaculteA();
+        $this->connecte($agent);
+        $this->post($this->url('finances/tarifs'), ['filiere_id' => $filB, 'niveau_id' => $niveau, 'type_paiement' => 'inscription', 'montant' => '1'])
+            ->assertSessionHas('erreur', 'Filière ou niveau introuvable.');
+        $this->post($this->url('finances/depenses/supprimer'), ['id' => $id])->assertSessionHas('erreur');
+        $this->post($this->url('finances/depenses'), $dep)->assertSessionHas('erreur');
+        $this->get($this->url('finances?tab=depenses'))->assertOk()->assertDontSee('Nouvelle dépense');
+        $this->assertSame(1, DB::table('depenses')->count());
+
+        $this->connecte($this->admin)->post($this->url('finances/depenses/supprimer'), ['id' => $id])->assertSessionHas('succes');
+        $this->assertDatabaseHas('audit_log', ['action' => 'supprimer', 'module' => 'depense']);
+    }
 }
