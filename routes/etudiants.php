@@ -3,6 +3,7 @@
 // Module « Étudiants et enseignants » (étape 3). Chargé dans le groupe
 // auth + licence de routes/web.php.
 
+use App\Http\Controllers\Etudiants\CartesController;
 use App\Http\Controllers\Etudiants\DossierEtudiantController;
 use App\Http\Controllers\Etudiants\EtudiantsController;
 use App\Http\Controllers\Etudiants\FicheEtudiantController;
@@ -34,3 +35,12 @@ Route::middleware('page:dossier_etudiant')->controller(DossierEtudiantController
     Route::get('/fichiers/documents/{id}', [FichierController::class, 'document'])->whereNumber('id')->name('fichiers.document');
     Route::get('/fichiers/pieces/{fichier}', [FichierController::class, 'pieceCandidat'])->name('fichiers.piece');
 });
+
+// Cartes d'étudiant : l'ancienne page exigeait en plus l'un de ces rôles
+Route::middleware(['page:carte_etudiant', 'roles:admin,secretaire,sc_centrale,sc_entite'])->controller(CartesController::class)->group(function () {
+    Route::get('/etudiants/cartes', 'selection')->name('carte_etudiant');
+    Route::get('/etudiants/cartes/imprimer', 'imprimer')->name('carte_etudiant.imprimer');
+});
+
+// Cachet et signature : ne sont plus servis publiquement, seulement aux utilisateurs connectés
+Route::get('/fichiers/officiels/{type}', [FichierController::class, 'officiel'])->whereIn('type', ['cachet', 'signature'])->name('fichiers.officiel');

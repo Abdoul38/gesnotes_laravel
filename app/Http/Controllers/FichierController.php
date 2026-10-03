@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Identite;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -44,6 +45,24 @@ class FichierController extends Controller
     public function pieceCandidat(string $fichier): BinaryFileResponse
     {
         return $this->servir(config('gesnotes.dossier_pieces_candidats'), '', $fichier, ['pdf', 'jpg', 'jpeg', 'png'], prive: true);
+    }
+
+    /**
+     * Cachet ou signature de l'autorité : étaient publics dans l'ancienne
+     * application (n'importe qui pouvait les récupérer pour fabriquer un
+     * faux document). Servis ici aux seuls utilisateurs connectés.
+     */
+    public function officiel(string $type, Identite $identite): BinaryFileResponse
+    {
+        $chemin = $identite->cheminImageOfficielle($type);
+        abort_unless($chemin, 404);
+        $extension = strtolower(pathinfo($chemin, PATHINFO_EXTENSION));
+
+        return response()->file($chemin, [
+            'Content-Type' => self::MIME[$extension] ?? 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     private function servir(?string $racine, string $sousDossier, string $fichier, array $extensions, bool $prive = false): BinaryFileResponse
