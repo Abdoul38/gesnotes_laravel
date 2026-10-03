@@ -325,4 +325,40 @@ class PvTest extends TestCase
         $this->connecte($agent)->get($this->url('releves'))->assertOk()->assertDontSee('Économie');
         $this->get($this->url("releves?pv_id={$this->pv}&et_id=$a"))->assertRedirect($this->url('releves'));
     }
+
+    public function test_verification_des_resultats(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $this->etudiant('BETA');
+        $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']]]);
+        $this->connecte($this->admin)->get($this->url("resultats/verification?pv_id={$this->pv}"))->assertOk()->assertSee('tous les résultats sont cohérents');
+
+        // Résultat en base faussé : détecté, sans être modifié par la vérification
+        DB::table('resultats_semestre')->where('etudiant_id', $a)->update(['moyenne_generale' => 3, 'valide' => 0]);
+        $this->get($this->url("resultats/verification?pv_id={$this->pv}"))->assertOk()->assertSee('1 différence(s) détectée(s)')->assertSee('ALPHA');
+        $this->assertEquals(3, DB::table('resultats_semestre')->where('etudiant_id', $a)->value('moyenne_generale'));
+
+        // GET ne corrige plus rien ; POST corrige et journalise
+        $this->get($this->url("resultats/verification?pv_id={$this->pv}&fix=1"))->assertOk();
+        $this->assertEquals(3, DB::table('resultats_semestre')->where('etudiant_id', $a)->value('moyenne_generale'));
+        $this->post($this->url('resultats/verification'), ['pv_id' => $this->pv])->assertRedirect($this->url("resultats/verification?pv_id={$this->pv}"));
+        $this->assertSame(1, (int) DB::table('resultats_semestre')->where('etudiant_id', $a)->value('valide'));
+        $this->assertDatabaseHas('audit_log', ['action' => 'recalculer', 'module' => 'pv']);
+
+        // PV verrouillé : correction refusée
+        DB::table('pv_sessions')->update(['verrouille' => 1]);
+        DB::table('resultats_semestre')->where('etudiant_id', $a)->update(['valide' => 0]);
+        $this->post($this->url('resultats/verification'), ['pv_id' => $this->pv])->assertSessionHas('erreur');
+        $this->assertSame(0, (int) DB::table('resultats_semestre')->where('etudiant_id', $a)->value('valide'));
+
+        // Autre faculté / rôle non autorisé
+        $facA = $this->insererMinimal('facultes', ['code' => 'FA', 'libelle' => 'A']);
+        $facB = $this->insererMinimal('facultes', ['code' => 'FB', 'libelle' => 'B']);
+        DB::table('filieres')->update(['faculte_id' => $facB]);
+        $this->donnerPermissions('sc_entite', ['inscription_ped']);
+        $this->connecte($this->creerUtilisateur('sc_entite', ['faculte_id' => $facA]))->get($this->url("resultats/verification?pv_id={$this->pv}"))
+            ->assertRedirect($this->url('resultats/verification'));
+        $this->donnerPermissions('doyen', ['inscription_ped']);
+        $this->connecte($this->creerUtilisateur('doyen'))->get($this->url('resultats/verification'))->assertRedirect($this->url('accueil'));
+    }
 }

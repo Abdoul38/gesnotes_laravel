@@ -13,6 +13,7 @@ use App\Http\Controllers\Notes\PvImpressionController;
 use App\Http\Controllers\Notes\ReleveNotesController;
 use App\Http\Controllers\Notes\RelevesController;
 use App\Http\Controllers\Notes\SaisieNotesController;
+use App\Http\Controllers\Notes\VerifResultatsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('page:pv')->controller(PvController::class)->group(function () {
@@ -50,3 +51,7 @@ Route::get('/pv/impression', PvImpressionController::class)->middleware('page:pv
 // Pas de permission de page (comme l'ancien routeur) : périmètre contrôlé par rôle dans le contrôleur
 Route::get('/releve', ReleveNotesController::class)->name('releve_notes');
 Route::get('/releves', RelevesController::class)->middleware('page:releves')->name('releves');
+Route::middleware(['page:verif_resultats', 'roles:admin,secretaire,sc_centrale,sc_entite'])->controller(VerifResultatsController::class)->group(function () {
+    Route::get('/resultats/verification', 'index')->name('verif_resultats');
+    Route::post('/resultats/verification', 'corriger')->name('verif_resultats.corriger');
+});
