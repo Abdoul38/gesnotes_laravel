@@ -198,6 +198,16 @@ class PvTest extends TestCase
         $this->connecte($this->creerUtilisateur('enseignant'))->postJson($this->url("pv/{$this->pv}/recalcul"), ['mode' => 'start'])->assertForbidden();
     }
 
+    public function test_acces_rapide_a_la_saisie(): void
+    {
+        $this->etudiant('ALPHA');
+        DB::table('pv_sessions')->insert(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'type_session' => 'rattrapage', 'libelle' => 'PV verrouillé', 'verrouille' => 1]);
+
+        $this->connecte($this->admin)->get($this->url('notes'))->assertOk()
+            ->assertSee('PV S1 Éco')->assertDontSee('PV verrouillé')->assertSee('PV disponibles pour saisie (1)');
+        $this->get($this->url("notes?pv_id={$this->pv}"))->assertRedirect($this->url("pv/{$this->pv}"));
+    }
+
     public function test_acces_au_detail(): void
     {
         $this->donnerPermissions('enseignant', ['pv_voir']);

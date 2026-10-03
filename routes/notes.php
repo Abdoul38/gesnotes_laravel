@@ -6,6 +6,7 @@
 use App\Http\Controllers\Notes\PvController;
 use App\Http\Controllers\Notes\PvCreationController;
 use App\Http\Controllers\Notes\PvDetailController;
+use App\Http\Controllers\Notes\SaisieNotesController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('page:pv')->controller(PvController::class)->group(function () {
@@ -26,3 +27,5 @@ Route::middleware('page:pv_detail')->controller(PvDetailController::class)->grou
     Route::post('/pv/{id}/action', 'action')->whereNumber('id')->name('pv_detail.action');
     Route::post('/pv/{id}/recalcul', 'file')->whereNumber('id')->name('pv_detail.file');
 });
+
+Route::get('/notes', SaisieNotesController::class)->middleware('page:notes')->name('notes');
