@@ -35,7 +35,7 @@ class DemandesInscriptionController extends Controller
 
         return view('inscriptions.demandes', [
             'statut' => $statut, 'statuts' => self::STATUTS,
-            'compteurs' => DB::table('demandes_inscription')->groupBy('statut')->pluck(DB::raw('COUNT(*)'), 'statut'),
+            'compteurs' => DB::table('demandes_inscription')->groupBy('statut')->get(['statut', DB::raw('COUNT(*) AS nb')])->pluck('nb', 'statut'),
             'demandes' => DB::table('demandes_inscription as d')->leftJoin('filieres as f', 'f.id', '=', 'd.filiere_souhaitee')
                 ->where('d.statut', $statut)->orderByDesc('d.created_at')->limit(500)->get(['d.*', 'f.libelle as filiere']),
             'promotions' => DB::table('promotions as p')->join('filieres as f', 'f.id', '=', 'p.filiere_id')->join('niveaux as n', 'n.id', '=', 'p.niveau_id')
