@@ -3,6 +3,7 @@
 // Module « Inscriptions » (étape 4). Chargé dans le groupe auth + licence
 // de routes/web.php.
 
+use App\Http\Controllers\Inscriptions\ChoixOptionsController;
 use App\Http\Controllers\Inscriptions\InscriptionPedMasseController;
 use App\Http\Controllers\Inscriptions\InscriptionScolariteController;
 use Illuminate\Support\Facades\Route;
@@ -16,4 +17,10 @@ Route::middleware(['page:inscription_scolarite', 'roles:admin,secretaire,sc_cent
 Route::middleware('page:inscription_ped_masse')->controller(InscriptionPedMasseController::class)->group(function () {
     Route::get('/inscriptions/pedagogique/masse', 'index')->name('inscription_ped_masse');
     Route::post('/inscriptions/pedagogique/masse', 'enregistrer')->name('inscription_ped_masse.enregistrer');
+});
+
+// Ancien contrôle hasRole('admin') || hasRole('sc_entite') (hiérarchique)
+Route::middleware(['page:choix_options', 'roles:admin,secretaire,sc_entite'])->controller(ChoixOptionsController::class)->group(function () {
+    Route::get('/inscriptions/options', 'index')->name('choix_options');
+    Route::post('/inscriptions/options', 'enregistrer')->name('choix_options.enregistrer');
 });
