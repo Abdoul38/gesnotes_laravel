@@ -382,4 +382,23 @@ class PvTest extends TestCase
         $this->connecte($chef)->get($this->url('admis'))->assertOk()->assertDontSee('Économie —', false);
         $this->get($this->url("admis?pv_id={$this->pv}"))->assertRedirect($this->url('admis'));
     }
+
+    public function test_convocations(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $hors = DB::table('etudiants')->insertGetId(['nom' => 'HORSPV', 'prenoms' => 'Z', 'numero' => '55555']);
+        DB::table('examens_planning')->insert(['pv_id' => $this->pv, 'matiere_id' => $this->m1, 'date_examen' => '2026-01-15', 'heure_debut' => '08:00:00', 'heure_fin' => '10:00:00', 'salle' => 'Amphi A']);
+        $this->connecte($this->admin)->get($this->url('convocations'))->assertOk()->assertSee('PV S1 Éco');
+        $this->get($this->url("convocations?pv_id={$this->pv}&masse=1"))->assertOk()
+            ->assertSee('Convocation aux Examens')->assertSee('ALPHA X')->assertSee('15/01/2026')->assertSee('Amphi A')->assertSee('Microéconomie');
+        $this->get($this->url("convocations?pv_id={$this->pv}&et_id=$a"))->assertOk()->assertSee('Convocation individuelle');
+        $this->get($this->url("convocations?pv_id={$this->pv}&et_id=$hors"))->assertRedirect($this->url('convocations'));
+
+        $facA = $this->insererMinimal('facultes', ['code' => 'FA', 'libelle' => 'A']);
+        $facB = $this->insererMinimal('facultes', ['code' => 'FB', 'libelle' => 'B']);
+        DB::table('filieres')->update(['faculte_id' => $facB]);
+        $this->donnerPermissions('sc_entite', ['pv_creer']);
+        $this->connecte($this->creerUtilisateur('sc_entite', ['faculte_id' => $facA]))->get($this->url("convocations?pv_id={$this->pv}&masse=1"))
+            ->assertRedirect($this->url('convocations'));
+    }
 }

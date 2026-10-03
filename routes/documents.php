@@ -6,6 +6,7 @@
 use App\Http\Controllers\Documents\AttestationReussiteController;
 use App\Http\Controllers\Documents\AttestationsController;
 use App\Http\Controllers\Documents\CertificatScolariteController;
+use App\Http\Controllers\Documents\ConvocationsController;
 use App\Http\Controllers\Documents\DiplomeController;
 use App\Http\Controllers\Documents\DiplomesController;
 use App\Http\Controllers\Documents\RegistreDiplomesController;
@@ -24,3 +25,4 @@ Route::get('/diplomes', DiplomesController::class)->middleware(['page:diplomes',
 Route::get('/diplomes/registre', RegistreDiplomesController::class)->middleware('page:registre_diplomes')->name('registre_diplomes');
 // Certificat : rôles et permission vérifiés dans le contrôleur (étudiant pour lui-même)
 Route::get('/certificat-scolarite', CertificatScolariteController::class)->name('certificat_scolarite');
+Route::get('/convocations', ConvocationsController::class)->middleware(['page:convocations', $documents])->name('convocations');

@@ -110,7 +110,14 @@ Plan en 13 étapes (section 11 de l'inventaire).
   - Le relevé côté étudiant (PV publié seulement) est prêt ; il s'ouvrira avec le portail étudiant.
   - Non repris : `notes_pv/resultats.php`, sans appelant (doublon de `api/resultats.php`, qui
     recalculait sur un simple GET).
-- [ ] Étapes 6 à 13
+- [x] **Étape 6 — documents** : vérification publique (`verifier_diplome`), attestation de réussite par PV
+      (`attestation`), attestations de validation / licence / Master (`attestations`), diplômes (`diplome`),
+      liste des éligibles (`diplomes`), registre (`registre_diplomes`), certificat de scolarité
+      (`certificat_scolarite`), convocations (`convocations`).
+  - Services `App\Services\Parcours` (semestres validés par cycle, moyenne et mention d'un document : une
+    seule règle pour la liste et les documents) et `App\Services\RegistreDocuments` (numéros sous verrou).
+  - Les QR codes des cartes, relevés et documents pointent maintenant vers `/verification`.
+- [ ] Étapes 7 à 13
 
 ## Comportements volontairement modifiés
 
@@ -205,6 +212,22 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Export des réclamations : toute l'université ; matières homonymes fusionnées | faculté / département de l'agent ; une feuille par matière | |
 | « Tahoua », « République du Niger », nom de l'université écrits en dur (dates, en-têtes) | paramètres de l'université | |
 
+| **Étape 6** | | |
+| Vérification publique : aucune limite | 30 vérifications / 10 min par adresse IP, numéro contrôlé, page exclue des moteurs de recherche | les numéros se suivent : un robot pouvait relever nom, mention et moyenne de tous les étudiants |
+| Attestation de réussite individuelle : « Admis » imprimé pour n'importe quel étudiant (identifiant dans l'adresse) | refusée si l'étudiant n'est pas admis dans le PV | fausses attestations |
+| Diplôme : aucun contrôle de rôle ; Master « manuel » créé ou réécrit par un simple lien GET, puis déclaré « authentique » par la vérification publique | rôles des documents officiels ; formulaire POST (CSRF) contrôlé ; refusé si des résultats de Master existent ; un diplôme enregistré n'est jamais réécrit | faux diplômes vérifiables |
+| Certificat par inscription : enregistré sous l'étudiant n° 0 | enregistré sous l'étudiant | tous ces certificats partageaient un numéro ; la vérification affichait le nom du dernier imprimé |
+| Certificat pour une inscription annulée | refusé | |
+| Attestations, diplômes, certificats, registre, éligibles : aucun contrôle de faculté | étudiants de la faculté de l'agent (filière ou inscription) | |
+| Attestations et diplômes : revérification « en direct » avec une règle de défaillance propre ; liste et documents ne choisissaient pas le même semestre | résultats enregistrés ; un seul choix (session normale, puis année la plus récente) | moyenne de la liste différente de celle du document |
+| Diplôme de Licence complété par des semestres de Master ; diplôme de DUT pour tout étudiant ayant 4 semestres | cycles séparés ; DUT seulement après DUT1 / DUT2 | |
+| Mentions des documents : 16 / 14 / 12 en dur | seuils de l'université (`mention_*`, mêmes valeurs par défaut) | |
+| Numéros d'attestation, de diplôme, de certificat : nombre + 1, sans verrou | plus grand numéro + 1, sous verrou | doublons, impression en erreur |
+| Convocations : en rattrapage, tous les inscrits ; individuelle pour n'importe quel identifiant | étudiants du PV (sans les admis de 1ère session) | |
+| Registre : tout chargé en une page | pagination (50) | |
+| Avertissement « aucun visa configuré » imprimé sur le diplôme | affiché à l'écran seulement | |
+| Certificat : numéro d'enregistrement non visible | imprimé en pied de page | vérification possible sans scanner le QR |
+
 ## Décisions à prendre (université)
 
 - **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
@@ -218,6 +241,14 @@ Plan en 13 étapes (section 11 de l'inventaire).
 - **Réclamation fondée sur un PV verrouillé** : comme avant, la note est corrigée et les résultats
   recalculés même si le PV source est verrouillé (c'est la procédure prévue après délibération).
   Faut-il plutôt exiger le déverrouillage, comme pour les autres modifications ?
+- **QR codes infalsifiables** : la vérification publique se fait avec le seul numéro, qui se suit
+  (R26-000001, R26-000002…). La limite par adresse IP freine un robot mais ne l'empêche pas avec
+  plusieurs adresses. Recommandé : ajouter au QR une clé secrète (signature du numéro) et n'afficher
+  le nom complet, la mention et la moyenne qu'avec cette clé (sinon : document authentique, type,
+  initiales). Les documents déjà imprimés n'ont pas de clé : ils afficheraient la version réduite.
+- **Numéro « ANM/DepD/aa/0001 » des attestations de réussite et « N° 0001/aaaa » des convocations** :
+  simple compteur de la page imprimée (repris tel quel), il recommence à 1 à chaque impression et
+  n'est enregistré nulle part. Le remplacer par un numéro enregistré et vérifiable ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
