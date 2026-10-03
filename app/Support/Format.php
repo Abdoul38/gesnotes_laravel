@@ -34,6 +34,17 @@ final class Format
         return $date;
     }
 
+    /** Ancien formatSession() : libellé d'un type de session de PV. */
+    public static function session(?string $type): string
+    {
+        return match ($type) {
+            'normale' => '1ère session',
+            'rattrapage' => '2ème session (Rattrapage)',
+            'deliberation' => 'Délibération',
+            default => (string) $type,
+        };
+    }
+
     /**
      * Date lue dans un fichier d'import → « AAAA-MM-JJ », ou null.
      * Reprend normalizeDate() des anciens imports : JJ/MM/AAAA, JJ-MM-AAAA,

@@ -208,6 +208,29 @@ class PvTest extends TestCase
         $this->get($this->url("notes?pv_id={$this->pv}"))->assertRedirect($this->url("pv/{$this->pv}"));
     }
 
+    public function test_impression(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        // Étudiant d'une AUTRE promotion de la filière qui compose ce semestre en avance
+        $autreNiveau = DB::table('niveaux')->insertGetId(['code' => 'LX', 'libelle' => 'Autre niveau']);
+        $autrePromo = $this->creerPromotion($this->annee, ['filiere_id' => $this->filiere, 'niveau_id' => $autreNiveau]);
+        $avance = DB::table('etudiants')->insertGetId(['nom' => 'AVANCE', 'prenoms' => 'Y', 'numero' => '77777']);
+        $ins = DB::table('inscriptions')->insertGetId(['etudiant_id' => $avance, 'promotion_id' => $autrePromo, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
+        DB::table('inscriptions_pedagogiques')->insert(['etudiant_id' => $avance, 'inscription_id' => $ins, 'semestre_id' => $this->sem, 'annee_id' => $this->annee]);
+        $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']]]);
+        DB::table('parametres')->updateOrInsert(['cle' => 'institution_ville'], ['valeur' => 'Maradi']);
+        $this->app->forgetInstance(\App\Services\Parametres::class);
+        DB::table('pv_sessions')->update(['date_pv' => '2026-02-10']);
+
+        $this->connecte($this->admin)->get($this->url("pv/impression?id={$this->pv}"))->assertOk()
+            ->assertSee('RÉSULTATS DES EXAMENS — SEMESTRE 1')->assertSee('ALPHA X')->assertSee('AVANCE Y')
+            ->assertSee('Maradi, le 10/02/2026')->assertSee('1/2')->assertSee('Admis');
+        $this->get($this->url("pv/impression?id={$this->pv}&et_id=$avance"))->assertOk()->assertDontSee('ALPHA X</td>', false)->assertSee('AVANCE Y');
+
+        $this->donnerPermissions('enseignant', ['pv_imprimer']);
+        $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url("pv/impression?id={$this->pv}"))->assertRedirect($this->url('pv'));
+    }
+
     public function test_acces_au_detail(): void
     {
         $this->donnerPermissions('enseignant', ['pv_voir']);

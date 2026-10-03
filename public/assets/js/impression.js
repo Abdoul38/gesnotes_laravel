@@ -1,7 +1,16 @@
-// Pages imprimables autonomes (sans layout.js) : bouton d'impression et
-// images de secours (repris des scripts en ligne des anciennes pages PDF).
+// Pages imprimables autonomes (sans layout.js) : impression, fermeture,
+// envoi automatique des filtres, images de secours (repris des scripts en
+// ligne des anciennes pages PDF / imprimables).
 document.addEventListener('click', function (e) {
-  if (e.target.closest('[data-print]')) window.print();
+  if (e.target.closest('[data-print]')) {
+    document.body.style.zoom = '100%';
+    setTimeout(function () { window.print(); }, 150);
+  }
+  if (e.target.closest('[data-window-close]')) window.close();
+});
+document.addEventListener('change', function (e) {
+  var el = e.target.closest('[data-autosubmit]');
+  if (el && el.form) el.form.submit();
 });
 document.addEventListener('error', function (e) {
   var el = e.target;

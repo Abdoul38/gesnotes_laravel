@@ -120,7 +120,7 @@
         </thead>
         <tbody>
         @foreach ($etudiants as $et)
-        @php([$fond, $couleur, $libelle] = \App\Services\Inscriptions::styleStatut($et->statut))
+        @php [$fond, $couleur, $libelle] = \App\Services\Inscriptions::styleStatut($et->statut); @endphp
         <tr style="border-bottom:1px solid var(--border)" data-type="{{ $et->statut }}">
           <td style="padding:10px 14px;text-align:center">
             <input type="checkbox" name="etudiants[]" value="{{ $et->id }}" class="chk-et" @checked($et->statut === 'passage') aria-label="{{ $et->nom }}" style="width:16px;height:16px;accent-color:var(--primary)">
@@ -139,7 +139,7 @@
           <td style="padding:10px 14px;text-align:center"><span style="background:var(--blue-50);color:var(--blue-700);padding:2px 10px;border-radius:10px;font-weight:700;font-size:13px">{{ $et->niveau_code }}</span></td>
           <td style="padding:10px 14px;text-align:center"><span style="background:{{ $fond }};color:{{ $couleur }};padding:2px 10px;border-radius:10px;font-weight:700;font-size:13px">{{ $et->suivant }}</span></td>
           <td style="padding:6px 10px;text-align:center">
-            @php($choix = $et->suivant === 'L3' ? $filieresL3 : ($et->suivant === 'LP' ? $filieresLP : collect()))
+            @php $choix = $et->suivant === 'L3' ? $filieresL3 : ($et->suivant === 'LP' ? $filieresLP : collect()); @endphp
             @if ($et->statut === 'passage' && $choix->count() > 1)
             <select name="filiere_{{ strtolower($et->suivant) }}[{{ $et->id }}]" class="form-control form-control-sm" style="min-width:140px;font-size:12px" aria-label="Filière {{ $et->suivant }} — {{ $et->nom }}">
               <option value="">— Choisir —</option>

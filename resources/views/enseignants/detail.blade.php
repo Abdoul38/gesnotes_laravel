@@ -156,7 +156,7 @@
           <select class="form-control" id="sel-filiere" data-onchange="filtrerMatieres">
             <option value="">— Toutes les filières —</option>
             @foreach ($matieres->map(fn ($m) => $m->filiere.'||'.$m->niveau)->unique() as $fn)
-            @php([$fl, $nv] = explode('||', $fn))
+            @php [$fl, $nv] = explode('||', $fn); @endphp
             <option value="{{ $fn }}">{{ $fl }} — {{ $nv }}</option>
             @endforeach
           </select>
