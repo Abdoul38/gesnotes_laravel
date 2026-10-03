@@ -96,7 +96,7 @@ class SessionEtAccesTest extends TestCase
     {
         $this->actingAs($this->creerUtilisateur('etudiant'))->withSession($this->sessionUdh())
             ->get($this->url('accueil'))
-            ->assertRedirect('http://udh.localhost/index.php?page=portail_etudiant');
+            ->assertRedirect($this->url('portail/etudiant'));
     }
 
     public function test_licence_absente_bloque_l_application(): void

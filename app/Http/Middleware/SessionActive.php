@@ -7,6 +7,7 @@ use App\Universites\UniversiteCourante;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -56,10 +57,11 @@ class SessionActive
         }
         $request->session()->put('derniere_activite', time());
 
-        // Portails pas encore migrés : ouverts dans l'ancienne application.
+        // Étudiant et recteur : leur portail (et ses actions), la déconnexion et la vérification publique.
+        // Un portail pas encore migré s'ouvre dans l'ancienne application.
         $portail = ['etudiant' => 'portail_etudiant', 'recteur' => 'rectorat'][$utilisateur->role] ?? null;
-        if ($portail && ! $request->routeIs($portail, 'logout', 'verifier_diplome')) {
-            return redirect()->away($this->menu->ancienneUrl($portail));
+        if ($portail && ! $request->routeIs($portail, $portail.'.*', 'logout', 'verifier_diplome')) {
+            return Route::has($portail) ? redirect()->route($portail) : redirect()->away($this->menu->ancienneUrl($portail));
         }
 
         return $next($request);
