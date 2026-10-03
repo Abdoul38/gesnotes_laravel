@@ -199,7 +199,7 @@ class FilieresController extends Controller
         }
         $this->exiger($this->perimetre->faculteAutorisee($u, $faculteId) && (! $id || $this->perimetre->filiere($u, $id)));
         if ($parente !== null && $parente === $id) {
-            return $this->retour($request, 'erreur', "Une filière ne peut pas être sa propre filière mère.");
+            return $this->retour($request, 'erreur', 'Une filière ne peut pas être sa propre filière mère.');
         }
         if (DB::table('filieres')->where('code', $code)->where('id', '!=', $id)->exists()) {
             return $this->retour($request, 'erreur', "Le code «{$code}» est déjà utilisé par une autre filière.");

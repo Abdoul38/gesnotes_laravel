@@ -62,7 +62,7 @@ class NiveauxTest extends TestCase
     public function test_suppression_bloquee_si_tarifs(): void
     {
         $id = DB::table('niveaux')->insertGetId(['code' => 'M1', 'libelle' => 'Master 1']);
-        DB::table('tarifs_niveaux')->insert(['niveau_id' => $id] + $this->colonnesObligatoires('tarifs_niveaux', ['niveau_id']));
+        $this->insererMinimal('tarifs_niveaux', ['niveau_id' => $id]);
 
         $this->connecte($this->admin)->post($this->url('niveaux/supprimer'), ['id' => $id])
             ->assertSessionHas('erreur', 'Impossible — ce niveau est encore utilisé : 1 tarif(s).');
@@ -73,23 +73,5 @@ class NiveauxTest extends TestCase
     {
         DB::table('niveaux')->insert(['code' => 'L3', 'libelle' => 'Licence 3']);
         $this->connecte($this->admin)->get($this->url('niveaux'))->assertOk()->assertSee('Licence 3')->assertSee('Niveaux (1)');
-    }
-
-    /** Valeurs factices pour les colonnes NOT NULL sans défaut d'une table. */
-    private function colonnesObligatoires(string $table, array $sauf): array
-    {
-        $valeurs = [];
-        foreach (DB::select('SELECT column_name AS c, data_type AS t FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND is_nullable = \'NO\' AND column_default IS NULL AND extra NOT LIKE \'%auto_increment%\'', [$table]) as $col) {
-            if (in_array($col->c, $sauf, true)) {
-                continue;
-            }
-            $valeurs[$col->c] = match (true) {
-                str_contains($col->t, 'int'), str_contains($col->t, 'decimal') => 1,
-                str_contains($col->t, 'date') => '2026-01-01',
-                default => 'x',
-            };
-        }
-
-        return $valeurs;
     }
 }

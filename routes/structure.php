@@ -6,6 +6,7 @@
 
 use App\Http\Controllers\Structure\AnneesController;
 use App\Http\Controllers\Structure\FacultesController;
+use App\Http\Controllers\Structure\FilieresController;
 use App\Http\Controllers\Structure\NiveauxController;
 use App\Http\Controllers\Structure\PromotionsController;
 use App\Http\Controllers\Structure\SallesController;
@@ -44,4 +45,20 @@ Route::middleware('page:promotions')->group(function () {
     Route::post('/promotions/generer', [PromotionsController::class, 'generer'])->name('promotions.generer');
     Route::post('/promotions/copier', [PromotionsController::class, 'copier'])->name('promotions.copier');
     Route::post('/promotions/supprimer', [PromotionsController::class, 'supprimer'])->name('promotions.supprimer');
+});
+
+// Filières, départements, UE et matières : une seule page à onglets (?tab=)
+Route::middleware('page:filieres')->controller(FilieresController::class)->group(function () {
+    Route::get('/filieres', 'index')->name('filieres');
+    Route::post('/filieres', 'filiereEnregistrer')->name('filieres.enregistrer');
+    Route::post('/filieres/supprimer', 'filiereSupprimer')->name('filieres.supprimer');
+    Route::post('/departements', 'departementAjouter')->name('departements.ajouter');
+    Route::post('/departements/modifier', 'departementModifier')->name('departements.modifier');
+    Route::post('/departements/supprimer', 'departementSupprimer')->name('departements.supprimer');
+    Route::post('/ue', 'ueEnregistrer')->name('ue.enregistrer');
+    Route::post('/ue/supprimer', 'ueSupprimer')->name('ue.supprimer');
+    Route::post('/ue/copier', 'ueCopier')->name('ue.copier');
+    Route::post('/matieres', 'matiereEnregistrer')->name('matieres.enregistrer');
+    Route::post('/matieres/supprimer', 'matiereSupprimer')->name('matieres.supprimer');
+    Route::post('/matieres/volume-masse', 'volumeMasse')->name('matieres.volume_masse');
 });

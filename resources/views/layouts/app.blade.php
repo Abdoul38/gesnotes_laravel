@@ -9,7 +9,7 @@
         ->first(fn ($c) => preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $c));
     $utilisateur = auth()->user();
     $pageCourante = request()->route()?->getName();
-    $flash = collect(['succes' => 'success', 'erreur' => 'error', 'info' => 'info'])
+    $flash = collect(['succes' => 'success', 'erreur' => 'error', 'avertissement' => 'warning', 'info' => 'info'])
         ->map(fn ($type, $cle) => session($cle) ? ['type' => $type, 'msg' => session($cle)] : null)
         ->filter()->first();
 @endphp

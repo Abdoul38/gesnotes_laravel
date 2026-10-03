@@ -113,6 +113,25 @@ abstract class TestCase extends BaseTestCase
         return $this->actingAs($u)->withSession(['universite' => $code, 'derniere_activite' => time()]);
     }
 
+    /**
+     * Insère une ligne en complétant les colonnes NOT NULL sans défaut par
+     * des valeurs factices (tests qui n'ont besoin que d'une ligne liée).
+     */
+    protected function insererMinimal(string $table, array $valeurs): int
+    {
+        $colonnes = DB::select("SELECT column_name AS c, data_type AS t FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND is_nullable = 'NO' AND column_default IS NULL AND extra NOT LIKE '%auto_increment%'", [$table]);
+        foreach ($colonnes as $col) {
+            $valeurs[$col->c] ??= match (true) {
+                str_contains($col->t, 'int'), str_contains($col->t, 'decimal'), str_contains($col->t, 'float') => 1,
+                str_contains($col->t, 'date'), str_contains($col->t, 'time') => '2026-01-01',
+                str_contains($col->t, 'enum') => DB::scalar("SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(column_type, '''', 2), '''', -1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", [$table, $col->c]),
+                default => 'x'.uniqid(),
+            };
+        }
+
+        return DB::table($table)->insertGetId($valeurs);
+    }
+
     protected function url(string $chemin, string $code = 'udh'): string
     {
         return "http://$code.localhost/".ltrim($chemin, '/');
