@@ -70,6 +70,27 @@ class Fichiers
         return $conforme ? $this->deplacer($fichier, $sousDossier, $prefixe, $extension) : null;
     }
 
+    /**
+     * Photo reçue sous forme de contenu brut (image extraite d'un ZIP) :
+     * vraie image JPEG, PNG, GIF, WebP ou BMP (formats de l'ancien import),
+     * enregistrée avec l'extension de son type RÉEL. Retourne le nom, ou null.
+     */
+    public function enregistrerPhotoContenu(string $contenu, string $sousDossier, string $prefixe, int $maxOctets = 5 * 1024 * 1024): ?string
+    {
+        $types = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', IMAGETYPE_WEBP => 'webp', IMAGETYPE_BMP => 'bmp'];
+        $info = strlen($contenu) <= $maxOctets ? @getimagesizefromstring($contenu) : false;
+        if (! $info || ! isset($types[$info[2]])) {
+            return null;
+        }
+        $prefixe = preg_replace('/[^a-z0-9_-]/', '', strtolower($prefixe)) ?: 'fichier';
+        $nom = $prefixe.'_'.time().'_'.bin2hex(random_bytes(3)).'.'.$types[$info[2]];
+        if (file_put_contents($this->dossier($sousDossier).DIRECTORY_SEPARATOR.$nom, $contenu) === false) {
+            return null;
+        }
+
+        return $nom;
+    }
+
     private function recevable(UploadedFile $fichier, string $extension, array $extensions, int $maxOctets): bool
     {
         return $fichier->isValid() && in_array($extension, $extensions, true) && $fichier->getSize() <= $maxOctets;

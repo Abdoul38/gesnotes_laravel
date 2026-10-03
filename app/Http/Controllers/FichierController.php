@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class FichierController extends Controller
 {
     private const MIME = [
-        'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp',
+        'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp', 'gif' => 'image/gif', 'bmp' => 'image/bmp',
         'pdf' => 'application/pdf', 'doc' => 'application/msword',
         'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
@@ -29,7 +29,7 @@ class FichierController extends Controller
     /** Photos d'étudiants : données personnelles, réservées au personnel (route protégée). */
     public function photo(string $fichier): BinaryFileResponse
     {
-        return $this->servir(config('gesnotes.dossier_uploads'), 'photos', $fichier, ['png', 'jpg', 'jpeg', 'webp'], prive: true);
+        return $this->servir(config('gesnotes.dossier_uploads'), 'photos', $fichier, ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'], prive: true);
     }
 
     /** Document d'un dossier étudiant, désigné par son numéro (jamais par un nom de fichier). */
