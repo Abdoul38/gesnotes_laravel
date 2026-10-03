@@ -8,6 +8,7 @@ use App\Http\Controllers\Etudiants\DossierEtudiantController;
 use App\Http\Controllers\Etudiants\EtudiantImporterController;
 use App\Http\Controllers\Etudiants\EtudiantsController;
 use App\Http\Controllers\Etudiants\FicheEtudiantController;
+use App\Http\Controllers\Etudiants\GenererComptesController;
 use App\Http\Controllers\Etudiants\ImportEtudiantsController;
 use App\Http\Controllers\Etudiants\ImportPhotosController;
 use App\Http\Controllers\FichierController;
@@ -60,6 +61,12 @@ Route::middleware('page:import_etudiants')->controller(ImportEtudiantsController
     Route::get('/etudiants/import-masse', 'formulaire')->name('import_etudiants');
     Route::post('/etudiants/import-masse', 'importer')->name('import_etudiants.importer');
     Route::get('/etudiants/import-masse/template', 'modele')->name('import_etudiants.modele');
+});
+
+Route::middleware(['page:generer_comptes_etudiants', 'roles:admin,sc_centrale'])->controller(GenererComptesController::class)->group(function () {
+    Route::get('/etudiants/comptes', 'index')->name('generer_comptes_etudiants');
+    Route::post('/etudiants/comptes', 'generer')->name('generer_comptes_etudiants.generer');
+    Route::get('/etudiants/comptes/imprimer', 'imprimer')->name('generer_comptes_etudiants.imprimer');
 });
 
 // Cachet et signature : ne sont plus servis publiquement, seulement aux utilisateurs connectés
