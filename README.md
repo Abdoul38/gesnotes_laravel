@@ -69,7 +69,12 @@ Plan en 13 étapes (section 11 de l'inventaire).
     année × faculté de la base locale.
   - Reste dans l'étape 1 : page de présentation complète (`landing.php`, version provisoire en place),
     mot de passe oublié, espace parents (liens vers l'ancienne application en attendant).
-- [ ] Étape 2 — structure académique
+- [x] **Étape 2 — structure académique** : années (`annees`), niveaux (`niveaux`), facultés
+      (`facultes`), salles (`salles`), promotions (`promotions`), filières / départements / UE /
+      matières (`filieres`, 3 onglets, copie de maquette, volume horaire en masse).
+  - Reportés à leur module : emploi du temps, planning des examens, présence, suivi d'exécution
+    (rangés dans `pages/structure/` mais liés aux examens et aux notes).
+  - Non repris : action `creer_promo` de `promotions.php`, appelée par aucun formulaire.
 - [ ] Étapes 3 à 13
 
 ## Comportements volontairement modifiés
@@ -85,6 +90,31 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Service worker sous `/assets/sw.js` (portée `/assets/` seulement) | `/sw.js`, jamais de cache pour `/fichiers/` | il ne contrôlait pas les pages ; les photos ne doivent pas rester en cache |
 | Chart.js chargé depuis un CDN | copie locale (même version 4.4.0) | CSP stricte |
 | Message « N tentative(s) restante(s) » | supprimé | n'aidait qu'un attaquant |
+| Messages flash insérés en HTML (`Toast.show`) | texte seul (corrigé aussi dans l'ancienne application) | un message contenant une saisie pouvait injecter du HTML |
+| **Étape 2** | | |
+| Actions des pages structure : n'importe quel identifiant accepté | l'élément visé doit appartenir à la faculté de l'utilisateur (`App\Autorisations\Perimetre`) | un compte d'une faculté pouvait modifier les autres |
+| Suppression d'une année : seul le bouton masqué s'il reste des promotions | refusée par le serveur | la cascade effaçait promotions, inscriptions pédagogiques, emploi du temps |
+| Suppression d'un niveau : contrôle des promotions seulement | aussi inscriptions et tarifs | tarifs effacés et inscriptions vidées en cascade |
+| Suppression d'une faculté : contrôle des agents seulement | aussi filières et départements | départements effacés en cascade, filières orphelines |
+| Suppression d'une filière : aucun contrôle | refusée s'il reste promotions ou étudiants | promotions, inscriptions, PV, notes, tarifs effacés en cascade |
+| Suppression d'une UE : matières actives seulement | aussi notes et résultats (matières désactivées comprises) | les notes étaient effacées en cascade |
+| Département créé avec un code existant d'une autre faculté : celui-ci était écrasé | refusé avec message | le code est unique dans toute l'université |
+| Matière ré-ajoutée avec le code d'une matière supprimée : restait invisible | réactivée | le message « ajoutée » était trompeur |
+| Volume horaire en masse : toute l'université | limité à la faculté si le compte en a une | périmètre |
+| Promotions : générer / copier sur toutes les facultés | limité à la faculté de l'utilisateur | périmètre |
+| Logo de faculté : nom de fichier tiré du code saisi, logo actuel tiré d'un champ caché | nom nettoyé, logo relu en base, image vérifiée | écriture hors du dossier, chemin arbitraire |
+| Couleur de faculté libre | `#RRGGBB` uniquement | insérée dans des styles CSS |
+| Suppression d'une salle : bouton admin, serveur ouvert | admin aussi côté serveur | |
+| Bouton « Modifier » des salles (onclick en ligne bloqué par la CSP) | fonctionne | |
+| Copie de maquette : matières lues par GROUP_CONCAT (1 024 caractères) | requête normale | une UE riche en matières était copiée en partie |
+| Champ texte « code couleur » des facultés | retiré | ignoré par le serveur |
+
+## Décisions à prendre (université)
+
+- **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
+  d'une UE (`nb_options_a_choisir`) ni le type « optionnelle » des matières. Une maquette à options
+  redevient entièrement obligatoire après copie. Recopier ces deux champs ?
+- Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
 
