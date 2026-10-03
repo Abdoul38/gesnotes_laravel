@@ -18,7 +18,13 @@ class FichierController extends Controller
         return $this->servir('logos', $fichier, ['png', 'jpg', 'jpeg']);
     }
 
-    private function servir(string $sousDossier, string $fichier, array $extensions): BinaryFileResponse
+    /** Photos d'étudiants : données personnelles, réservées au personnel (route protégée). */
+    public function photo(string $fichier): BinaryFileResponse
+    {
+        return $this->servir('photos', $fichier, ['png', 'jpg', 'jpeg', 'webp'], prive: true);
+    }
+
+    private function servir(string $sousDossier, string $fichier, array $extensions, bool $prive = false): BinaryFileResponse
     {
         // Nom de fichier simple uniquement : pas de « ../ », pas de sous-dossier.
         abort_unless(preg_match('/^[A-Za-z0-9._-]+$/', $fichier) && ! str_starts_with($fichier, '.'), 404);
@@ -31,7 +37,8 @@ class FichierController extends Controller
 
         return response()->file($chemin, [
             'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control' => 'public, max-age=86400',
+            // Fichier personnel : jamais en cache partagé (proxy) ni conservé.
+            'Cache-Control' => $prive ? 'private, no-store' : 'public, max-age=86400',
         ]);
     }
 }

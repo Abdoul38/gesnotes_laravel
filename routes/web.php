@@ -27,5 +27,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/accueil', AccueilController::class)->name('accueil');
 
         require __DIR__.'/structure.php';
+        require __DIR__.'/etudiants.php';
     });
 });
