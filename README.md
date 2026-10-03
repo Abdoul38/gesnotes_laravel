@@ -128,7 +128,13 @@ Plan en 13 étapes (section 11 de l'inventaire).
     inaccessibles, remplacés par `finances`) ; `pages/finances/komipay*.php` (fichiers de configuration, pas des pages).
   - Exports XLSX : fichier temporaire non préexistant (l'export échouait au hasard sous Windows,
     « Renaming temporary file failed »).
-- [ ] Étapes 8 à 13
+- [x] **Étape 8 — communication** : configuration e-mail et SMS (`parametres_email`, `parametres_sms`),
+      notification d'un PV (`notifier_pv`) et notification automatique à la publication, relances des impayés
+      (`relances`), annonces (`annonces`), messagerie (`messagerie`), e-mails aux étudiants (`notifications_email`),
+      vue d'ensemble (`dashboard_notifications`).
+  - Services `App\Services\Communication\{Courriel, Sms, Notifications}` ; écouteur `App\Listeners\NotifierPublicationPv`.
+  - `Perimetre::limiterEtudiants()` : étudiants de la faculté (ou du département pour un chef de département).
+- [ ] Étapes 9 à 13
 
 ## Comportements volontairement modifiés
 
@@ -253,6 +259,20 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Reçu d'inscription « officiellement inscrit » pour une inscription annulée ou inexistante ; numéro identique d'une année sur l'autre | inscription en cours exigée ; numéro par inscription | faux reçus |
 | Graphiques des finances chargés depuis un CDN (bloqué par la CSP) | Chart.js local | |
 
+| **Étape 8** | | |
+| Serveur SMTP et passerelle SMS modifiables par sc_entite, doyen, chef de département | administrateur seulement | détourner le serveur SMTP donnait les liens de réinitialisation de mot de passe de tous les comptes ; la passerelle SMS recevait la clé API |
+| Journal des e-mails : échange SMTP complet, authentification comprise | message court, jamais l'échange | le mot de passe SMTP (base64) était enregistré en base |
+| Client SMTP fait main : en-têtes non protégés, pas de « dot-stuffing » | Symfony Mailer | injection d'en-têtes et de commandes SMTP |
+| Clé API SMS renvoyée en clair dans la page | jamais affichée (vide = conservée) | |
+| Passerelle SMS : toute adresse | https obligatoire | |
+| Publication d'un PV : notification pendant la requête, renvoyée à chaque republication | après la réponse, une seule fois par PV | délai d'attente dépassé, envois en double |
+| « Notifier un PV » : PV non publié accepté, tout rôle avec la permission | PV publié, gestionnaires de PV de son périmètre | |
+| Relances : n'importe quel paiement (même soldé, autre faculté) ; le bouton d'une ligne relançait le dernier étudiant (formulaires imbriqués) ; seul l'e-mail du compte, jamais de SMS | impayés de son périmètre ; bonne ligne ; contacts de la fiche ; groupe : pas deux relances en 24 h | |
+| Annonces : création, publication, suppression avec la permission de lecture ; toute annonce modifiable par tous ; boutons bloqués par la CSP | permission d'écriture ; ses annonces pour un compte de faculté ; fonctionne | |
+| Messagerie : doyen / chef de département lisaient et supprimaient les messages de toute l'université ; noms insérés en HTML dans la recherche | périmètre ; texte seul | injection HTML par un nom de candidat |
+| E-mails aux étudiants : `mail()` de PHP (configuration SMTP ignorée) ; « par niveau » en erreur SQL ; « tous » = toute l'université ; nom et contacts de l'UDH en dur | serveur configuré ; réparé ; périmètre ; paramètres de l'université | |
+| Vue d'ensemble : parents et étudiants de toute l'université ; liste « jamais notifiés » toujours vide (erreur SQL de collation masquée) | périmètre ; réparée | |
+
 ## Décisions à prendre (université)
 
 - **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
@@ -280,6 +300,11 @@ Plan en 13 étapes (section 11 de l'inventaire).
   et de son historique. Dans la version Laravel ils iront dans `.env` (jamais versionné).
 - **Suppression d'un paiement** : effacement définitif (repris tel quel, désormais journalisé avec le montant).
   Préférer une annulation (statut) qui garde la trace comptable ?
+- **Mot de passe SMTP dans l'ancien journal des e-mails** : chaque envoi réussi de l'ancienne application a
+  enregistré dans `email_logs.reponse_brute` l'échange SMTP, authentification comprise (identifiant et mot de passe
+  en base64, lisibles par quiconque accède à la base ou à ses sauvegardes). À faire par l'université : changer le
+  mot de passe SMTP, puis vider cette colonne (`UPDATE email_logs SET reponse_brute = NULL WHERE reponse_brute LIKE '%AUTH LOGIN%'`).
+  Je ne l'ai pas exécuté : ce sont vos données réelles.
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
