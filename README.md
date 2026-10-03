@@ -83,7 +83,17 @@ Plan en 13 étapes (section 11 de l'inventaire).
   - Service unique des matricules (`App\Services\Matricules`, format 00001), lecteur de tableurs
     commun (`App\Support\Tableur`).
   - Reporté à l'étape des portails : `portail_enseignant` (espace de l'enseignant lui-même).
-- [ ] Étapes 4 à 13
+- [x] **Étape 4 — inscriptions** : inscription scolarité (`inscription_scolarite`), pédagogique en
+      masse (`inscription_ped_masse`), choix des options (`choix_options`), transfert et passage
+      individuel (`transfert_niveau`), passage en masse (`passage_niveau`), listes des inscrits
+      (`liste_inscrits`, PDF, Excel).
+  - Service commun `App\Services\Inscriptions` (promotion + maquette, modes de paiement, règles de
+    suggestion des semestres et de décision de passage).
+  - Reportés à l'étape 5, car ils dépendent du moteur de calcul des notes : `inscription_pedagogique`
+    (report des notes acquises et recalcul) et `liste_valides` (règles de validation par année).
+  - Reportés à l'étape 10 (portail candidats) : `inscription_en_ligne`, `demandes_inscription`.
+    Non repris : `inscription.php`, absente du routeur (code mort).
+- [ ] Étapes 5 à 13
 
 ## Comportements volontairement modifiés
 
@@ -136,6 +146,21 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Comptes étudiants : `@udh.ne` pour toutes les universités | `@<code>.ne` (inchangé pour l'UDH) | |
 | Enseignants : affectation / retrait / reconduction par un agent de faculté | limités à sa faculté | il touchait les matières et enseignants des autres facultés |
 | Suppression d'un enseignant : affectations effacées en cascade | refusée s'il a affectations, séances ou compte | même règle que pour les étudiants |
+| **Étape 4** | | |
+| Inscription : matricule `MAX + 1` sans verrou, enregistrements séparés | service des matricules, inscription + paiement en une transaction | doublons, inscriptions à moitié enregistrées |
+| Modes de paiement « MyNITA », « Amana » proposés | enregistrés comme Mobile Money | absents de la base : l'inscription échouait |
+| Modification d'une inscription | refusée si doublon niveau × année ; limitée à la faculté ; maquette copiée si promotion créée ; filière de l'étudiant changée seulement pour la dernière inscription | doublons, périmètre, promotions sans UE |
+| Inscription pédagogique en masse | fonctionne (scripts déplacés dans un fichier) | la CSP bloquait ses scripts : rien n'était enregistré |
+| Suggestion des semestres : deux versions | une seule (celle de la page individuelle) | la version « masse » suggérait S1 + S2 à un licencié |
+| Choix des options : tout décocher | retire les choix | rien n'était envoyé, les anciens choix restaient |
+| Choix des options : UE, étudiants, promotion | vérifiés (semestre, inscription pédagogique, faculté) | n'importe quel identifiant accepté |
+| Décision de passage : 4 règles différentes | une seule (`Inscriptions::decisionPassage`) | licence validée enregistrée « redoublement », LP « validée » dès S1 + S2, IUT ignoré en individuel |
+| Passage en masse : n'importe quel identifiant d'étudiant | seulement les inscrits de la promotion choisie | |
+| Spécialisation L3 / LP choisie | doit faire partie des filières proposées | |
+| Transfert, passage : aucun contrôle de faculté | limités à la faculté de l'agent | |
+| Listes PDF et Excel : pas de filtre de faculté | même périmètre que la page | un agent obtenait les listes de toute l'université |
+| Excel : matricule « 00012 » écrit comme le nombre 12 | texte, zéros conservés | |
+| Excel : noms de feuilles coupés à 31 caractères, parfois identiques ; nom « Université Djibo Hamani » écrit en dur | noms uniques ; nom de l'université tiré des paramètres | fichier refusé par Excel ; mauvais nom pour les autres universités |
 
 ## Décisions à prendre (université)
 
