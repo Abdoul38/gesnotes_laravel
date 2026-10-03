@@ -140,6 +140,19 @@ class EspaceCandidatTest extends TestCase
         $this->get($etape(1))->assertRedirect($this->url('candidature/tableau-de-bord'));
     }
 
+    public function test_espaces_publics_et_session_du_personnel(): void
+    {
+        // Étudiant connecté à son portail : l'inscription en ligne lui reste ouverte
+        $et = DB::table('etudiants')->insertGetId(['numero' => '00001', 'nom' => 'ALPHA', 'prenoms' => 'Awa']);
+        $this->connecte($this->creerUtilisateur('etudiant', ['etudiant_id' => $et]))->get($this->url('candidature/inscription'))->assertOk();
+        $this->get($this->url('etudiants'))->assertRedirect($this->url('portail/etudiant'));
+
+        // Session du personnel expirée : la page publique s'affiche, le compte est simplement déconnecté
+        $this->actingAs($this->creerUtilisateur('admin'))->withSession(['universite' => 'udh', 'derniere_activite' => time() - 7200])
+            ->get($this->url('candidature'))->assertOk()->assertSee('Portail de Préinscription');
+        $this->assertGuest('web');
+    }
+
     public function test_portail_ferme_profil_et_dossier_incomplet(): void
     {
         $c = $this->compte();

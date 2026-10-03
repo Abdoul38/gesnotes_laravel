@@ -22,6 +22,9 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SessionActive
 {
+    /** Routes ouvertes sans compte du personnel. */
+    private const PUBLIQUES = ['candidature', 'candidature.*', 'verifier_diplome', 'login_parent', 'login_parent.*', 'portail_parent', 'portail_parent.*', 'logout_parent', 'fichiers.logo'];
+
     public function __construct(
         private readonly Menu $menu,
         private readonly UniversiteCourante $universite,
@@ -48,7 +51,23 @@ class SessionActive
 
         $limite = config('gesnotes.inactivite_minutes') * 60;
         $derniere = (int) $request->session()->get('derniere_activite', time());
-        if (time() - $derniere > $limite || ! $utilisateur->actif) {
+        $expiree = time() - $derniere > $limite || ! $utilisateur->actif;
+
+        // Espaces publics (portail candidats, Espace Parents, vérification) :
+        // ils ont leur propre session ; une session du personnel expirée y est
+        // simplement fermée, sans renvoyer vers la connexion du personnel ni
+        // effacer la session du candidat ou du parent, et l'étudiant ou le
+        // recteur connecté peut s'y rendre (inscription en ligne par matricule).
+        if ($request->routeIs(...self::PUBLIQUES)) {
+            if ($expiree) {
+                Auth::guard('web')->logout();
+                $request->session()->forget('derniere_activite');
+            }
+
+            return $next($request);
+        }
+
+        if ($expiree) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

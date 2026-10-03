@@ -32,3 +32,11 @@ Route::middleware(['page:finances', 'permission:paiements_gerer'])->controller(F
 Route::get('/paiements/en-ligne', PaiementsEnLigneController::class)->middleware('page:paiements_en_ligne')->name('paiements_en_ligne');
 Route::get('/tarifs-inscription', [TarifsNiveauxController::class, 'index'])->middleware('page:tarifs_niveaux')->name('tarifs_niveaux');
 Route::post('/tarifs-inscription', [TarifsNiveauxController::class, 'enregistrer'])->middleware('page:tarifs_niveaux')->name('tarifs_niveaux.enregistrer');
+
+// Litiges KomiPay (ancien requireAuth('admin')) : paiements en ligne sans confirmation
+Route::middleware(['page:komipay_litiges', 'roles:admin'])->controller(\App\Http\Controllers\Finances\KomipayLitigesController::class)->group(function () {
+    Route::get('/paiements/litiges-komipay', 'index')->name('komipay_litiges');
+    Route::post('/paiements/litiges-komipay/verifier', 'reverifier')->name('komipay_litiges.reverifier');
+    Route::post('/paiements/litiges-komipay/confirmer', 'confirmer')->name('komipay_litiges.confirmer');
+    Route::post('/paiements/litiges-komipay/rejeter', 'rejeter')->name('komipay_litiges.rejeter');
+});

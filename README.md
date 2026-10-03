@@ -142,7 +142,21 @@ Plan en 13 étapes (section 11 de l'inventaire).
     enseignant (bornes, rattrapage, lecture des fichiers) — une seule règle.
   - Service `App\Services\IndicateursRectorat` : indicateurs d'une année, en cache 5 min par université
     (réutilisable pour le tableau de bord du ministère, étape 12).
-- [ ] Étapes 10 à 13
+- [x] **Étape 10 — portail candidats** (sous `/candidature`) : accueil, comptes, dépôt du dossier en 4 étapes, mes
+      dossiers, profil, quitus ; inscription académique en ligne avec paiement KomiPay (MyNita, Amana ; Mobile Money et
+      carte si activés), reçu ; côté GesNotes : administration des candidatures (`portail_candidats_admin`,
+      `dossier_candidat`, `portail_export`), litiges KomiPay (`komipay_litiges`), demandes d'inscription
+      (`demandes_inscription`).
+  - Garde `candidat` (modèle `Candidat`, table `candidats`), middleware `candidat` ; services `Candidatures`,
+    `InscriptionEnLigne`, `Paiement\KomiPay` (identifiants dans `.env` : `KOMIPAY_*`, voir `.env.example`).
+  - Non repris : `candidature/inscription.php` et `pages/inscriptions/inscription_en_ligne.php` (copies plus anciennes
+    de la page d'inscription, la seconde ne pouvait pas s'exécuter), `candidature/pages/accueil_portail*.php`,
+    `database.php`, `komipay_litiges.php` (hors routeur), `candidature/test_*.php` (scripts de
+    diagnostic KomiPay, en ligne de commande seulement), `ajax_check_inscription.php`
+    (renvoyait nom et accès au reçu de n'importe quel matricule), l'administration à mot de passe partagé du portail
+    (`candidature/pages/admin.php`, `admin_export.php`, remplacée par `portail_candidats_admin`) et `portail_admin`
+    (ancien portail, tables `portail_dossiers` / `portail_paiements`, hors menu — voir « Décisions »).
+- [ ] Étapes 11 à 13
 
 ## Comportements volontairement modifiés
 
@@ -295,6 +309,24 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Rectorat : le navigateur pouvait écrire ce qu'il voulait dans le journal des consultations ; exports PDF par html2pdf (CDN, bloqué par la CSP) | exports servis et journalisés par le serveur ; pages imprimables | journal falsifiable |
 | Rectorat : message du changement de mot de passe repris de l'adresse ; 8 caractères suffisaient | message en session ; lettres et chiffres exigés | texte arbitraire affiché sur la page |
 | Rectorat : cache des indicateurs dans une table relue avec `unserialize()` ; historique de tous les comptes affiché comme « mes consultations » | cache de l'application ; le recteur voit les siennes, l'administrateur toutes | |
+| **Étape 10** | | |
+| Portail candidats : session partagée avec GesNotes, jamais renouvelée, sans expiration ; connexion sans limite d'essais ; mot de passe de 6 caractères | session propre (garde « candidat »), renouvelée, 30 min ; 5 essais puis 5 min ; 8 caractères, lettres et chiffres | fixation de session, devinette de mots de passe |
+| Dossier soumis ou accepté encore modifiable (choix, pièces) puis re-soumis ; nouveau brouillon à chaque visite de la page | seuls brouillon et incomplet modifiables ; création en POST, un seul dossier en cours | changement de filière après acceptation |
+| Pièces : extension seule vérifiée, dossier public (quiconque avait le nom les ouvrait) | contenu vérifié, dossier privé, servies au candidat et à l'administration | pièces d'identité exposées |
+| Notes internes de l'administration envoyées au navigateur du candidat (détail du dossier en JavaScript) | page rendue par le serveur, sans les notes | |
+| Quitus : QR code produit par api.qrserver.com (nom du candidat envoyé à un tiers) ; quitus d'un brouillon ; numéro changeant à chaque affichage | QR produit dans la page ; dossier soumis ; numéro stable | fuite de données personnelles |
+| Profil : nouveau mot de passe sans le mot de passe actuel, confirmation différente ignorée | mot de passe actuel exigé, erreur affichée | |
+| Administration du portail : un mot de passe unique partagé (`candidature/pages/admin.php`) | comptes du personnel (admin, secrétaire, sc_centrale) | pas de traçabilité, mot de passe partagé |
+| Statut d'un dossier : n'importe quelle valeur acceptée ; « Créer l'étudiant » : doublon à chaque clic, matricule « 0 » (2ᵉ fiche en échec), statut « nouveau » et année « 2024-2025 » invalides | statut contrôlé ; une fiche par dossier, matricule vide, données valides | la création échouait |
+| Dépôt par l'administration : mot de passe provisoire enregistré en clair dans la note du dossier | affiché une seule fois | |
+| Inscription en ligne : saisir le matricule d'un étudiant déjà inscrit ouvrait son reçu ; « déjà inscrit ? » renvoyait le nom de n'importe quel matricule | reçu réservé à la session qui a payé, au candidat propriétaire et à la scolarité ; 30 identifications / 10 min par adresse IP | les matricules se suivent |
+| Paiement encaissé pour un étudiant sans filière, inscription jamais créée ; second paiement possible pendant qu'un premier attend | identification refusée avant paiement ; pas de second paiement en attente | argent encaissé sans inscription |
+| Matricule « MAX + 1 » sans verrou, inscription créée deux fois en cas de double confirmation ; mode « mynita » / « visa_master » hors liste de la base | sous verrou, une seule fois ; mode valide | doublons, échecs d'enregistrement |
+| Vérification KomiPay jusqu'à 5 minutes dans la requête ; réponse complète de KomiPay écrite dans le journal ; identifiants KomiPay en clair dans le dépôt | 25 secondes ; code et message seulement ; identifiants dans `.env` | |
+| Reçu : « Université Djibo Hamani de Tahoua », contacts et logos de l'UDH écrits en dur | université courante | portail multi-universités |
+| Litiges KomiPay : cherchaient dans `paiements` une colonne absente (page toujours vide) | portent sur les inscriptions payées en ligne ; confirmation = inscription finalisée ; journalisés | |
+| Demandes d'inscription : aucune permission, chaque acceptation créait une fiche, inscription sans date (en échec) | gestion des inscriptions ; une fois ; inscription complète | |
+| Session du personnel expirée sur une page publique (portail candidats, parents, vérification) : renvoi à la connexion du personnel ; étudiant connecté renvoyé de l'inscription en ligne vers son portail | session du personnel fermée sans gêner la page ; pages publiques ouvertes à tous | |
 
 ## Décisions à prendre (université)
 
@@ -328,6 +360,16 @@ Plan en 13 étapes (section 11 de l'inventaire).
   en base64, lisibles par quiconque accède à la base ou à ses sauvegardes). À faire par l'université : changer le
   mot de passe SMTP, puis vider cette colonne (`UPDATE email_logs SET reponse_brute = NULL WHERE reponse_brute LIKE '%AUTH LOGIN%'`).
   Je ne l'ai pas exécuté : ce sont vos données réelles.
+- **Inscription en ligne par matricule, sans compte** : comme avant, connaître un matricule (ils se suivent) suffit à
+  voir le nom et la filière d'un étudiant et à ouvrir son inscription. La limite par adresse IP freine sans empêcher.
+  Recommandé : demander aussi la date de naissance (ou un code reçu par SMS) avant d'afficher quoi que ce soit.
+- **Paiement par carte** : les données de carte passent par notre serveur avant d'aller à KomiPay (c'est le
+  fonctionnement de leur API) ; le canal est désactivé par défaut (`KOMIPAY_MOYENS`). L'activer impose les obligations
+  PCI-DSS correspondantes ; préférer une page de paiement hébergée par KomiPay si elle existe.
+- **Ancien `portail_admin`** (tables `portail_dossiers`, `portail_paiements` d'un portail antérieur) : non repris, hors
+  menu. Vérifier si ces tables contiennent encore des dossiers à traiter ; sinon les archiver.
+- **Délai de paiement de 15 minutes** compté depuis l'identification (repris tel quel) et non depuis le paiement :
+  un étudiant lent à choisir son moyen de paiement voit son paiement expirer plus tôt. Le compter depuis le paiement ?
 - **Relevé et attestation depuis le portail étudiant** : comme avant, l'étudiant consulte ses résultats publiés mais
   ne peut pas imprimer lui-même son relevé de notes ni son attestation (documents délivrés par la scolarité, numérotés
   au registre). Les ouvrir aux étudiants (version « non officielle » sans numéro, ou numérotée) ?

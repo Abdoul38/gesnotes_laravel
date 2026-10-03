@@ -34,6 +34,7 @@ return [
         'certificat_scolarite' => 'certificat_sco',
         'rapports_export' => 'rapports',
         'portail_export' => 'inscription_gerer', 'dossier_candidat' => 'inscription_gerer',
+        'demandes_inscription' => 'inscription_gerer',
         'promotion_form' => 'inscription_ped', 'filiere_form' => 'inscription_ped',
     ],
 ];

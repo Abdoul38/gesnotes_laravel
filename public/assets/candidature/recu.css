@@ -1,0 +1,185 @@
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #1a1a1a; background: #e0e0e0; }
+
+/* Boutons d'action — masqués à l'impression */
+.action-bar {
+    background: #1A3A5C; color: #fff; padding: 10px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+}
+.action-bar .title { font-weight: 700; font-size: 14px; font-family: Arial, sans-serif; }
+.action-bar .btns { display: flex; gap: 10px; }
+.btn-print {
+    background: #fff; color: #1A3A5C; border: none; padding: 7px 18px;
+    border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; font-family: Arial, sans-serif;
+}
+.btn-back {
+    background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4);
+    padding: 7px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    text-decoration: none; display: flex; align-items: center; gap: 6px;
+    font-family: Arial, sans-serif;
+}
+
+/* Page A4 */
+.recu-wrap {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 16px auto;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+    padding: 14mm 16mm 12mm;
+    display: flex;
+    flex-direction: column;
+}
+
+/* En-tête institutionnel */
+.recu-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 6mm;
+    border-bottom: 2.5pt solid #1A3A5C;
+    margin-bottom: 5mm;
+}
+.recu-header-logo img {
+    width: 60px; height: 60px; object-fit: contain;
+}
+.recu-header-text { flex: 1; text-align: center; line-height: 1.55; }
+.recu-header-text .ministere   { font-size: 8.5pt; font-weight: 700; color: #5b21b6; text-transform: uppercase; }
+.recu-header-text .institution { font-size: 9.5pt; font-weight: 700; color: #1A3A5C; text-transform: uppercase; margin-top: 2px; }
+.recu-header-text .service     { font-size: 8.5pt; font-weight: 700; color: #1A3A5C; }
+.recu-header-text .contact     { font-size: 7.5pt; color: #555; margin-top: 3px; }
+
+/* Titre reçu */
+.recu-title {
+    background: #1A3A5C; color: #fff; text-align: center;
+    padding: 8px 0; font-size: 16pt; font-weight: 800;
+    letter-spacing: 3px; text-transform: uppercase;
+    margin-bottom: 0;
+}
+.recu-annee {
+    text-align: center; font-size: 10pt; color: #5b21b6;
+    font-weight: 700; padding: 5px 0;
+    border-bottom: 1px solid #d1d5db; margin-bottom: 5mm;
+}
+
+/* Corps */
+.recu-body { flex: 1; }
+
+/* Numéro de reçu + date */
+.recu-meta {
+    display: flex; justify-content: space-between;
+    font-size: 9pt; color: #555; margin-bottom: 5mm;
+    border-bottom: 0.5pt solid #e5e7eb; padding-bottom: 3mm;
+}
+.recu-meta strong { color: #1A3A5C; font-family: monospace; font-size: 10pt; }
+
+/* Sections */
+.section { margin-bottom: 5mm; }
+.section-title {
+    font-size: 9pt; font-weight: 800; color: #1A3A5C;
+    text-transform: uppercase; letter-spacing: .5px;
+    border-bottom: 1.5pt solid #1A3A5C; padding-bottom: 3px;
+    margin-bottom: 4mm;
+}
+.section-grid { display: grid; grid-template-columns: 1fr 95px; gap: 12px; }
+.info-block { line-height: 1.9; font-size: 10.5pt; }
+.info-block .row { display: flex; gap: 6px; }
+.info-label { color: #555; min-width: 130px; font-size: 10pt; }
+.info-val   { font-weight: 700; color: #1a1a1a; }
+
+/* QR code zone */
+.qr-zone { text-align: center; }
+.qr-zone img { border: 0.5pt solid #e5e7eb; border-radius: 3px; }
+.qr-zone div { font-size: 7.5pt; color: #999; margin-top: 2px; }
+
+/* Montant */
+.montant-bloc {
+    background: #f0fdf4; border: 1.5pt solid #86efac;
+    border-radius: 6px; padding: 10px 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 5mm 0;
+}
+.montant-label { font-size: 10pt; color: #166534; font-weight: 700; }
+.montant-val   { font-size: 20pt; font-weight: 900; color: #166534; }
+
+/* Détail frais */
+.montant-detail {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+.montant-detail .ligne { font-size: 8.5pt; color: #4b5563; display: flex; justify-content: space-between; min-width: 200px; }
+.montant-detail .ligne.total { font-size: 12pt; font-weight: 900; color: #166534; border-top: 0.5pt solid #86efac; padding-top: 3px; margin-top: 3px; }
+
+/* Alerte importante */
+.alerte {
+    border: 1.5pt solid #fbbf24; border-radius: 4px;
+    background: #fffbeb; padding: 8px 14px;
+    font-size: 9pt; color: #92400e; margin: 4mm 0;
+}
+.alerte strong { display: block; margin-bottom: 2px; font-size: 9.5pt; }
+
+/* Statut badge */
+.badge-valide {
+    display: inline-block; background: #dcfce7; color: #166534;
+    padding: 1px 10px; border-radius: 10px; font-size: 9pt; font-weight: 700;
+    border: 0.5pt solid #86efac;
+}
+
+/* Signatures */
+.signatures {
+    display: flex; justify-content: space-between;
+    margin-top: 8mm; padding-top: 4mm;
+    border-top: 0.5pt solid #d1d5db;
+}
+.sig-bloc { text-align: center; width: 44%; }
+.sig-role { font-size: 10pt; font-style: italic; color: #555; }
+.sig-space { height: 20mm; }
+.sig-name  { font-size: 9pt; font-weight: 700; color: #333; border-top: 0.5pt solid #aaa; padding-top: 3px; }
+
+/* Pied de page */
+.recu-footer {
+    background: #1A3A5C; color: #fff;
+    text-align: center; padding: 8px;
+    font-size: 9pt; margin-top: auto;
+    font-family: Arial, sans-serif;
+}
+.recu-footer .num-recu { font-family: monospace; color: #93c5fd; margin-top: 2px; font-size: 8pt; }
+
+/* IMPRESSION */
+@media print {
+    .action-bar { display: none !important; }
+    body { background: #fff; font-size: 10.5pt; }
+    .recu-wrap {
+        width: 100%; margin: 0; box-shadow: none;
+        padding: 8mm 12mm 6mm;
+        min-height: auto;
+        display: block; /* évite le flex qui peut mal gérer la hauteur à l'impression */
+    }
+    /* Réduire les espacements pour tenir sur une page */
+    .recu-header { padding-bottom: 4mm; margin-bottom: 3mm; }
+    .recu-title { padding: 5px 0; font-size: 14pt; }
+    .recu-annee { padding: 3px 0; }
+    .recu-meta { margin-bottom: 3mm; padding-bottom: 2mm; }
+    .section { margin-bottom: 3mm; }
+    .section-title { padding-bottom: 2px; margin-bottom: 2mm; }
+    .info-block { line-height: 1.7; }
+    .montant-bloc { padding: 7px 12px; margin: 3mm 0; }
+    .montant-val { font-size: 16pt; }
+    .alerte { padding: 6px 10px; margin: 3mm 0; font-size: 8.5pt; }
+    .signatures { margin-top: 5mm; padding-top: 3mm; }
+    .sig-space { height: 14mm; }
+    /* Pied de page : toujours sur la même page, jamais coupé */
+    .recu-footer {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-top: 4mm;
+        padding: 6px;
+        font-size: 8.5pt;
+    }
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+}

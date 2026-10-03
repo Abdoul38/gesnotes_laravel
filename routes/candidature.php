@@ -6,6 +6,7 @@
 use App\Http\Controllers\Candidature\ConnexionCandidatController;
 use App\Http\Controllers\Candidature\DepotController;
 use App\Http\Controllers\Candidature\EspaceCandidatController;
+use App\Http\Controllers\Candidature\InscriptionEnLigneController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('candidature')->middleware('licence')->group(function () {
@@ -16,6 +17,19 @@ Route::prefix('candidature')->middleware('licence')->group(function () {
         Route::get('/compte', 'formulaireCompte')->name('candidature.compte');
         Route::post('/compte', 'creerCompte')->middleware('throttle:10,60')->name('candidature.compte.creer');
         Route::get('/images/slide-{n}.jpg', 'slide')->whereNumber('n')->name('candidature.slide');
+    });
+
+    // Inscription académique en ligne : sans compte (matricule ou n° de dossier), paiement KomiPay
+    Route::controller(InscriptionEnLigneController::class)->group(function () {
+        Route::get('/inscription', 'formulaire')->name('candidature.inscription');
+        Route::post('/inscription', 'identifier')->middleware('throttle:30,10')->name('candidature.inscription.identifier');
+        Route::get('/inscription/{id}/etape/{etape}', 'etape')->whereNumber(['id', 'etape'])->name('candidature.inscription.etape');
+        Route::post('/inscription/{id}/paiement', 'payer')->whereNumber('id')->name('candidature.inscription.payer');
+        Route::get('/inscription/{id}/carte', 'carte')->whereNumber('id')->name('candidature.inscription.carte');
+        Route::post('/inscription/{id}/carte', 'payerCarte')->whereNumber('id')->middleware('throttle:5,10')->name('candidature.inscription.carte.payer');
+        Route::get('/inscription/{id}/statut', 'statut')->whereNumber('id')->middleware('throttle:30,1')->name('candidature.inscription.statut');
+        Route::post('/inscription/{id}/confirmation', 'confirmer')->whereNumber('id')->name('candidature.inscription.confirmer');
+        Route::get('/inscription/{id}/recu', 'recu')->whereNumber('id')->name('candidature.inscription.recu');
     });
 
     Route::middleware('candidat')->group(function () {

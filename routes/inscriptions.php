@@ -50,3 +50,10 @@ Route::middleware(['page:inscription_pedagogique', 'roles:admin,secretaire,sc_ce
     Route::get('/inscriptions/pedagogique', 'index')->name('inscription_pedagogique');
     Route::post('/inscriptions/pedagogique', 'enregistrer')->name('inscription_pedagogique.enregistrer');
 });
+
+// Demandes d'inscription (aucune permission dans l'ancien routeur : gestion des inscriptions désormais)
+Route::middleware(['page:demandes_inscription', 'roles:admin,secretaire,sc_centrale'])->controller(\App\Http\Controllers\Inscriptions\DemandesInscriptionController::class)->group(function () {
+    Route::get('/inscriptions/demandes', 'index')->name('demandes_inscription');
+    Route::post('/inscriptions/demandes/accepter', 'accepter')->name('demandes_inscription.accepter');
+    Route::post('/inscriptions/demandes/refuser', 'refuser')->name('demandes_inscription.refuser');
+});
