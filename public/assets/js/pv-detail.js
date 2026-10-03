@@ -34,13 +34,17 @@
       minuteurs[tr.dataset.etudiantId] = setTimeout(function () { simuler(tr); }, 400);
     });
 
+    var numeros = {};
     function simuler(tr) {
       var et = tr.dataset.etudiantId, fd = new FormData();
+      // Seule la réponse à la DERNIÈRE saisie de la ligne est appliquée
+      var numero = numeros[et] = (numeros[et] || 0) + 1;
       fd.append('etudiant_id', et);
       tr.querySelectorAll('input.note-input').forEach(function (i) {
         fd.append(i.name.replace('notes[' + et + ']', 'notes'), i.value);
       });
       poster(form.dataset.simulation, fd).then(function (d) {
+        if (numero !== numeros[et]) return;
         if (!d.ok) {
           document.getElementById('save-status-bar').textContent = '⚠️ ' + ((d.erreurs || [])[0] || 'Calcul provisoire impossible');
           return;
