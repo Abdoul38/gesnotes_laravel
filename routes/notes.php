@@ -3,6 +3,7 @@
 // Module « Notes et PV » (étape 5). Chargé dans le groupe auth + licence
 // de routes/web.php.
 
+use App\Http\Controllers\Notes\NotesImportController;
 use App\Http\Controllers\Notes\PvController;
 use App\Http\Controllers\Notes\PvCreationController;
 use App\Http\Controllers\Notes\PvDetailController;
@@ -29,3 +30,11 @@ Route::middleware('page:pv_detail')->controller(PvDetailController::class)->grou
 });
 
 Route::get('/notes', SaisieNotesController::class)->middleware('page:notes')->name('notes');
+
+// Import des notes : droits fins (rôle, faculté, matière affectée) vérifiés dans le contrôleur
+Route::middleware('page:notes_importer')->controller(NotesImportController::class)->group(function () {
+    Route::get('/notes/import', 'index')->name('notes_importer');
+    Route::get('/notes/import/modele', 'modele')->name('notes_importer.modele');
+    Route::post('/notes/import/matiere', 'importerMatiere')->name('notes_importer.matiere');
+    Route::post('/notes/import/pv', 'importerPv')->name('notes_importer.pv');
+});
