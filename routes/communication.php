@@ -5,6 +5,7 @@
 
 use App\Http\Controllers\Communication\NotifierPvController;
 use App\Http\Controllers\Communication\ParametresCommunicationController;
+use App\Http\Controllers\Communication\RelancesController;
 use Illuminate\Support\Facades\Route;
 
 // Serveur SMTP et passerelle SMS : administrateur seulement (voir le contrôleur)
@@ -21,3 +22,6 @@ Route::middleware(['page:notifier_pv', 'roles:admin,secretaire,sc_centrale,sc_en
     Route::get('/notifications/pv', 'index')->name('notifier_pv');
     Route::post('/notifications/pv', 'envoyer')->name('notifier_pv.envoyer');
 });
+
+Route::get('/relances', [RelancesController::class, 'index'])->middleware('page:relances')->name('relances');
+Route::post('/relances', [RelancesController::class, 'relancer'])->middleware(['page:relances', 'permission:paiements_gerer'])->name('relances.envoyer');

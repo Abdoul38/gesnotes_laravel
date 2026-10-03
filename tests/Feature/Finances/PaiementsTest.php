@@ -232,4 +232,46 @@ class PaiementsTest extends TestCase
         $this->get($this->url('paiements/en-ligne?statut=expire'))->assertOk()->assertSee('KP-EXPIRE')->assertDontSee('KP-VALIDE');
         $this->connecte($this->agentFaculteA())->get($this->url('paiements/en-ligne'))->assertOk()->assertSee('KP-VALIDE')->assertDontSee('KP-AUTRE');
     }
+
+    public function test_relances(): void
+    {
+        DB::table('etudiants')->where('id', $this->etA)->update(['email' => 'alpha@exemple.ne', 'telephone' => '+22790000011']);
+        DB::table('etudiants')->where('id', $this->etB)->update(['email' => 'beta@exemple.ne']);
+        $ancien = now()->subDays(40);
+        $pA = $this->paiement($this->etA, ['created_at' => $ancien]);
+        $pB = $this->paiement($this->etB, ['created_at' => $ancien]);
+        $solde = $this->paiement($this->etB, ['created_at' => $ancien, 'montant_paye' => 50000, 'statut' => 'complet']);
+        $recent = $this->paiement($this->etA, ['created_at' => now()->subDays(3)]);
+        // Envois réels : e-mail capturé en mémoire, passerelle SMS simulée
+        foreach (['email_actif' => '1', 'email_smtp_host' => 'smtp.exemple.ne', 'email_from_adresse' => 'scolarite@exemple.ne',
+            'sms_actif' => '1', 'sms_provider_url' => 'https://sms.exemple.ne/send', 'sms_api_key' => 'cle'] as $cle => $valeur) {
+            DB::table('parametres')->upsert([['cle' => $cle, 'valeur' => $valeur]], ['cle'], ['valeur']);
+        }
+        \Illuminate\Support\Facades\Http::fake(['https://sms.exemple.ne/*' => \Illuminate\Support\Facades\Http::response([], 200)]);
+        $this->app->forgetInstance(\App\Services\Parametres::class);
+        $this->app->forgetInstance(\App\Services\Communication\Courriel::class);
+        app(\App\Services\Communication\Courriel::class)->utiliserTransport(new \Illuminate\Mail\Transport\ArrayTransport);
+
+        $this->connecte($this->admin)->get($this->url('relances'))->assertOk()
+            ->assertSee('alpha@exemple.ne')->assertSee('+22790000011')->assertSee('60 000 FCFA');
+        $this->get($this->url('relances?seuil=1'))->assertOk()->assertSee('90 000 FCFA');
+
+        // Le bouton d'une ligne relance bien CET étudiant (et ses canaux réels)
+        $this->post($this->url('relances'), ['paiement_id' => $pA])
+            ->assertSessionHas('succes', 'Relance envoyée à ALPHA X (email + SMS).');
+        $this->assertSame(['alpha@exemple.ne'], DB::table('email_logs')->where('contexte', 'paiement_retard')->pluck('destinataire')->all());
+        $this->assertNotNull(DB::table('paiements')->where('id', $pA)->value('derniere_relance'));
+        $this->post($this->url('relances'), ['paiement_id' => $solde])->assertSessionHas('erreur', 'Paiement introuvable ou déjà réglé.');
+
+        // Groupe : ALPHA déjà relancé dans les 24 h → sauté
+        $this->post($this->url('relances'), ['mode' => 'groupe', 'paiement_ids' => [$pA, $pB]])
+            ->assertSessionHas('succes', 'Relances envoyées : 1 réussie(s), 1 déjà relancé(s) dans les dernières 24 h');
+        $this->assertSame(1, DB::table('email_logs')->where('destinataire', 'beta@exemple.ne')->count());
+
+        // Agent de la faculté A : BETA hors périmètre
+        $this->connecte($this->agentFaculteA())->post($this->url('relances'), ['paiement_id' => $pB])->assertSessionHas('erreur');
+        $this->get($this->url('relances'))->assertOk()->assertSee('ALPHA')->assertDontSee('beta@exemple.ne');
+        $this->assertSame(1, DB::table('email_logs')->where('destinataire', 'beta@exemple.ne')->count());
+        $this->assertNotNull($recent);
+    }
 }
