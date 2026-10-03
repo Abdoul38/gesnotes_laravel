@@ -75,7 +75,15 @@ Plan en 13 étapes (section 11 de l'inventaire).
   - Reportés à leur module : emploi du temps, planning des examens, présence, suivi d'exécution
     (rangés dans `pages/structure/` mais liés aux examens et aux notes).
   - Non repris : action `creer_promo` de `promotions.php`, appelée par aucun formulaire.
-- [ ] Étapes 3 à 13
+- [x] **Étape 3 — étudiants et enseignants** : liste (`etudiants`), fiche (`etudiant_form`), dossier
+      (`dossier_etudiant`), API de recherche, cartes (`carte_etudiant`, 3 modèles), import des photos
+      (`import_photos`), import sans inscription (`etudiant_importer`), import avec inscription
+      (`import_etudiants`), génération des comptes (`generer_comptes_etudiants`), enseignants et
+      affectations (`enseignants`).
+  - Service unique des matricules (`App\Services\Matricules`, format 00001), lecteur de tableurs
+    commun (`App\Support\Tableur`).
+  - Reporté à l'étape des portails : `portail_enseignant` (espace de l'enseignant lui-même).
+- [ ] Étapes 4 à 13
 
 ## Comportements volontairement modifiés
 
@@ -108,12 +116,37 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Bouton « Modifier » des salles (onclick en ligne bloqué par la CSP) | fonctionne | |
 | Copie de maquette : matières lues par GROUP_CONCAT (1 024 caractères) | requête normale | une UE riche en matières était copiée en partie |
 | Champ texte « code couleur » des facultés | retiré | ignoré par le serveur |
+| **Étape 3** | | |
+| Matricules calculés à 9 endroits, « UDH2026… » depuis la fiche | un seul service, 00001…, sous verrou | doublons lors d'inscriptions simultanées, formats mélangés |
+| Suppression d'un étudiant : effacement en cascade | refusée s'il a un historique (décision de l'université) | inscriptions, notes, paiements effacés |
+| Bouton « Supprimer matricule 0 » | retiré (décision de l'université) | effaçait aussi les étudiants pas encore inscrits |
+| Recherche d'étudiants (API, espace parents) | corrigée (aussi dans l'ancienne application) | paramètre répété refusé par PDO : la recherche échouait |
+| Photos, pièces, cachet, signature, photos d'enseignants accessibles par simple URL (`uploads/`, `assets/img/`) | routes réservées au personnel, `Cache-Control: private, no-store` | données personnelles accessibles par URL |
+| Documents du dossier : extension seule vérifiée | signature du fichier vérifiée (PDF, Word, image) | un fichier quelconque pouvait être déposé |
+| Cartes : numéro = nombre de cartes + 1 | plus grand numéro + 1, sous verrou | après une suppression, numéro déjà pris : impression en erreur |
+| Cartes : nationalité toujours « Nigérienne » | nationalité de l'étudiant | |
+| Import des photos : extension seule, ZIP lu sans limite | image vérifiée, extension du type réel, taille contrôlée avant décompression | fichier piégé, « bombe ZIP » |
+| Import des photos : correspondance partielle « premier venu » | ignorée si plusieurs étudiants correspondent | photo posée sur la fiche d'un autre |
+| Import Portail : colonnes à positions fixes | repérées par leurs en-têtes | l'export actuel décalait adresse et parents dans les champs du bac ; en .xlsx les 3 premiers candidats étaient perdus |
+| Import CSV : ligne d'en-têtes | sautée (sans inscription) / repérée par sa colonne « Nom » (avec inscription) | importée comme un étudiant « NOM », ou toutes les lignes rejetées |
+| Import : sexe absent → « M » ; année du bac ou mode « MyNITA » invalides → ligne en échec | sexe vide ; valeurs invalides laissées vides ; MyNITA → Mobile Money | |
+| Import : dates numériques d'Excel, 31/02 | lues ; date impossible refusée | 31/02 devenait le 3 mars |
+| Onglets « Ajouter manuellement » et « Format CSV » de l'import | retirés | n'ouvraient aucun panneau |
+| Comptes étudiants : étudiant sans matricule | signalé en erreur | compte créé avec un mot de passe vide |
+| Comptes étudiants : `@udh.ne` pour toutes les universités | `@<code>.ne` (inchangé pour l'UDH) | |
+| Enseignants : affectation / retrait / reconduction par un agent de faculté | limités à sa faculté | il touchait les matières et enseignants des autres facultés |
+| Suppression d'un enseignant : affectations effacées en cascade | refusée s'il a affectations, séances ou compte | même règle que pour les étudiants |
 
 ## Décisions à prendre (université)
 
 - **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
   d'une UE (`nb_options_a_choisir`) ni le type « optionnelle » des matières. Une maquette à options
   redevient entièrement obligatoire après copie. Recopier ces deux champs ?
+- **Mot de passe initial des comptes étudiants = matricule** (repris tel quel). Les matricules se
+  suivent (00001, 00002…) et figurent sur les cartes : quiconque connaît un matricule peut ouvrir
+  le compte d'un étudiant qui n'a pas encore changé son mot de passe, voire le changer avant lui.
+  Recommandé : mot de passe provisoire aléatoire, imprimé une seule fois à la génération, et
+  changement obligatoire à la première connexion (demande une colonne dans `utilisateurs`).
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
