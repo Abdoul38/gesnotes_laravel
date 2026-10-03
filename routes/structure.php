@@ -62,3 +62,27 @@ Route::middleware('page:filieres')->controller(FilieresController::class)->group
     Route::post('/matieres/supprimer', 'matiereSupprimer')->name('matieres.supprimer');
     Route::post('/matieres/volume-masse', 'volumeMasse')->name('matieres.volume_masse');
 });
+
+// Présence (permission notes_saisir ; périmètre par rôle dans le contrôleur)
+Route::middleware('page:presence')->controller(\App\Http\Controllers\Structure\PresenceController::class)->group(function () {
+    Route::get('/presence', 'index')->name('presence');
+    Route::post('/presence/seances', 'creer')->name('presence.creer');
+    Route::post('/presence', 'enregistrer')->name('presence.enregistrer');
+    Route::get('/presence/matieres', 'matieres')->name('api_matieres_promotion');
+});
+
+// Planning des examens (ancien contrôle de rôle de planning.php)
+Route::middleware(['page:planning', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])
+    ->controller(\App\Http\Controllers\Structure\PlanningController::class)->group(function () {
+        Route::get('/planning', 'index')->name('planning');
+        Route::get('/planning/disponibilite', 'disponibilite')->name('planning.disponibilite');
+        Route::post('/planning', 'sauvegarder')->name('planning.sauvegarder');
+    });
+
+// Emploi du temps (lecture : permission ; modification : personnel de scolarité, contrôlé dans le contrôleur)
+Route::middleware('page:emploi_temps')->controller(\App\Http\Controllers\Structure\EmploiTempsController::class)->group(function () {
+    Route::get('/emploi-du-temps', 'index')->name('emploi_temps');
+    Route::get('/emploi-du-temps/disponibilite', 'disponibilite')->name('emploi_temps.disponibilite');
+    Route::post('/emploi-du-temps', 'enregistrer')->name('emploi_temps.enregistrer');
+    Route::post('/emploi-du-temps/supprimer', 'supprimer')->name('emploi_temps.supprimer');
+});
