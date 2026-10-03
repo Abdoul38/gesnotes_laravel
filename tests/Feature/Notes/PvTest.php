@@ -241,4 +241,32 @@ class PvTest extends TestCase
         DB::table('affectations')->insert(['enseignant_id' => $ens, 'matiere_id' => $this->m1, 'annee_id' => $this->annee, 'type_charge' => 'cours']);
         $this->get($this->url("pv/{$this->pv}"))->assertOk()->assertSee('Vous êtes en lecture seule');
     }
+
+    public function test_deliberation(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $b = $this->etudiant('BETA');
+        $c = $this->etudiant('GAMMA');
+        $this->saisir([
+            $a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']],
+            $b => [$this->m1 => ['exam' => '30', 'cc' => '15']],
+            $c => [$this->m1 => ['exam' => '4', 'cc' => '2'], $this->m2 => ['exam' => '3']],
+        ]);
+        $this->connecte($this->admin)->get($this->url('deliberation'))->assertOk()->assertSee('PV S1 Éco');
+        $this->get($this->url("deliberation?pv_id={$this->pv}"))->assertOk()
+            ->assertSee('Procès-Verbal de Délibération')->assertSee('ALPHA')->assertDontSee('BETA')->assertDontSee('GAMMA')
+            ->assertSee('33.3%');
+
+        // Autre faculté : refusé, et PV absent de la liste
+        $facA = $this->insererMinimal('facultes', ['code' => 'FA', 'libelle' => 'A']);
+        $facB = $this->insererMinimal('facultes', ['code' => 'FB', 'libelle' => 'B']);
+        DB::table('filieres')->update(['faculte_id' => $facB]);
+        $this->donnerPermissions('doyen', ['pv_creer']);
+        $doyen = $this->creerUtilisateur('doyen', ['faculte_id' => $facA]);
+        $this->connecte($doyen)->get($this->url('deliberation'))->assertOk()->assertDontSee('PV S1 Éco');
+        $this->get($this->url("deliberation?pv_id={$this->pv}"))->assertRedirect($this->url('deliberation'));
+
+        $this->donnerPermissions('enseignant', ['pv_creer']);
+        $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url('deliberation'))->assertRedirect();
+    }
 }

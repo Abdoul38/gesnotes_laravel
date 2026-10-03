@@ -3,6 +3,7 @@
 // Module « Notes et PV » (étape 5). Chargé dans le groupe auth + licence
 // de routes/web.php.
 
+use App\Http\Controllers\Notes\DeliberationController;
 use App\Http\Controllers\Notes\NotesImportController;
 use App\Http\Controllers\Notes\PvController;
 use App\Http\Controllers\Notes\PvCreationController;
@@ -42,4 +43,5 @@ Route::middleware('page:notes_importer')->controller(NotesImportController::clas
 });
 
 Route::get('/pv/export', PvExportController::class)->middleware('page:pv_exporter')->name('pv_exporter');
+Route::get('/deliberation', DeliberationController::class)->middleware(['page:deliberation', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])->name('deliberation');
 Route::get('/pv/impression', PvImpressionController::class)->middleware('page:pv_imprimer')->name('pv_imprimer');
