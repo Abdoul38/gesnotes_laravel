@@ -113,6 +113,17 @@ class ImportPhotosTest extends TestCase
             ->assertSee('Format non pris en charge')->assertDontSee('<b>x</b>', false);
     }
 
+    public function test_photo_servie_en_prive(): void
+    {
+        $id = $this->etudiant('00001', 'ABDOU', 'Ibrahim');
+        $this->importer([$this->fichier('00001.png', base64_decode(self::PNG))]);
+        $photo = DB::table('etudiants')->where('id', $id)->value('photo');
+
+        // response()->file() marquait la réponse « public » malgré « private »
+        $this->get($this->url("fichiers/photos/$photo"))->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('X-Content-Type-Options', 'nosniff');
+    }
+
     public function test_sans_fichier(): void
     {
         $this->importer([])->assertOk()->assertSee('Veuillez sélectionner au moins une image ou un fichier ZIP.');

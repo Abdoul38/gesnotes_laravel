@@ -3,6 +3,7 @@
 // Module « Étudiants et enseignants » (étape 3). Chargé dans le groupe
 // auth + licence de routes/web.php.
 
+use App\Http\Controllers\Enseignants\EnseignantsController;
 use App\Http\Controllers\Etudiants\CartesController;
 use App\Http\Controllers\Etudiants\DossierEtudiantController;
 use App\Http\Controllers\Etudiants\EtudiantImporterController;
@@ -71,3 +72,14 @@ Route::middleware(['page:generer_comptes_etudiants', 'roles:admin,sc_centrale'])
 
 // Cachet et signature : ne sont plus servis publiquement, seulement aux utilisateurs connectés
 Route::get('/fichiers/officiels/{type}', [FichierController::class, 'officiel'])->whereIn('type', ['cachet', 'signature'])->name('fichiers.officiel');
+
+// Enseignants et affectations (les droits fins sont vérifiés dans le contrôleur)
+Route::middleware('page:enseignants')->controller(EnseignantsController::class)->group(function () {
+    Route::get('/enseignants', 'index')->name('enseignants');
+    Route::post('/enseignants/enregistrer', 'enregistrer')->name('enseignants.enregistrer');
+    Route::post('/enseignants/supprimer', 'supprimer')->name('enseignants.supprimer');
+    Route::post('/enseignants/affecter', 'affecter')->name('enseignants.affecter');
+    Route::post('/enseignants/desaffecter', 'desaffecter')->name('enseignants.desaffecter');
+    Route::post('/enseignants/reconduire', 'reconduire')->name('enseignants.reconduire');
+    Route::get('/fichiers/photos-enseignants/{fichier}', [FichierController::class, 'photoEnseignant'])->name('fichiers.photo_enseignant');
+});

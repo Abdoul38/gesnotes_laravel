@@ -43,6 +43,12 @@ class FichierController extends Controller
         return $this->servir(config('gesnotes.dossier_uploads'), 'photos', $fichier, ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'], prive: true);
     }
 
+    /** Photos d'enseignants (ancien uploads/photos_enseignants/, public) : réservées au personnel. */
+    public function photoEnseignant(string $fichier): BinaryFileResponse
+    {
+        return $this->servir(config('gesnotes.dossier_uploads'), 'photos_enseignants', $fichier, ['png', 'jpg', 'jpeg', 'webp'], prive: true);
+    }
+
     /** Document d'un dossier étudiant, désigné par son numéro (jamais par un nom de fichier). */
     public function document(int $id): BinaryFileResponse
     {
@@ -69,11 +75,11 @@ class FichierController extends Controller
         abort_unless($chemin, 404);
         $extension = strtolower(pathinfo($chemin, PATHINFO_EXTENSION));
 
-        return response()->file($chemin, [
+        return new BinaryFileResponse($chemin, 200, [
             'Content-Type' => self::MIME[$extension] ?? 'application/octet-stream',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, no-store',
-        ]);
+        ], public: false);
     }
 
     private function servir(?string $racine, string $sousDossier, string $fichier, array $extensions, bool $prive = false): BinaryFileResponse
@@ -87,12 +93,14 @@ class FichierController extends Controller
         $chemin = $dossier ? realpath($dossier.'/'.$fichier) : false;
         abort_unless($chemin && is_file($chemin) && str_starts_with($chemin, $dossier.DIRECTORY_SEPARATOR), 404);
 
-        return response()->file($chemin, [
+        // Pas response()->file() : il marque toujours la réponse « public »,
+        // ce qui écrasait le « private » des fichiers personnels.
+        return new BinaryFileResponse($chemin, 200, [
             // Type déduit de l'extension contrôlée, jamais du contenu envoyé
             'Content-Type' => self::MIME[$extension],
             'X-Content-Type-Options' => 'nosniff',
             // Fichier personnel : jamais en cache partagé (proxy) ni conservé.
             'Cache-Control' => $prive ? 'private, no-store' : 'public, max-age=86400',
-        ]);
+        ], public: ! $prive);
     }
 }
