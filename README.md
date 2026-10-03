@@ -134,7 +134,15 @@ Plan en 13 étapes (section 11 de l'inventaire).
       vue d'ensemble (`dashboard_notifications`).
   - Services `App\Services\Communication\{Courriel, Sms, Notifications}` ; écouteur `App\Listeners\NotifierPublicationPv`.
   - `Perimetre::limiterEtudiants()` : étudiants de la faculté (ou du département pour un chef de département).
-- [ ] Étapes 9 à 13
+- [x] **Étape 9 — portails** : portail étudiant (`portail_etudiant`), espace parents (`login_parent`,
+      `portail_parent`) et comptes parents (`gestion_parents`), portail enseignant (`portail_enseignant`),
+      tableau de bord du rectorat (`rectorat`).
+  - Garde d'authentification `parent` (modèle `ParentEleve`, table `parents`), middleware `parent`.
+  - Service `App\Services\SaisieNotes` : enregistrement des notes commun à l'import de la scolarité et au portail
+    enseignant (bornes, rattrapage, lecture des fichiers) — une seule règle.
+  - Service `App\Services\IndicateursRectorat` : indicateurs d'une année, en cache 5 min par université
+    (réutilisable pour le tableau de bord du ministère, étape 12).
+- [ ] Étapes 10 à 13
 
 ## Comportements volontairement modifiés
 
@@ -272,6 +280,21 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Messagerie : doyen / chef de département lisaient et supprimaient les messages de toute l'université ; noms insérés en HTML dans la recherche | périmètre ; texte seul | injection HTML par un nom de candidat |
 | E-mails aux étudiants : `mail()` de PHP (configuration SMTP ignorée) ; « par niveau » en erreur SQL ; « tous » = toute l'université ; nom et contacts de l'UDH en dur | serveur configuré ; réparé ; périmètre ; paramètres de l'université | |
 | Vue d'ensemble : parents et étudiants de toute l'université ; liste « jamais notifiés » toujours vide (erreur SQL de collation masquée) | périmètre ; réparée | |
+| **Étape 9** | | |
+| Portail étudiant : résultats des PV « finalisés » (non publiés) visibles | PV publiés seulement | résultats vus avant délibération |
+| Portail étudiant : e-mail et mot de passe modifiables sans le mot de passe actuel | mot de passe actuel exigé ; 8 caractères, lettres et chiffres | session laissée ouverte = compte perdu |
+| Espace parents : résultats des PV en brouillon visibles | PV publiés seulement | |
+| Comptes parents : un agent de faculté liait n'importe quel étudiant à un compte créé avec son propre numéro, et modifiait ou réinitialisait n'importe quel compte | étudiants et comptes de son périmètre ; délier/désactiver en POST | lecture des notes, paiements et présences de toute l'université |
+| Portail enseignant : n'importe quel PV et matière affichés en changeant l'adresse (notes et liste des étudiants), modèle Excel sans contrôle | affectations visibles seulement | fuite de notes d'autres facultés |
+| Portail enseignant : import sans contrôle du verrou du PV ; PV d'une autre matière accepté ; n'importe quel identifiant d'étudiant enregistré | PV non verrouillé, de la matière, étudiants du PV | |
+| Portail enseignant : notes sans maximum (import : seules les négatives refusées) ; résultats non recalculés | 0 à la note maximale, sinon rien n'est enregistré ; résultats recalculés | |
+| Portail enseignant, rattrapage : meilleure note d'examen gardée ; un absent effaçait aussi la note de TD de l'autre enseignant | meilleure note finale (même règle que l'import) ; seule la composante de l'enseignant | |
+| Matière finalisée automatiquement dès la première note saisie | quand toutes les notes de la matière sont complètes | l'enseignant de cours verrouillait la matière avant la saisie du TD |
+| Volume horaire prévu modifiable par un chef de département ou un doyen sur toute matière | son département / sa faculté | |
+| Rectorat : PV en brouillon consultable en changeant `pv_id` | PV finalisés ou publiés | |
+| Rectorat : le navigateur pouvait écrire ce qu'il voulait dans le journal des consultations ; exports PDF par html2pdf (CDN, bloqué par la CSP) | exports servis et journalisés par le serveur ; pages imprimables | journal falsifiable |
+| Rectorat : message du changement de mot de passe repris de l'adresse ; 8 caractères suffisaient | message en session ; lettres et chiffres exigés | texte arbitraire affiché sur la page |
+| Rectorat : cache des indicateurs dans une table relue avec `unserialize()` ; historique de tous les comptes affiché comme « mes consultations » | cache de l'application ; le recteur voit les siennes, l'administrateur toutes | |
 
 ## Décisions à prendre (université)
 
@@ -305,6 +328,12 @@ Plan en 13 étapes (section 11 de l'inventaire).
   en base64, lisibles par quiconque accède à la base ou à ses sauvegardes). À faire par l'université : changer le
   mot de passe SMTP, puis vider cette colonne (`UPDATE email_logs SET reponse_brute = NULL WHERE reponse_brute LIKE '%AUTH LOGIN%'`).
   Je ne l'ai pas exécuté : ce sont vos données réelles.
+- **Relevé et attestation depuis le portail étudiant** : comme avant, l'étudiant consulte ses résultats publiés mais
+  ne peut pas imprimer lui-même son relevé de notes ni son attestation (documents délivrés par la scolarité, numérotés
+  au registre). Les ouvrir aux étudiants (version « non officielle » sans numéro, ou numérotée) ?
+- **Matières déjà notées non finalisées** : l'ancien portail enseignant marquait finalisée, une fois par session,
+  toute matière ayant au moins une note (rattrapage de données). Ce n'est pas repris : sur les données migrées,
+  les matières déjà finalisées le restent ; les autres attendent des notes complètes ou une finalisation manuelle.
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
