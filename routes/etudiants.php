@@ -3,6 +3,7 @@
 // Module « Étudiants et enseignants » (étape 3). Chargé dans le groupe
 // auth + licence de routes/web.php.
 
+use App\Http\Controllers\Etudiants\DossierEtudiantController;
 use App\Http\Controllers\Etudiants\EtudiantsController;
 use App\Http\Controllers\Etudiants\FicheEtudiantController;
 use App\Http\Controllers\FichierController;
@@ -22,3 +23,14 @@ Route::middleware('page:etudiant_form')->group(function () {
 
 Route::get('/api/etudiants', [EtudiantsController::class, 'rechercher'])->middleware('page:api_etudiants')->name('api_etudiants');
 Route::get('/api/etudiants/recherche', [EtudiantsController::class, 'rechercherCourt'])->middleware('page:api_recherche_etudiants')->name('api_recherche_etudiants');
+
+Route::middleware('page:dossier_etudiant')->controller(DossierEtudiantController::class)->group(function () {
+    Route::get('/etudiants/dossier', 'afficher')->name('dossier_etudiant');
+    Route::post('/etudiants/dossier', 'modifier')->name('dossier_etudiant.modifier');
+    Route::post('/etudiants/dossier/documents', 'ajouterDocument')->name('dossier_etudiant.ajouter_document');
+    Route::post('/etudiants/dossier/documents/valider', 'validerDocument')->name('dossier_etudiant.valider_document');
+    Route::post('/etudiants/dossier/documents/supprimer', 'supprimerDocument')->name('dossier_etudiant.supprimer_document');
+    // Pièces personnelles : même permission que le dossier
+    Route::get('/fichiers/documents/{id}', [FichierController::class, 'document'])->whereNumber('id')->name('fichiers.document');
+    Route::get('/fichiers/pieces/{fichier}', [FichierController::class, 'pieceCandidat'])->name('fichiers.piece');
+});
