@@ -4,6 +4,7 @@
 // de routes/web.php.
 
 use App\Http\Controllers\Inscriptions\ChoixOptionsController;
+use App\Http\Controllers\Inscriptions\InscriptionPedagogiqueController;
 use App\Http\Controllers\Inscriptions\InscriptionPedMasseController;
 use App\Http\Controllers\Inscriptions\InscriptionScolariteController;
 use App\Http\Controllers\Inscriptions\ListesInscritsController;
@@ -43,4 +44,9 @@ Route::get('/inscriptions/listes', [ListesInscritsController::class, 'index'])->
 Route::middleware('roles:admin,secretaire,sc_centrale,sc_entite')->controller(ListesInscritsController::class)->group(function () {
     Route::get('/inscriptions/listes/pdf', 'pdf')->middleware('page:liste_inscrits_pdf')->name('liste_inscrits.pdf');
     Route::get('/inscriptions/listes/excel', 'excel')->middleware('page:liste_inscrits_excel')->name('liste_inscrits.excel');
+});
+
+Route::middleware(['page:inscription_pedagogique', 'roles:admin,secretaire,sc_centrale,sc_entite'])->controller(InscriptionPedagogiqueController::class)->group(function () {
+    Route::get('/inscriptions/pedagogique', 'index')->name('inscription_pedagogique');
+    Route::post('/inscriptions/pedagogique', 'enregistrer')->name('inscription_pedagogique.enregistrer');
 });

@@ -89,8 +89,8 @@ Plan en 13 étapes (section 11 de l'inventaire).
       (`liste_inscrits`, PDF, Excel).
   - Service commun `App\Services\Inscriptions` (promotion + maquette, modes de paiement, règles de
     suggestion des semestres et de décision de passage).
-  - Reportés à l'étape 5, car ils dépendent du moteur de calcul des notes : `inscription_pedagogique`
-    (report des notes acquises et recalcul) et `liste_valides` (règles de validation par année).
+  - `inscription_pedagogique` portée au début de l'étape 5 (avec le moteur de notes) ; reportée à l'étape 5 :
+    `liste_valides` (règles de validation par année).
   - Reportés à l'étape 10 (portail candidats) : `inscription_en_ligne`, `demandes_inscription`.
     Non repris : `inscription.php`, absente du routeur (code mort).
 - [ ] Étapes 5 à 13
