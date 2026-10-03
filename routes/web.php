@@ -35,5 +35,6 @@ Route::middleware('auth')->group(function () {
         require __DIR__.'/inscriptions.php';
         require __DIR__.'/notes.php';
         require __DIR__.'/documents.php';
+        require __DIR__.'/finances.php';
     });
 });
