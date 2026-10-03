@@ -8,6 +8,7 @@ use App\Services\Identite;
 use App\Services\Journal;
 use App\Services\Parametres;
 use App\Services\Pv;
+use App\Services\Releves;
 use App\Services\RelevesEmis;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ use Illuminate\View\View;
  */
 class ReleveNotesController extends Controller
 {
-    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres, RelevesEmis $registre, Journal $journal, Menu $menu): View|RedirectResponse
+    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres, RelevesEmis $registre, Releves $calcul, Journal $journal, Menu $menu): View|RedirectResponse
     {
         $u = $request->user();
         $estEtudiant = $u->role === 'etudiant';
@@ -71,21 +72,8 @@ class ReleveNotesController extends Controller
         $libelles = DB::table('filieres as f')->leftJoin('facultes as fac', 'fac.id', '=', 'f.faculte_id')->leftJoin('departements as d', 'd.id', '=', 'f.departement_id')
             ->where('f.id', $pv->filiere_id)->first([DB::raw('COALESCE(fac.libelle, f.faculte) AS faculte'), DB::raw('COALESCE(d.libelle, f.departement) AS departement')]);
 
-        $releves = $etudiants->map(function ($et) use ($ues, $choix, $notes, $pv, $registre, $journal, $menu) {
-            $sesNotes = $notes->get($et->id, collect())->keyBy('matiere_id');
-            $lignes = [];
-            foreach ($ues as $ue) {
-                // Une option non choisie par l'étudiant n'apparaît pas sur son relevé
-                $mats = $ue->matieres->reject(fn ($m) => (int) $ue->nb_options_a_choisir > 0 && $m->type_matiere === 'optionnelle'
-                    && ! in_array((int) $m->id, $choix[$et->id][$ue->id] ?? [], true));
-                $lignes[] = ['ue' => $ue, 'matieres' => $mats->map(function ($m) use ($sesNotes) {
-                    $n = $sesNotes->get($m->id);
-                    $obs = in_array($n->observation ?? null, ['AV', 'AC', 'NV', 'Déf.'], true) ? $n->observation : '—';
-                    $finale = $n?->note_finale ?? ($n && $n->note_examen !== null ? $n->note_examen + ($n->note_cc ?? 0) : null);
-
-                    return ['m' => $m, 'n' => $n, 'obs' => $obs, 'finale' => $finale, 'credits' => in_array($obs, ['AV', 'AC'], true) ? (int) $m->credits : 0];
-                })->values()];
-            }
+        $releves = $etudiants->map(function ($et) use ($ues, $choix, $notes, $pv, $registre, $journal, $menu, $calcul) {
+            $lignes = $calcul->lignes($ues, $choix, $notes->get($et->id, collect())->keyBy('matiere_id'), (int) $et->id);
             $nbLignes = collect($lignes)->sum(fn ($l) => 1 + $l['matieres']->count());
             $numero = $registre->enregistrer($et, $pv, $et->mention, $et->moyenne_generale);
             $journal->action('creer', 'releve', "Relevé généré : $numero — {$et->nom} {$et->prenoms}", (int) $et->id);

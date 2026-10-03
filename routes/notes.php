@@ -11,6 +11,7 @@ use App\Http\Controllers\Notes\PvDetailController;
 use App\Http\Controllers\Notes\PvExportController;
 use App\Http\Controllers\Notes\PvImpressionController;
 use App\Http\Controllers\Notes\ReleveNotesController;
+use App\Http\Controllers\Notes\RelevesController;
 use App\Http\Controllers\Notes\SaisieNotesController;
 use Illuminate\Support\Facades\Route;
 
@@ -48,3 +49,4 @@ Route::get('/deliberation', DeliberationController::class)->middleware(['page:de
 Route::get('/pv/impression', PvImpressionController::class)->middleware('page:pv_imprimer')->name('pv_imprimer');
 // Pas de permission de page (comme l'ancien routeur) : périmètre contrôlé par rôle dans le contrôleur
 Route::get('/releve', ReleveNotesController::class)->name('releve_notes');
+Route::get('/releves', RelevesController::class)->middleware('page:releves')->name('releves');
