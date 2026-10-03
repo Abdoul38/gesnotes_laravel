@@ -122,6 +122,36 @@ class EnvoisTest extends TestCase
         $this->assertSame(2, DB::table('email_logs')->where('contexte', 'pv_publie')->count());
     }
 
+    public function test_notifier_un_pv_manuellement(): void
+    {
+        $annee = DB::table('annees_academiques')->insertGetId(['libelle' => '2025-2026', 'active' => 1]);
+        $fac = $this->insererMinimal('facultes', ['code' => 'FB', 'libelle' => 'Faculté B']);
+        $filiere = DB::table('filieres')->insertGetId(['code' => 'ECO', 'libelle' => 'Économie', 'departement' => '', 'faculte_id' => $fac]);
+        $promo = $this->creerPromotion($annee, ['filiere_id' => $filiere]);
+        $sem = DB::table('semestres')->insertGetId(['code' => 'S1', 'libelle' => 'Semestre 1']);
+        $pv = DB::table('pv_sessions')->insertGetId(['promotion_id' => $promo, 'semestre_id' => $sem, 'type_session' => 'normale', 'libelle' => 'PV S1', 'statut' => 'brouillon']);
+        $et = DB::table('etudiants')->insertGetId(['nom' => 'ALPHA', 'prenoms' => 'Awa', 'numero' => '00001', 'email' => 'awa@exemple.ne']);
+        DB::table('resultats_semestre')->insert(['pv_id' => $pv, 'etudiant_id' => $et, 'moyenne_generale' => 12, 'valide' => 1]);
+
+        $this->connecte($this->admin)->get($this->url("notifications/pv?pv_id=$pv"))->assertOk()->assertSee("Ce PV n'est pas publié", false);
+        $this->post($this->url('notifications/pv'), ['pv_id' => $pv, 'cibles' => ['etudiants']])->assertSessionHas('erreur');
+        $this->assertSame(0, DB::table('email_logs')->count());
+
+        DB::table('pv_sessions')->where('id', $pv)->update(['statut' => 'publie']);
+        $this->post($this->url('notifications/pv'), ['pv_id' => $pv])->assertSessionHas('erreur', 'Choisissez au moins un public (étudiants et/ou parents).');
+        $this->post($this->url('notifications/pv'), ['pv_id' => $pv, 'cibles' => ['etudiants']])
+            ->assertSessionHas('succes', 'Notifications envoyées à 1 destinataire(s) — 0 email(s), 0 SMS.');
+        $this->assertSame('awa@exemple.ne', DB::table('email_logs')->where('contexte', 'pv_publie')->value('destinataire'));
+        $this->get($this->url("notifications/pv?pv_id=$pv"))->assertOk()->assertSee('awa@exemple.ne')->assertSee('Simulé');
+
+        $facA = $this->insererMinimal('facultes', ['code' => 'FA', 'libelle' => 'Faculté A']);
+        $this->donnerPermissions('sc_entite', ['inscription_ped']);
+        $this->connecte($this->creerUtilisateur('sc_entite', ['faculte_id' => $facA]))->post($this->url('notifications/pv'), ['pv_id' => $pv, 'cibles' => ['etudiants']])
+            ->assertSessionHas('erreur', 'PV introuvable.');
+        $this->donnerPermissions('enseignant', ['inscription_ped']);
+        $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url('notifications/pv'))->assertRedirect($this->url('accueil'));
+    }
+
     /** Colonnes NOT NULL sans défaut d'une table (valeurs neutres). */
     private function colonnesObligatoires(string $table, array $exclues): array
     {
