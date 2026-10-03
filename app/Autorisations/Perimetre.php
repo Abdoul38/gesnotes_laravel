@@ -47,6 +47,24 @@ class Perimetre
                 ->where('i.etudiant_id', $etudiantId)->where('fi.faculte_id', $f)->exists();
     }
 
+    /**
+     * Restreint une requête sur les étudiants (alias « e ») au périmètre :
+     * faculté (filière ou inscription), département pour un chef de département.
+     */
+    public function limiterEtudiants(\Illuminate\Database\Query\Builder $q, Utilisateur $u): \Illuminate\Database\Query\Builder
+    {
+        $departement = $u->role === 'chef_departement' ? $u->departementId() : 0;
+        [$colonne, $valeur] = $departement ? ['departement_id', $departement] : ['faculte_id', $this->faculte($u)];
+        if (! $valeur) {
+            return $q;
+        }
+
+        return $q->where(fn ($w) => $w
+            ->whereExists(fn ($s) => $s->from('filieres as fe')->whereColumn('fe.id', 'e.filiere_id')->where("fe.$colonne", $valeur))
+            ->orWhereExists(fn ($s) => $s->from('inscriptions as i')->join('promotions as p', 'p.id', '=', 'i.promotion_id')
+                ->join('filieres as fi', 'fi.id', '=', 'p.filiere_id')->whereColumn('i.etudiant_id', 'e.id')->where("fi.$colonne", $valeur)));
+    }
+
     public function departement(Utilisateur $u, int $departementId): bool
     {
         return $this->faculte($u) === 0
