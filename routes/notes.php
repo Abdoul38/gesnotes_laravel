@@ -4,6 +4,7 @@
 // de routes/web.php.
 
 use App\Http\Controllers\Notes\DeliberationController;
+use App\Http\Controllers\Notes\ListeValidesController;
 use App\Http\Controllers\Notes\NotesImportController;
 use App\Http\Controllers\Notes\PvController;
 use App\Http\Controllers\Notes\PvCreationController;
@@ -64,3 +65,4 @@ Route::middleware('page:reclamations')->group(function () {
     Route::get('/reclamations/{id}', [ReclamationTraitementController::class, 'afficher'])->whereNumber('id')->name('reclamation_traitement');
     Route::post('/reclamations/{id}', [ReclamationTraitementController::class, 'traiter'])->whereNumber('id')->name('reclamation_traitement.traiter');
 });
+Route::get('/admis', ListeValidesController::class)->middleware(['page:liste_valides', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])->name('liste_valides');

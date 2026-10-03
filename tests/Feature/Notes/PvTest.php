@@ -361,4 +361,25 @@ class PvTest extends TestCase
         $this->donnerPermissions('doyen', ['inscription_ped']);
         $this->connecte($this->creerUtilisateur('doyen'))->get($this->url('resultats/verification'))->assertRedirect($this->url('accueil'));
     }
+
+    public function test_liste_des_admis(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $b = $this->etudiant('BETA');
+        $this->saisir([
+            $a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']],
+            $b => [$this->m1 => ['exam' => '30', 'cc' => '15']],
+        ]);
+        $this->connecte($this->admin)->get($this->url('admis'))->assertOk()->assertSee('2025-2026')->assertSee('Économie — ', false);
+        $this->get($this->url("admis?pv_id={$this->pv}"))->assertOk()->assertSee('Ont définitivement validé le semestre 1')
+            ->assertSee('ALPHA')->assertDontSee('BETA');
+
+        $facA = $this->insererMinimal('facultes', ['code' => 'FA', 'libelle' => 'A']);
+        $facB = $this->insererMinimal('facultes', ['code' => 'FB', 'libelle' => 'B']);
+        DB::table('filieres')->update(['faculte_id' => $facB]);
+        $this->donnerPermissions('chef_departement', ['pv_voir']);
+        $chef = $this->creerUtilisateur('chef_departement', ['faculte_id' => $facA]);
+        $this->connecte($chef)->get($this->url('admis'))->assertOk()->assertDontSee('Économie —', false);
+        $this->get($this->url("admis?pv_id={$this->pv}"))->assertRedirect($this->url('admis'));
+    }
 }
