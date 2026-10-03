@@ -28,5 +28,6 @@ Route::middleware('auth')->group(function () {
 
         require __DIR__.'/structure.php';
         require __DIR__.'/etudiants.php';
+        require __DIR__.'/inscriptions.php';
     });
 });

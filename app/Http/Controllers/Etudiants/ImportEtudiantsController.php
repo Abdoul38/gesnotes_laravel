@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Etudiants;
 
 use App\Http\Controllers\Controller;
 use App\Services\Journal;
-use App\Services\Maquette;
+use App\Services\Inscriptions;
 use App\Services\Matricules;
 use App\Support\Format;
 use App\Support\ModeleImportEtudiants;
@@ -42,8 +42,6 @@ use Throwable;
  */
 class ImportEtudiantsController extends Controller
 {
-    private const MODES = ['especes', 'mobile_money', 'virement', 'cheque'];
-
     /** En-têtes reconnus (après normalisation) pour chaque champ. */
     private const COLONNES = [
         'matricule' => ['matricule', 'numero', 'numéro', 'numero_etudiant', 'nie'],
@@ -70,7 +68,7 @@ class ImportEtudiantsController extends Controller
 
     public function __construct(
         private readonly Matricules $matricules,
-        private readonly Maquette $maquette,
+        private readonly Inscriptions $inscriptions,
         private readonly Journal $journal,
     ) {}
 
@@ -99,7 +97,7 @@ class ImportEtudiantsController extends Controller
         $filiereId = (int) $request->input('filiere_id');
         $niveauId = (int) $request->input('niveau_id');
         $montantDefaut = max(0, (float) $request->input('montant_def', 10000));
-        $modeDefaut = self::mode((string) $request->input('mode_def')) ?? 'especes';
+        $modeDefaut = Inscriptions::mode((string) $request->input('mode_def')) ?? 'especes';
         $fichier = $request->file('fichier');
 
         $erreurs = [];
@@ -128,7 +126,7 @@ class ImportEtudiantsController extends Controller
         }
         [$numeroEnTete, $index] = $enTete;
 
-        $promoId = $this->promotion($filiereId, $niveauId, $anneeId);
+        $promoId = $this->inscriptions->promotion($filiereId, $niveauId, $anneeId);
         $utilisateur = $request->user()->id;
         $creees = $doublons = $echecs = 0;
         $details = [];
@@ -168,7 +166,7 @@ class ImportEtudiantsController extends Controller
                 $matricule = $matricule !== '' ? $matricule : Matricules::formater($this->matricules->dernier() + 1);
 
                 $montant = $v('montant_paye') !== '' ? (float) str_replace([' ', ','], ['', '.'], $v('montant_paye')) : $montantDefaut;
-                $mode = self::mode($v('mode_paiement')) ?? $modeDefaut;
+                $mode = Inscriptions::mode($v('mode_paiement')) ?? $modeDefaut;
                 $sexe = mb_strtoupper(mb_substr($v('sexe'), 0, 1));
                 $email = mb_strtolower($v('email'));
 
@@ -263,30 +261,5 @@ class ImportEtudiantsController extends Controller
         }
 
         return null;
-    }
-
-    /** Promotion filière × niveau × année, créée au besoin avec la maquette de la précédente. */
-    private function promotion(int $filiereId, int $niveauId, int $anneeId): int
-    {
-        $id = DB::table('promotions')->where(['filiere_id' => $filiereId, 'niveau_id' => $niveauId, 'annee_id' => $anneeId])->value('id');
-        if (! $id) {
-            $id = DB::table('promotions')->insertGetId(['filiere_id' => $filiereId, 'niveau_id' => $niveauId, 'annee_id' => $anneeId]);
-            $this->maquette->copierUEs($id);
-        }
-
-        return (int) $id;
-    }
-
-    private static function mode(string $saisie): ?string
-    {
-        $mode = str_replace([' ', '-'], '_', mb_strtolower(trim($saisie)));
-        $mode = match ($mode) {
-            'mynita', 'mobile', 'mobilemoney' => 'mobile_money',
-            'espèces', 'espece', 'espèce' => 'especes',
-            'chèque' => 'cheque',
-            default => $mode,
-        };
-
-        return in_array($mode, self::MODES, true) ? $mode : null;
     }
 }
