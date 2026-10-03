@@ -93,7 +93,24 @@ Plan en 13 étapes (section 11 de l'inventaire).
     `liste_valides` (règles de validation par année).
   - Reportés à l'étape 10 (portail candidats) : `inscription_en_ligne`, `demandes_inscription`.
     Non repris : `inscription.php`, absente du routeur (code mort).
-- [ ] Étapes 5 à 13
+- [x] **Étape 5 — notes et PV** : moteur de résultats (`App\Services\Resultats`, comparé à l'ancien code :
+      1 234 opérations, 0 différence — `outils/comparaison-resultats/`), inscription pédagogique
+      (`inscription_pedagogique`), liste des PV (`pv`), création (`pv_creer`), détail et saisie
+      (`pv_detail`), accès rapide (`notes`), import des notes (`notes_importer`), export Excel
+      (`pv_exporter`), PV imprimable (`pv_imprimer`), délibération (`deliberation`), relevé de notes
+      (`releve_notes`), relevés individuels (`releves`), vérification (`verif_resultats`), liste des
+      admis (`liste_valides`), réclamations (`reclamations`, `reclamation_traitement`,
+      `reclamations_export`).
+  - Une seule définition des étudiants d'un PV (`App\Services\Pv`) et une seule source des résultats :
+    ceux enregistrés par le moteur. Toutes les pages qui « recalculaient en direct » avec leurs
+    propres règles (détail, export, impression, délibération, relevés, liste des admis) affichent
+    désormais ces résultats ; la simulation pendant la saisie passe par le moteur lui-même.
+  - Reporté à l'étape 8 (communication) : `notifier_pv` et l'envoi automatique à la publication
+    (l'événement `App\Events\PvPublie` est déjà émis).
+  - Le relevé côté étudiant (PV publié seulement) est prêt ; il s'ouvrira avec le portail étudiant.
+  - Non repris : `notes_pv/resultats.php`, sans appelant (doublon de `api/resultats.php`, qui
+    recalculait sur un simple GET).
+- [ ] Étapes 6 à 13
 
 ## Comportements volontairement modifiés
 
@@ -162,6 +179,32 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Excel : matricule « 00012 » écrit comme le nombre 12 | texte, zéros conservés | |
 | Excel : noms de feuilles coupés à 31 caractères, parfois identiques ; nom « Université Djibo Hamani » écrit en dur | noms uniques ; nom de l'université tiré des paramètres | fichier refusé par Excel ; mauvais nom pour les autres universités |
 
+| **Étape 5** | | |
+| Pages qui recalculaient les résultats à l'affichage (détail du PV en PHP puis en JS, export avec note éliminatoire 5/20 en dur, impression, délibération, relevés, liste des admis) | résultats enregistrés par le moteur partout ; simulation par le moteur pendant la saisie | l'écran, l'Excel et le PV imprimé pouvaient donner des décisions différentes |
+| Délibération et relevés : options non choisies comptées comme manquantes | ignorées (comme le moteur) | un étudiant sans l'option était déclaré défaillant |
+| Relevé individuel (aperçu) : compensation ignorée | observation du moteur (AC affiché) | une matière compensée apparaissait NV |
+| Quatre définitions des étudiants d'un PV | une seule (`App\Services\Pv`) | le recalcul rapide créait des résultats pour des étudiants qui ne composaient pas |
+| PV imprimé, session normale : promotion exacte seulement | mêmes étudiants que le détail | ceux qui composaient le semestre en avance étaient omis |
+| Verrou du PV appliqué à l'affichage seulement | refusé aussi par le serveur (saisie, import, actions, correction) | un envoi direct modifiait un PV verrouillé |
+| Saisie : n'importe quel étudiant / matière, notes non bornées | étudiants et matières du PV, notes 0 … maximum, matières acquises protégées | |
+| Recalcul progressif : sans jeton CSRF, ouvert à tout enseignant | jeton et droits de modification exigés | |
+| Suppression d'un PV : effacement en cascade | seulement un brouillon non verrouillé | notes et résultats effacés |
+| Statut / titre d'un PV : n'importe quel identifiant | PV du périmètre de l'agent | |
+| Avancement de saisie : 5 (liste) ou 2 (accès rapide) matières supposées | nombre réel de matières | |
+| Import par matière : résultats non recalculés ; enseignant pouvait importer le PV complet | recalcul ; enseignant limité à sa matière | |
+| Import : notes au-dessus du maximum acceptées ; absent au rattrapage = 0 (import complet) ou vide (par matière) | refusées ; absent = note vide, matière défaillante, pour les deux | |
+| Inscription pédagogique : toujours l'année active | année de l'inscription scolarité retenue | un étudiant inscrit une année précédente était rattaché à la mauvaise année |
+| Création de PV : PV de 1ère session / PV source quelconque | même promotion, même semestre, bon type | |
+| Délibération, liste des admis, relevés : chef de département voyait toute la faculté | son département | |
+| Relevé de notes : enseignant voyait n'importe quel étudiant ; étudiant voyait un PV non publié | enseignant : PV où il a une matière ; étudiant : PV publié | résultats lus avant la délibération |
+| Numéro de relevé : nombre de relevés + 1 | plus grand numéro + 1, sous verrou | doublons |
+| Vérification des résultats : correction par lien (GET) | bouton (POST + CSRF), journalisée, refusée sur PV verrouillé | une image piégée pouvait lancer la correction |
+| Réclamations : une réclamation traitée pouvait l'être à nouveau par envoi direct | refusé | |
+| Réclamation fondée, examen seul corrigé : CC effacé, examen seul retenu | CC existant conservé ; notes bornées | note finale fausse |
+| Réclamations : enseignant voyait toutes celles de l'université | seulement ses matières | |
+| Export des réclamations : toute l'université ; matières homonymes fusionnées | faculté / département de l'agent ; une feuille par matière | |
+| « Tahoua », « République du Niger », nom de l'université écrits en dur (dates, en-têtes) | paramètres de l'université | |
+
 ## Décisions à prendre (université)
 
 - **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
@@ -172,6 +215,9 @@ Plan en 13 étapes (section 11 de l'inventaire).
   le compte d'un étudiant qui n'a pas encore changé son mot de passe, voire le changer avant lui.
   Recommandé : mot de passe provisoire aléatoire, imprimé une seule fois à la génération, et
   changement obligatoire à la première connexion (demande une colonne dans `utilisateurs`).
+- **Réclamation fondée sur un PV verrouillé** : comme avant, la note est corrigée et les résultats
+  recalculés même si le PV source est verrouillé (c'est la procédure prévue après délibération).
+  Faut-il plutôt exiger le déverrouillage, comme pour les autres modifications ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier

@@ -10,7 +10,7 @@ document.addEventListener('click', function (e) {
   if (e.target.closest('[data-history-back]')) { e.preventDefault(); history.back(); }
 });
 // QR codes de vérification (relevés…) : nécessite qrcode.js chargé avant
-if (window.qrcode) {
+if (typeof qrcode === 'function') {
   document.querySelectorAll('[data-qr]').forEach(function (el) {
     try {
       var qr = qrcode(0, 'M');
