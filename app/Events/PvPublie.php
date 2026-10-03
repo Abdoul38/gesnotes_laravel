@@ -6,8 +6,8 @@ use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Un PV vient d'être publié. L'ancienne application notifiait alors les
- * étudiants (e-mail, SMS — notifierResultatsPv) ; l'écouteur sera branché
- * avec le module Communication (étape 8).
+ * étudiants (e-mail, SMS — notifierResultatsPv) : voir
+ * App\Listeners\NotifierPublicationPv.
  */
 class PvPublie
 {

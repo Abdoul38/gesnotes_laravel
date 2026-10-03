@@ -17,6 +17,7 @@ class AppServiceProvider extends ServiceProvider
         // « scoped » : remis à zéro à chaque requête (et entre deux tests)
         $this->app->scoped(UniversiteCourante::class);
         $this->app->scoped(Parametres::class);
+        $this->app->scoped(\App\Services\Communication\Courriel::class);
         $this->app->scoped(Licence::class, fn ($app) => new Licence(
             (string) $app['config']['licence.secret'],
             $app->make(UniversiteCourante::class),
