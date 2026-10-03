@@ -269,4 +269,33 @@ class PvTest extends TestCase
         $this->donnerPermissions('enseignant', ['pv_creer']);
         $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url('deliberation'))->assertRedirect();
     }
+
+    public function test_releve_de_notes(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $b = $this->etudiant('BETA');
+        $this->saisir([
+            $a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']],
+            $b => [$this->m1 => ['exam' => '30', 'cc' => '15']],
+        ]);
+        $this->connecte($this->admin)->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertOk()
+            ->assertSee('RELEVE DE NOTES')->assertSee('ALPHA')->assertSee('Microéconomie')->assertSee('AV')
+            ->assertSee('RESULTAT DU SEMESTRE (VALIDATION) : OUI')->assertSee('R'.date('y').'-000001');
+        // Deuxième impression : même numéro ; BETA (défaillant) reçoit le suivant
+        $this->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertOk();
+        $this->get($this->url("releve?pv_id={$this->pv}&et_id=$b"))->assertOk()->assertSee('Déf.')->assertSee('VALIDATION) : NON', false);
+        $this->assertSame(['R'.date('y').'-000001', 'R'.date('y').'-000002'], DB::table('releves_emis')->orderBy('id')->pluck('numero')->all());
+        $this->assertDatabaseHas('audit_log', ['action' => 'creer', 'module' => 'releve']);
+
+        // Masse : validés seulement
+        $this->get($this->url("releve?pv_id={$this->pv}&masse=1"))->assertOk()->assertSee('1 relevés')->assertSee('ALPHA')->assertDontSee('BETA');
+
+        // Étudiant sans résultat dans ce PV, PV inconnu
+        $c = $this->etudiant('GAMMA');
+        $this->get($this->url("releve?pv_id={$this->pv}&et_id=$c"))->assertRedirect($this->url("pv/{$this->pv}"));
+        $this->get($this->url('releve?pv_id=999&et_id='.$a))->assertRedirect($this->url('pv'));
+
+        // Enseignant sans matière dans ce PV : refusé
+        $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertRedirect($this->url('pv'));
+    }
 }

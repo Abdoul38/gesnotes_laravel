@@ -7,7 +7,19 @@ document.addEventListener('click', function (e) {
     setTimeout(function () { window.print(); }, 150);
   }
   if (e.target.closest('[data-window-close]')) window.close();
+  if (e.target.closest('[data-history-back]')) { e.preventDefault(); history.back(); }
 });
+// QR codes de vérification (relevés…) : nécessite qrcode.js chargé avant
+if (window.qrcode) {
+  document.querySelectorAll('[data-qr]').forEach(function (el) {
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(el.getAttribute('data-qr'));
+      qr.make();
+      el.innerHTML = qr.createSvgTag({ cellSize: parseInt(el.getAttribute('data-qr-cellule'), 10) || 1, margin: 0 });
+    } catch (err) {}
+  });
+}
 document.addEventListener('change', function (e) {
   var el = e.target.closest('[data-autosubmit]');
   if (el && el.form) el.form.submit();
