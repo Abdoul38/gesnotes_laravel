@@ -168,4 +168,26 @@ class DocumentsTest extends TestCase
         $this->connecte($agent)->get($this->url('diplomes'))->assertOk()->assertDontSee('ALPHA Awa');
         $this->get($this->url('diplomes/registre'))->assertOk()->assertDontSee('A'.date('y').'-VA-000001');
     }
+
+    public function test_certificat_de_scolarite(): void
+    {
+        $promo = DB::table('promotions')->where('niveau_id', $this->niveaux['L2'])->value('id');
+        $insA = DB::table('inscriptions')->insertGetId(['etudiant_id' => $this->alpha, 'promotion_id' => $promo, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
+        $insB = DB::table('inscriptions')->insertGetId(['etudiant_id' => $this->beta, 'promotion_id' => $promo, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
+        $this->connecte($this->admin)->get($this->url("certificat-scolarite?ins_id=$insA"))->assertOk()
+            ->assertSee('Certificat de Scolarité')->assertSee('ALPHA Awa')->assertSee('Est inscrite')->assertSee('2025-2026');
+        // Par ins_id, chaque étudiant a son propre numéro (avant : étudiant 0, numéro partagé)
+        $this->get($this->url("certificat-scolarite?ins_id=$insB"))->assertOk()->assertSee('BETA Bio');
+        $this->get($this->url("certificat-scolarite?et_id={$this->alpha}"))->assertOk();
+        $this->assertEquals([$this->alpha, $this->beta], DB::table('certificats_emis')->orderBy('id')->pluck('etudiant_id')->all());
+        $this->get($this->url('verification?num=C'.date('y').'-000001'))->assertSee('ALPHA Awa')->assertDontSee('BETA');
+
+        // Inscription annulée : pas de certificat
+        DB::table('inscriptions')->where('id', $insB)->update(['statut' => 'annule']);
+        $this->get($this->url("certificat-scolarite?ins_id=$insB"))->assertSessionHas('erreur');
+
+        $agent = $this->agentAutreFaculte();
+        $this->donnerPermissions('sc_entite', ['certificat_sco']);
+        $this->connecte($agent)->get($this->url("certificat-scolarite?ins_id=$insA"))->assertSessionHas('erreur');
+    }
 }
