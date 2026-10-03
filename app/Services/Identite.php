@@ -87,6 +87,23 @@ class Identite
             : ['titre' => $this->parametres->brut('signataire_titre', 'Le Doyen/pi'), 'nom' => $this->parametres->brut('signataire_nom'), 'qualite' => $this->parametres->brut('signataire_qualite')];
     }
 
+    /** Signataire des diplômes (Paramètres › Visas des diplômes), sinon celui de la faculté. */
+    public function signataireDiplome(?int $faculteId): array
+    {
+        $titre = trim($this->parametres->brut('signataire_diplome_titre'));
+        $nom = trim($this->parametres->brut('signataire_diplome_nom'));
+
+        return $titre !== '' && $nom !== ''
+            ? ['titre' => $titre, 'nom' => $nom, 'qualite' => trim($this->parametres->brut('signataire_diplome_qualite'))]
+            : $this->signataire($faculteId);
+    }
+
+    /** Image téléversée désignée par un paramètre (ex. armoirie_niger), ou null. */
+    public function imageParametre(string $cle): ?string
+    {
+        return $this->logoTeleverse($this->parametres->brut($cle));
+    }
+
     private function logoTeleverse(string $fichier): ?string
     {
         $fichier = basename(trim($fichier));

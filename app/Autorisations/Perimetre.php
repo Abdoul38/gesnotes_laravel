@@ -35,6 +35,18 @@ class Perimetre
             || DB::table('filieres')->where('id', $filiereId)->where('faculte_id', $this->faculte($u))->exists();
     }
 
+    /** Étudiant dont la filière, ou l'une des inscriptions, relève de la faculté (règle de la liste des étudiants). */
+    public function etudiant(Utilisateur $u, int $etudiantId): bool
+    {
+        $f = $this->faculte($u);
+
+        return $f === 0
+            || DB::table('etudiants as e')->join('filieres as fe', 'fe.id', '=', 'e.filiere_id')
+                ->where('e.id', $etudiantId)->where('fe.faculte_id', $f)->exists()
+            || DB::table('inscriptions as i')->join('promotions as p', 'p.id', '=', 'i.promotion_id')->join('filieres as fi', 'fi.id', '=', 'p.filiere_id')
+                ->where('i.etudiant_id', $etudiantId)->where('fi.faculte_id', $f)->exists();
+    }
+
     public function departement(Utilisateur $u, int $departementId): bool
     {
         return $this->faculte($u) === 0
