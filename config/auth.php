@@ -47,6 +47,11 @@ return [
             'driver' => 'session',
             'provider' => 'parents',
         ],
+        // Portail candidats : comptes de la table `candidats`, session distincte
+        'candidat' => [
+            'driver' => 'session',
+            'provider' => 'candidats',
+        ],
     ],
 
     /*
@@ -74,6 +79,10 @@ return [
         'parents' => [
             'driver' => 'eloquent',
             'model' => App\Models\ParentEleve::class,
+        ],
+        'candidats' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Candidat::class,
         ],
 
         // 'users' => [

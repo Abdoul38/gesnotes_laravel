@@ -91,6 +91,35 @@ class Fichiers
         return $nom;
     }
 
+    /**
+     * Pièce d'un dossier de candidature (PDF, JPG, PNG vérifiés par leur
+     * contenu ; la photo d'identité : image seulement), rangée dans le
+     * dossier privé des pièces (config gesnotes.dossier_pieces_candidats),
+     * sous un nom aléatoire. Retourne le nom, ou null si refusée.
+     */
+    public function enregistrerPiece(UploadedFile $fichier, string $type, int $maxOctets, bool $imageSeulement = false): ?string
+    {
+        $extension = strtolower($fichier->getClientOriginalExtension());
+        $extensions = $imageSeulement ? ['jpg', 'jpeg', 'png'] : ['pdf', 'jpg', 'jpeg', 'png'];
+        if (! $this->recevable($fichier, $extension, $extensions, $maxOctets)) {
+            return null;
+        }
+        $conforme = $extension === 'pdf'
+            ? str_starts_with((string) file_get_contents($fichier->getRealPath(), false, null, 0, 5), '%PDF')
+            : $this->estImage($fichier, $extension);
+        $racine = config('gesnotes.dossier_pieces_candidats');
+        if (! $conforme || ! $racine) {
+            return null;
+        }
+        if (! is_dir($racine) && ! mkdir($racine, 0755, true) && ! is_dir($racine)) {
+            throw new RuntimeException('Impossible de créer le dossier des pièces des candidats.');
+        }
+        $nom = (preg_replace('/[^a-z0-9_]/', '', strtolower($type)) ?: 'piece').'_'.time().'_'.bin2hex(random_bytes(8)).'.'.$extension;
+        $fichier->move($racine, $nom);
+
+        return $nom;
+    }
+
     private function recevable(UploadedFile $fichier, string $extension, array $extensions, int $maxOctets): bool
     {
         return $fichier->isValid() && in_array($extension, $extensions, true) && $fichier->getSize() <= $maxOctets;

@@ -14,7 +14,7 @@ return [
     // (App\Services\Fichiers, FichierController).
     'dossier_uploads' => env('DOSSIER_UPLOADS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/uploads' : null),
 
-    // Pièces déposées par les candidats sur le portail (CNI, extrait de
+    // Racine de l/x27ancienne application (images du portail candidats…)./n    /x27ancienne_app_chemin/x27 => env(/x27ANCIENNE_APP_CHEMIN/x27),/n/n    // Pièces déposées par les candidats sur le portail (CNI, extrait de
     // naissance…), consultées depuis le dossier étudiant.
     'dossier_pieces_candidats' => env('DOSSIER_PIECES_CANDIDATS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/uploads/pieces' : null),
 

@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'licence' => VerifierLicence::class,
             'roles' => ExigerRoles::class,
             'parent' => \App\Http\Middleware\ParentConnecte::class,
+            'candidat' => \App\Http\Middleware\CandidatConnecte::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
