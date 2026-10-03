@@ -7,6 +7,7 @@ use App\Http\Controllers\Notes\NotesImportController;
 use App\Http\Controllers\Notes\PvController;
 use App\Http\Controllers\Notes\PvCreationController;
 use App\Http\Controllers\Notes\PvDetailController;
+use App\Http\Controllers\Notes\PvExportController;
 use App\Http\Controllers\Notes\SaisieNotesController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,3 +39,5 @@ Route::middleware('page:notes_importer')->controller(NotesImportController::clas
     Route::post('/notes/import/matiere', 'importerMatiere')->name('notes_importer.matiere');
     Route::post('/notes/import/pv', 'importerPv')->name('notes_importer.pv');
 });
+
+Route::get('/pv/export', PvExportController::class)->middleware('page:pv_exporter')->name('pv_exporter');

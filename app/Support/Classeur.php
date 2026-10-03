@@ -23,18 +23,21 @@ final class Classeur
 
     private array $chaines = [];
 
+    /** Feuille de styles propre au document (sinon les 12 styles ci-dessus). */
+    public function __construct(private readonly ?string $styles = null) {}
+
     /**
      * @param  list<array{height?: int, merges?: list<array{0:int,1:int}>, cells: list<array{v?: mixed, style?: int}>}>  $lignes
      * @param  list<int|float>  $largeurs
      */
-    public function feuille(string $nom, array $lignes, array $largeurs = []): void
+    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = []): void
     {
         $nom = mb_substr(trim(preg_replace('/[\/\\\\?*\[\]:]/', '_', $nom)) ?: 'Feuille', 0, 31);
         $pris = array_map('mb_strtolower', array_column($this->feuilles, 'nom'));
         for ($n = 2, $base = $nom; in_array(mb_strtolower($nom), $pris, true); $n++) {
             $nom = mb_substr($base, 0, 31 - strlen(" ($n)"))." ($n)";
         }
-        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs];
+        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions];
     }
 
     /** Écrit le classeur dans un fichier temporaire et retourne son chemin. */
@@ -75,7 +78,7 @@ final class Classeur
             .'<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
             .'<Relationship Id="rId101" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'.$rels.'</Relationships>');
         $zip->addFromString('xl/sharedStrings.xml', $sst);
-        $zip->addFromString('xl/styles.xml', self::styles());
+        $zip->addFromString('xl/styles.xml', $this->styles ?? self::styles());
         foreach ($xmlFeuilles as $i => $x) {
             $zip->addFromString('xl/worksheets/sheet'.($i + 1).'.xml', $x);
         }
@@ -87,6 +90,9 @@ final class Classeur
     private function xmlFeuille(array $f): string
     {
         $x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+        if ($f['figees']) {
+            $x .= '<sheetViews><sheetView workbookViewId="0"><pane ySplit="'.$f['figees'].'" topLeftCell="A'.($f['figees'] + 1).'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+        }
         if ($f['largeurs']) {
             $x .= '<cols>';
             foreach ($f['largeurs'] as $i => $w) {
@@ -95,7 +101,7 @@ final class Classeur
             $x .= '</cols>';
         }
         $x .= '<sheetData>';
-        $fusions = [];
+        $fusions = $f['fusions'];   // zones « A2:A4 » données directement (fusions sur plusieurs lignes)
         foreach ($f['lignes'] as $ri => $ligne) {
             $r = $ri + 1;
             $x .= '<row r="'.$r.'" ht="'.($ligne['height'] ?? 16).'" customHeight="1">';
@@ -126,7 +132,7 @@ final class Classeur
         return $x.'</worksheet>';
     }
 
-    private static function ref(int $col, int $ligne): string
+    public static function ref(int $col, int $ligne): string
     {
         $lettres = '';
         for ($c = $col; $c > 0; $c = intdiv($c - 1, 26)) {

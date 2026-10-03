@@ -109,6 +109,40 @@ class NotesImportTest extends TestCase
         $this->assertSame('Défaillant', DB::table('resultats_semestre')->where(['pv_id' => $ratt, 'etudiant_id' => $b])->value('decision'));
     }
 
+    public function test_export_puis_reimport_du_pv_complet(): void
+    {
+        $a = $this->etudiant('00012', 'ALPHA');
+        $b = $this->etudiant('00013', 'BRAVO');
+        DB::table('notes')->insert([
+            ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m1, 'note_examen' => 30, 'note_cc' => 15, 'note_finale' => 45],
+            ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m2, 'note_examen' => 14, 'note_cc' => null, 'note_finale' => 14],
+        ]);
+        app(\App\Services\Resultats::class)->recalculer($this->pv, $a);
+
+        $export = $this->connecte($this->admin)->get($this->url("pv/export?id={$this->pv}"))->assertOk()->assertDownload();
+        $chemin = $export->baseResponse->getFile()->getPathname();
+        $lignes = Tableur::xlsx($chemin);
+        $this->assertSame(['Exam./40', 'TD/20', 'Note/60', 'Crédits(3)', 'Obs.', 'Exam./20', 'Crédits(3)', 'Obs.'], array_slice($lignes[4], 3, 8));
+        $ligneA = collect($lignes)->first(fn ($l) => ($l[1] ?? '') === '00012');
+        $this->assertSame(['00012', 'ALPHA X', '30', '15', '45', '3', 'AV'], array_slice($ligneA, 1, 7));
+        $zip = new \ZipArchive;
+        $zip->open($chemin);
+        $this->assertStringContainsString('<pane ySplit="4"', $zip->getFromName('xl/worksheets/sheet1.xml'));   // en-têtes figés
+        $zip->close();
+
+        // On complète BRAVO dans le fichier et on le réimporte
+        $numeroLigne = array_search($ligneA, $lignes, true) + 1;
+        $lignes[$numeroLigne] = array_replace($lignes[$numeroLigne], [1 => '00013', 2 => 'BRAVO X', 3 => '20', 4 => '10', 8 => '9']);
+        $this->post($this->url('notes/import/pv'), ['pv_id' => $this->pv, 'fichier_pv' => $this->fichierXlsx($lignes, 'pv.xlsx')])
+            ->assertRedirect($this->url("pv/{$this->pv}"))->assertSessionHas('succes', '✅ Import PV complet réussi — 1 étudiant(s) mis à jour.');
+
+        $notesB = DB::table('notes')->where(['pv_id' => $this->pv, 'etudiant_id' => $b])->orderBy('matiere_id')->get();
+        $this->assertSame([['20.00', '10.00', '30.00'], ['9.00', null, '9.00']], $notesB->map(fn ($n) => [$n->note_examen, $n->note_cc, $n->note_finale])->all());
+        $this->assertDatabaseHas('resultats_semestre', ['pv_id' => $this->pv, 'etudiant_id' => $b]);
+        // ALPHA, déjà acquis (AV), n'a pas été retouché
+        $this->assertSame('30.00', DB::table('notes')->where(['etudiant_id' => $a, 'matiere_id' => $this->m1])->value('note_examen'));
+    }
+
     public function test_droits(): void
     {
         $this->etudiant('00012', 'ALPHA');
