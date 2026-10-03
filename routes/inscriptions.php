@@ -6,6 +6,7 @@
 use App\Http\Controllers\Inscriptions\ChoixOptionsController;
 use App\Http\Controllers\Inscriptions\InscriptionPedMasseController;
 use App\Http\Controllers\Inscriptions\InscriptionScolariteController;
+use App\Http\Controllers\Inscriptions\ListesInscritsController;
 use App\Http\Controllers\Inscriptions\PassageNiveauController;
 use App\Http\Controllers\Inscriptions\TransfertNiveauController;
 use Illuminate\Support\Facades\Route;
@@ -36,4 +37,10 @@ Route::middleware(['page:transfert_niveau', 'roles:admin,secretaire,sc_centrale,
 Route::middleware('page:passage_niveau')->controller(PassageNiveauController::class)->group(function () {
     Route::get('/inscriptions/passage', 'index')->name('passage_niveau');
     Route::post('/inscriptions/passage', 'enregistrer')->name('passage_niveau.enregistrer');
+});
+
+Route::get('/inscriptions/listes', [ListesInscritsController::class, 'index'])->middleware('page:liste_inscrits')->name('liste_inscrits');
+Route::middleware('roles:admin,secretaire,sc_centrale,sc_entite')->controller(ListesInscritsController::class)->group(function () {
+    Route::get('/inscriptions/listes/pdf', 'pdf')->middleware('page:liste_inscrits_pdf')->name('liste_inscrits.pdf');
+    Route::get('/inscriptions/listes/excel', 'excel')->middleware('page:liste_inscrits_excel')->name('liste_inscrits.excel');
 });
