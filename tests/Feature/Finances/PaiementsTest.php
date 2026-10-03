@@ -196,4 +196,40 @@ class PaiementsTest extends TestCase
         $this->connecte($this->admin)->post($this->url('finances/depenses/supprimer'), ['id' => $id])->assertSessionHas('succes');
         $this->assertDatabaseHas('audit_log', ['action' => 'supprimer', 'module' => 'depense']);
     }
+
+    public function test_tarifs_par_niveau(): void
+    {
+        $niveau = DB::table('promotions')->value('niveau_id');
+        $code = DB::table('niveaux')->where('id', $niveau)->value('code');
+        $this->connecte($this->admin)->get($this->url('tarifs-inscription'))->assertOk()->assertSee($code)->assertSee('value="10000"', false);
+        $this->post($this->url('tarifs-inscription'), ['montant' => [$niveau => '25 000']])->assertSessionHas('succes');
+        $this->assertEquals(25000, DB::table('tarifs_niveaux')->where('niveau_id', $niveau)->value('montant'));
+        $this->post($this->url('tarifs-inscription'), ['montant' => [$niveau => 'abc']])->assertSessionHas('erreur');
+        $this->post($this->url('tarifs-inscription'), ['montant' => [$niveau => '-5']])->assertSessionHas('erreur');
+        $this->assertEquals(25000, DB::table('tarifs_niveaux')->where('niveau_id', $niveau)->value('montant'));
+        $this->assertDatabaseHas('audit_log', ['module' => 'tarif']);
+
+        // Agent limité à une faculté : lecture seule (tarifs communs à toute l'université)
+        $this->donnerPermissions('sc_entite', ['inscription_ped']);
+        $agent = $this->creerUtilisateur('sc_entite', ['faculte_id' => $this->facA, 'email' => 'agent-tarifs@test.local']);
+        $this->connecte($agent)->get($this->url('tarifs-inscription'))->assertOk()->assertSee('lecture seule');
+        $this->post($this->url('tarifs-inscription'), ['montant' => [$niveau => '1']])->assertSessionHas('erreur');
+        $this->assertEquals(25000, DB::table('tarifs_niveaux')->where('niveau_id', $niveau)->value('montant'));
+    }
+
+    public function test_paiements_en_ligne(): void
+    {
+        $filA = DB::table('filieres')->where('code', 'FA1')->value('id');
+        $filB = DB::table('filieres')->where('code', 'FB1')->value('id');
+        $ligne = fn (array $c) => DB::table('inscriptions_en_ligne')->insert($c + ['numero_dossier' => 'D'.random_int(1000, 9999), 'numero_depot' => 'P'.random_int(1000, 9999),
+            'moyen_paiement' => 'mobile_money', 'montant' => 10000, 'statut_paiement' => 'en_attente', 'created_at' => now()]);
+        $ligne(['filiere_id' => $filA, 'statut_paiement' => 'valide', 'date_paiement' => now(), 'reference_paiement' => 'KP-VALIDE']);
+        $ligne(['filiere_id' => $filA, 'created_at' => now()->subHour(), 'reference_paiement' => 'KP-EXPIRE']);
+        $ligne(['filiere_id' => $filB, 'statut_paiement' => 'valide', 'reference_paiement' => 'KP-AUTRE']);
+
+        $this->connecte($this->admin)->get($this->url('paiements/en-ligne'))->assertOk()
+            ->assertSee('20 000 FCFA')->assertSee('20 600 FCFA')->assertSee('KP-EXPIRE')->assertSee('⏰ Expiré');
+        $this->get($this->url('paiements/en-ligne?statut=expire'))->assertOk()->assertSee('KP-EXPIRE')->assertDontSee('KP-VALIDE');
+        $this->connecte($this->agentFaculteA())->get($this->url('paiements/en-ligne'))->assertOk()->assertSee('KP-VALIDE')->assertDontSee('KP-AUTRE');
+    }
 }

@@ -117,7 +117,18 @@ Plan en 13 étapes (section 11 de l'inventaire).
   - Services `App\Services\Parcours` (semestres validés par cycle, moyenne et mention d'un document : une
     seule règle pour la liste et les documents) et `App\Services\RegistreDocuments` (numéros sous verrou).
   - Les QR codes des cartes, relevés et documents pointent maintenant vers `/verification`.
-- [ ] Étapes 7 à 13
+- [x] **Étape 7 — finances** : paiements (`paiements`, export CSV), reçus (`recu_paiement`, `recu_inscription`),
+      finances (`finances` : aperçu, grille tarifaire, dépenses), tarifs d'inscription en ligne (`tarifs_niveaux`),
+      paiements en ligne (`paiements_en_ligne`, lecture seule).
+  - Service `App\Services\Paiements` (types, modes, statut calculé, périmètre).
+  - Reporté à l'étape 8 (envoi d'e-mails) : `relances`. Reporté à l'étape 10 (portail candidats, où vivent les
+    paiements KomiPay) : `komipay_litiges` et le client KomiPay — l'ancienne page de litiges ne trouvait jamais rien
+    (elle cherche un mode « komipay » et une colonne `reference_komipay` absents de la table `paiements`).
+  - Non repris : `depenses.php` et `grille_tarifaire.php` (absents de la liste des pages autorisées du routeur :
+    inaccessibles, remplacés par `finances`) ; `pages/finances/komipay*.php` (fichiers de configuration, pas des pages).
+  - Exports XLSX : fichier temporaire non préexistant (l'export échouait au hasard sous Windows,
+    « Renaming temporary file failed »).
+- [ ] Étapes 8 à 13
 
 ## Comportements volontairement modifiés
 
@@ -228,6 +239,20 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Avertissement « aucun visa configuré » imprimé sur le diplôme | affiché à l'écran seulement | |
 | Certificat : numéro d'enregistrement non visible | imprimé en pied de page | vérification possible sans scanner le QR |
 
+| **Étape 7** | | |
+| Paiements : ajout, modification, suppression de n'importe quel paiement / étudiant | étudiants de la faculté de l'agent | |
+| Paiements, dépenses, tarifs : type, mode, montant (négatif accepté), date, longueurs non contrôlés | contrôlés ; montants plafonnés à 100 millions | erreurs SQL, montants négatifs |
+| Modification d'un paiement, d'un tarif, d'une dépense (JavaScript en ligne bloqué par la CSP) | fonctionne | |
+| Export CSV : une cellule commençant par `=`, `+`, `-`, `@` exécutée par Excel | préfixée d'une apostrophe | injection de formules |
+| Suppression d'un paiement : journal sans montant | montant, statut et étudiant journalisés | traçabilité |
+| Recettes d'un agent de faculté : jointure sur les inscriptions | sous-requête | un paiement comptait autant de fois que l'étudiant avait d'inscriptions dans la faculté |
+| Dépenses et catégories (communes à l'université) modifiables par un agent de faculté | comptes sans restriction de faculté | |
+| Tarifs de la grille : filière d'une autre faculté acceptée | filières de la faculté de l'agent | |
+| Tarifs d'inscription en ligne (toute l'université) modifiables par un agent de faculté ; montant invalide ignoré en silence | comptes sans restriction de faculté ; tout ou rien, journalisé | |
+| Reçus et paiements en ligne : aucun contrôle de faculté | faculté de l'agent | |
+| Reçu d'inscription « officiellement inscrit » pour une inscription annulée ou inexistante ; numéro identique d'une année sur l'autre | inscription en cours exigée ; numéro par inscription | faux reçus |
+| Graphiques des finances chargés depuis un CDN (bloqué par la CSP) | Chart.js local | |
+
 ## Décisions à prendre (université)
 
 - **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
@@ -249,6 +274,12 @@ Plan en 13 étapes (section 11 de l'inventaire).
 - **Numéro « ANM/DepD/aa/0001 » des attestations de réussite et « N° 0001/aaaa » des convocations** :
   simple compteur de la page imprimée (repris tel quel), il recommence à 1 à chaque impression et
   n'est enregistré nulle part. Le remplacer par un numéro enregistré et vérifiable ?
+- **Identifiants KomiPay en clair dans l'ancien dépôt** : `candidature/includes/komipay.php` (suivi par git, dépôt
+  GitHub) contient l'identifiant, le mot de passe, la clé API et la passe-clé KomiPay. Si le dépôt est ou a été
+  public, ou partagé, les considérer comme compromis : en générer de nouveaux chez KomiPay, et les retirer du dépôt
+  et de son historique. Dans la version Laravel ils iront dans `.env` (jamais versionné).
+- **Suppression d'un paiement** : effacement définitif (repris tel quel, désormais journalisé avec le montant).
+  Préférer une annulation (statut) qui garde la trace comptable ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
