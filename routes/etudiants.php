@@ -8,6 +8,7 @@ use App\Http\Controllers\Etudiants\DossierEtudiantController;
 use App\Http\Controllers\Etudiants\EtudiantImporterController;
 use App\Http\Controllers\Etudiants\EtudiantsController;
 use App\Http\Controllers\Etudiants\FicheEtudiantController;
+use App\Http\Controllers\Etudiants\ImportEtudiantsController;
 use App\Http\Controllers\Etudiants\ImportPhotosController;
 use App\Http\Controllers\FichierController;
 use Illuminate\Support\Facades\Route;
@@ -53,6 +54,12 @@ Route::middleware('page:etudiant_importer')->group(function () {
     Route::get('/etudiants/importer', [EtudiantImporterController::class, 'formulaire'])->name('etudiant_importer');
     Route::post('/etudiants/importer', [EtudiantImporterController::class, 'importer'])->name('etudiant_importer.importer');
     Route::get('/fichiers/modele-import-etudiants', [FichierController::class, 'modeleImport'])->name('fichiers.modele_import');
+});
+
+Route::middleware('page:import_etudiants')->controller(ImportEtudiantsController::class)->group(function () {
+    Route::get('/etudiants/import-masse', 'formulaire')->name('import_etudiants');
+    Route::post('/etudiants/import-masse', 'importer')->name('import_etudiants.importer');
+    Route::get('/etudiants/import-masse/template', 'modele')->name('import_etudiants.modele');
 });
 
 // Cachet et signature : ne sont plus servis publiquement, seulement aux utilisateurs connectés
