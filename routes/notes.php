@@ -10,6 +10,8 @@ use App\Http\Controllers\Notes\PvCreationController;
 use App\Http\Controllers\Notes\PvDetailController;
 use App\Http\Controllers\Notes\PvExportController;
 use App\Http\Controllers\Notes\PvImpressionController;
+use App\Http\Controllers\Notes\ReclamationsController;
+use App\Http\Controllers\Notes\ReclamationTraitementController;
 use App\Http\Controllers\Notes\ReleveNotesController;
 use App\Http\Controllers\Notes\RelevesController;
 use App\Http\Controllers\Notes\SaisieNotesController;
@@ -54,4 +56,11 @@ Route::get('/releves', RelevesController::class)->middleware('page:releves')->na
 Route::middleware(['page:verif_resultats', 'roles:admin,secretaire,sc_centrale,sc_entite'])->controller(VerifResultatsController::class)->group(function () {
     Route::get('/resultats/verification', 'index')->name('verif_resultats');
     Route::post('/resultats/verification', 'corriger')->name('verif_resultats.corriger');
+});
+
+Route::middleware('page:reclamations')->group(function () {
+    Route::get('/reclamations', [ReclamationsController::class, 'index'])->name('reclamations');
+    Route::get('/reclamations/export', [ReclamationsController::class, 'exporter'])->name('reclamations.export');
+    Route::get('/reclamations/{id}', [ReclamationTraitementController::class, 'afficher'])->whereNumber('id')->name('reclamation_traitement');
+    Route::post('/reclamations/{id}', [ReclamationTraitementController::class, 'traiter'])->whereNumber('id')->name('reclamation_traitement.traiter');
 });
