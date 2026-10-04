@@ -36,6 +36,7 @@ class PeuplerUniversite extends Command
         {--etudiants=6 : étudiants par parcours et par promotion d\'entrée}
         {--annuler : retire tout ce qu\'un peuplement précédent a créé}
         {--heures : déclare des heures faites (et complète les volumes prévus manquants) sur les trois années, après un peuplement}
+        {--enseignants=0 : après un peuplement, crée N enseignants par faculté (avec compte) et leur affecte les matières sans enseignant}
         {--base-reelle-autorisee : autorise l\'écriture dans une base dont le nom ne contient pas _test}';
 
     protected $description = 'Ajoute (ou retire avec --annuler) des étudiants d\'essai et leur parcours dans une base d\'université existante';
@@ -88,6 +89,9 @@ class PeuplerUniversite extends Command
         }
         if ($this->option('heures')) {
             return $this->heures($fichier);
+        }
+        if ((int) $this->option('enseignants') > 0) {
+            return $this->enseignants($fichier, min(20, (int) $this->option('enseignants')));
         }
         if (is_file($fichier)) {
             $this->error('Un peuplement existe déjà pour cette université : lancer d\'abord --annuler.');
@@ -382,6 +386,9 @@ class PeuplerUniversite extends Command
         }
         $m = json_decode((string) file_get_contents($fichier), true);
         $et = $m['etudiants'] ?? [];
+        // Enseignants d'essai (leurs affectations partent avec eux, et leurs comptes avec les utilisateurs)
+        DB::table('affectations')->whereIn('enseignant_id', $m['enseignants'] ?? [])->delete();
+        DB::table('enseignants')->whereIn('id', $m['enseignants'] ?? [])->delete();
         // Heures et volumes : anciennes valeurs remises
         foreach ($m['heures'] ?? [] as $matiere => [$volume, $heures]) {
             DB::table('matieres')->where('id', (int) $matiere)->update(['volume_horaire_prevu' => $volume, 'heures_faites' => $heures]);
@@ -471,6 +478,92 @@ class PeuplerUniversite extends Command
         $this->info("Heures déclarées pour {$nb['heures']} matière(s), dont {$nb['volumes']} sans volume prévu complétée(s) depuis la même matière d'une autre année.");
 
         app(IndicateursRectorat::class)->invalider(); // indicateurs du rectorat et du ministère à recalculer
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Enseignants d'essai : N par faculté des filières du peuplement, chacun
+     * avec un compte (essai.ens<N>.<code faculté>@essai.local, mot de passe
+     * des comptes d'essai). Les matières de ces filières, sur les années du
+     * peuplement, qui n'ont encore aucun enseignant reçoivent : cours et TD au
+     * même enseignant, ou cours et TD séparés quand la matière a un TD. Une
+     * matière garde le même enseignant d'une année à l'autre (même code).
+     */
+    private function enseignants(string $fichier, int $parFaculte): int
+    {
+        if (! is_file($fichier)) {
+            $this->error('Lancer d\'abord le peuplement (le manifeste permet --annuler).');
+
+            return self::FAILURE;
+        }
+        $m = json_decode((string) file_get_contents($fichier), true);
+        if (! empty($m['enseignants'])) {
+            $this->error("Des enseignants d'essai existent déjà pour cette université (--annuler pour tout retirer).");
+
+            return self::FAILURE;
+        }
+        $m['enseignants'] = [];
+        // Toutes les promotions des filières et des années du peuplement (même celles sans étudiant d'essai)
+        $inscrites = DB::table('inscriptions as i')->join('promotions as p', 'p.id', '=', 'i.promotion_id')->whereIn('i.etudiant_id', $m['etudiants'] ?? []);
+        $promotions = DB::table('promotions')->whereIn('filiere_id', (clone $inscrites)->distinct()->pluck('p.filiere_id'))
+            ->whereIn('annee_id', (clone $inscrites)->distinct()->pluck('p.annee_id'))->pluck('id');
+        $filieres = DB::table('promotions as p')->join('filieres as f', 'f.id', '=', 'p.filiere_id')->whereIn('p.id', $promotions)
+            ->distinct()->get(['f.id', 'f.libelle', 'f.faculte_id', 'f.departement_id']);
+        $grades = ['Professeur Titulaire', 'Maître de Conférences', 'Maître-Assistant', 'Maître-Assistant', 'Assistant'];
+        $mdp = Hash::make($this->motDePasse());
+        mt_srand(crc32('enseignants'.count($promotions)));
+        $parFac = [];
+        DB::transaction(function () use ($filieres, $parFaculte, $grades, $mdp, &$m, &$parFac) {
+            foreach ($filieres->groupBy('faculte_id') as $fac => $fils) {
+                $code = strtolower((string) (DB::table('facultes')->where('id', $fac)->value('code') ?: 'fac'));
+                for ($i = 1; $i <= $parFaculte; $i++) {
+                    $sexe = $i % 2 === 0 ? 'F' : 'M';
+                    $nom = self::NOMS[mt_rand(0, 15)];
+                    $id = DB::table('enseignants')->insertGetId([
+                        'matricule' => strtoupper("ESSAI-$code-$i"), 'nom' => $nom, 'prenoms' => self::PRENOMS[$sexe][mt_rand(0, 7)],
+                        'grade' => $grades[($i - 1) % count($grades)], 'specialite' => $fils[($i - 1) % count($fils)]->libelle,
+                        'faculte_id' => $fac ?: null, 'departement_id' => $fils[($i - 1) % count($fils)]->departement_id, 'actif' => 1,
+                        'telephone' => '97'.str_pad((string) mt_rand(0, 999999), 6, '0', STR_PAD_LEFT),
+                    ]);
+                    $m['enseignants'][] = $id;
+                    $parFac[(int) $fac][] = $id;
+                    $email = "essai.ens$i.$code@essai.local";
+                    if (! DB::table('utilisateurs')->where('email', $email)->exists()) {
+                        $m['utilisateurs'][] = DB::table('utilisateurs')->insertGetId(['email' => $email, 'nom' => $nom, 'prenoms' => 'Enseignant essai',
+                            'mot_de_passe' => $mdp, 'role' => 'enseignant', 'enseignant_id' => $id, 'faculte_id' => $fac ?: null, 'actif' => 1]);
+                    }
+                }
+            }
+        });
+
+        // Matières des filières du peuplement, années du peuplement, sans aucun enseignant
+        $matieres = DB::table('matieres as mt')->join('unites_enseignement as ue', 'ue.id', '=', 'mt.ue_id')->join('promotions as p', 'p.id', '=', 'ue.promotion_id')
+            ->join('filieres as f', 'f.id', '=', 'p.filiere_id')->whereIn('p.id', $promotions)->where('mt.actif', 1)
+            ->whereNotExists(fn ($q) => $q->from('affectations as af')->whereColumn('af.matiere_id', 'mt.id')->whereColumn('af.annee_id', 'p.annee_id'))
+            ->orderBy('mt.code')->get(['mt.id', 'mt.code', 'mt.note_max_cc', 'p.annee_id', 'f.faculte_id']);
+        $titulaire = [];
+        $nb = 0;
+        DB::transaction(function () use ($matieres, $parFac, &$titulaire, &$nb) {
+            foreach ($matieres as $mat) {
+                $equipe = $parFac[(int) $mat->faculte_id] ?? [];
+                if (! $equipe) {
+                    continue;
+                }
+                $k = $titulaire[$mat->code] ??= count($titulaire) % count($equipe);
+                $lignes = (float) $mat->note_max_cc > 0 && count($equipe) > 1
+                    ? [[$equipe[$k], 'cours'], [$equipe[($k + 1) % count($equipe)], 'td']]
+                    : [[$equipe[$k], 'cours_td']];
+                foreach ($lignes as [$ens, $charge]) {
+                    $nb += DB::table('affectations')->insertOrIgnore(['enseignant_id' => $ens, 'matiere_id' => $mat->id, 'annee_id' => $mat->annee_id, 'type_charge' => $charge]);
+                }
+            }
+        });
+        file_put_contents($fichier, json_encode($m, JSON_PRETTY_PRINT));
+        file_put_contents(storage_path('app/private/essais/identifiants.txt'),
+            'Enseignants : essai.ens<1..'.$parFaculte.'>.<code faculté>@essai.local (même mot de passe)'."\n", FILE_APPEND);
+        $this->info(count($m['enseignants']).' enseignant(s) d\'essai (avec compte) ; '.$nb.' affectation(s) sur '.count($matieres).' matière(s) sans enseignant.');
+        app(IndicateursRectorat::class)->invalider();
 
         return self::SUCCESS;
     }
