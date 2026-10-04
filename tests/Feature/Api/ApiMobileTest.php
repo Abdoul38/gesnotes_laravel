@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Utilisateur;
 use App\Services\Communication\Courriel;
 use App\Services\Parametres;
 use Illuminate\Support\Facades\DB;
@@ -113,6 +114,31 @@ class ApiMobileTest extends TestCase
         }
         $this->api('login', ['identifiant' => '00001', 'password' => 'Secret123'])->assertStatus(429);
         $this->api('inconnue')->assertStatus(404);
+    }
+
+    public function test_delai_de_reclamation_compte_depuis_la_publication(): void
+    {
+        $jeton = $this->jeton();
+        $motif = ['pv_id' => $this->pvPublie, 'matiere_id' => $this->matiere, 'motif' => str_repeat('Note mal reportée. ', 2)];
+        // Publié il y a 4 jours, modifié à l'instant : le délai est expiré (avant : relancé par la modification)
+        DB::table('pv_publications')->insert(['pv_id' => $this->pvPublie, 'publie_le' => now()->subDays(4)]);
+        DB::table('pv_sessions')->where('id', $this->pvPublie)->update(['libelle' => 'PV S1 corrigé', 'updated_at' => now()]);
+        $pv = $this->api('reclamations_data', [], $jeton, 'get')->json('data.pv_list.0');
+        $this->assertSame([0, 0], [(int) $pv['reclamation_ouverte'], (int) $pv['secondes_restantes']]);
+        $this->api('soumettre_reclamation', $motif, $jeton)->assertJson(['success' => false, 'message' => 'Le délai de réclamation de 72 heures est expiré pour ce PV']);
+
+        // Publié il y a 10 heures, sans modification depuis 5 jours : encore ouvert
+        DB::table('pv_publications')->where('pv_id', $this->pvPublie)->update(['publie_le' => now()->subHours(10)]);
+        DB::table('pv_sessions')->where('id', $this->pvPublie)->update(['updated_at' => now()->subDays(5)]);
+        $this->assertSame(1, (int) $this->api('reclamations_data', [], $jeton, 'get')->json('data.pv_list.0.reclamation_ouverte'));
+        $this->api('soumettre_reclamation', $motif, $jeton)->assertJson(['success' => true]);
+    }
+
+    public function test_publication_enregistre_la_date_de_depart(): void
+    {
+        DB::table('pv_sessions')->where('id', $this->pvPublie)->update(['statut' => 'finalise']);
+        $this->connecte(Utilisateur::where('role', 'admin')->first())->post($this->url('pv/statut'), ['pv_id' => $this->pvPublie, 'statut' => 'publie']);
+        $this->assertNotNull(DB::table('pv_publications')->where('pv_id', $this->pvPublie)->value('publie_le'));
     }
 
     public function test_reclamations_et_reinitialisation(): void

@@ -88,6 +88,8 @@ class PvController extends Controller
         DB::table('pv_sessions')->where('id', $pv->id)->update(['statut' => $statut, 'updated_at' => now()]);
         $this->journal->action($statut === 'publie' ? 'publier' : 'modifier', 'pv', "Statut du PV #{$pv->id} changé : {$pv->statut} → $statut", $pv->id);
         if ($statut === 'publie' && $pv->statut !== 'publie') {
+            // Point de départ du délai de réclamation (une simple modification ne le relance plus)
+            DB::table('pv_publications')->updateOrInsert(['pv_id' => $pv->id], ['publie_le' => now(), 'publie_par' => $request->user()->id]);
             event(new PvPublie($pv->id));
         }
 

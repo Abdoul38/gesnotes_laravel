@@ -7,6 +7,7 @@ use App\Services\Communication\Courriel;
 use App\Services\Communication\Sms;
 use App\Services\Identite;
 use App\Services\Licence;
+use App\Services\Pv;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -364,11 +365,12 @@ class ApiMobileController extends Controller
         $id = $this->etudiant->id;
         $pv = DB::table('pv_sessions as ps')->join('promotions as p', 'p.id', '=', 'ps.promotion_id')->join('semestres as s', 's.id', '=', 'ps.semestre_id')
             ->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')
+            ->leftJoin('pv_publications as pp', 'pp.pv_id', '=', 'ps.id')
             ->where('ps.statut', 'publie')->where('a.active', 1)
             ->whereExists(fn ($q) => $this->appartenance($q, $id))
             ->orderByDesc('a.libelle')->orderBy('s.code')
-            ->get(['ps.id', 'ps.libelle', 'ps.type_session', 's.libelle as semestre', 'a.libelle as annee', 'ps.updated_at as publie_le',
-                DB::raw('GREATEST(0, 72*3600 - TIMESTAMPDIFF(SECOND, ps.updated_at, NOW())) AS secondes_restantes')])
+            ->get(['ps.id', 'ps.libelle', 'ps.type_session', 's.libelle as semestre', 'a.libelle as annee', DB::raw(Pv::PUBLIE_LE_SQL.' AS publie_le'),
+                DB::raw('GREATEST(0, '.(Pv::DELAI_RECLAMATION_HEURES * 3600).' - TIMESTAMPDIFF(SECOND, '.Pv::PUBLIE_LE_SQL.', NOW())) AS secondes_restantes')])
             ->map(function ($pv) {
                 $pv->reclamation_ouverte = $pv->secondes_restantes > 0 ? 1 : 0;
                 $pv->heures_restantes = max(0, round($pv->secondes_restantes / 3600, 1));
@@ -415,12 +417,13 @@ class ApiMobileController extends Controller
         if (mb_strlen($motif) < 20) {
             return $this->erreur('Le motif doit contenir au moins 20 caractères');
         }
-        $pv = DB::table('pv_sessions')->where('id', $pvId)->first(['statut', DB::raw('TIMESTAMPDIFF(HOUR, updated_at, NOW()) AS heures')]);
+        $pv = DB::table('pv_sessions as ps')->leftJoin('pv_publications as pp', 'pp.pv_id', '=', 'ps.id')->where('ps.id', $pvId)
+            ->first(['ps.statut', DB::raw('TIMESTAMPDIFF(SECOND, '.Pv::PUBLIE_LE_SQL.', NOW()) AS secondes')]);
         if (! $pv || $pv->statut !== 'publie') {
             return $this->erreur("Ce PV n'est pas disponible pour les réclamations");
         }
-        if ((int) $pv->heures > 72) {
-            return $this->erreur('Le délai de réclamation de 72 heures est expiré pour ce PV');
+        if ((int) $pv->secondes > Pv::DELAI_RECLAMATION_HEURES * 3600) {
+            return $this->erreur('Le délai de réclamation de '.Pv::DELAI_RECLAMATION_HEURES.' heures est expiré pour ce PV');
         }
         $matiereDuPv = DB::table('pv_sessions as ps')->join('unites_enseignement as ue', fn ($j) => $j->on('ue.promotion_id', '=', 'ps.promotion_id')->on('ue.semestre_id', '=', 'ps.semestre_id'))
             ->join('matieres as m', 'm.ue_id', '=', 'ue.id')->where(['ps.id' => $pvId, 'm.id' => $matiere, 'm.actif' => 1])->exists();

@@ -24,6 +24,16 @@ class Pv
 {
     public const STATUTS = ['brouillon' => 'Brouillon', 'finalise' => 'Finalisé', 'publie' => 'Publié'];
 
+    /** Réclamations possibles pendant N heures après la publication du PV. */
+    public const DELAI_RECLAMATION_HEURES = 72;
+
+    /**
+     * Date de publication d'un PV (alias « ps ») en SQL : celle enregistrée dans
+     * pv_publications (jointure « pp ») ; à défaut — PV publiés par l'ancienne
+     * application — la dernière modification, comme avant.
+     */
+    public const PUBLIE_LE_SQL = 'COALESCE(pp.publie_le, ps.updated_at)';
+
     public const SESSIONS = ['normale' => '1ère Session (Normale)', 'rattrapage' => '2ème Session (Rattrapage)', 'deliberation' => 'Délibération',
         'reclamation' => 'Réclamation (fondées)', 'reclamation_depot' => 'Réclamation (déposées)'];
 

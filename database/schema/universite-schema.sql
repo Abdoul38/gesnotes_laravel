@@ -1221,6 +1221,16 @@ CREATE TABLE `pv_sessions` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `pv_publications` (
+  `pv_id` int(10) unsigned NOT NULL,
+  `publie_le` datetime NOT NULL DEFAULT current_timestamp(),
+  `publie_par` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`pv_id`),
+  CONSTRAINT `pv_publications_pv` FOREIGN KEY (`pv_id`) REFERENCES `pv_sessions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `reclamations` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `etudiant_id` int(11) NOT NULL,
