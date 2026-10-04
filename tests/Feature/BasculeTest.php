@@ -152,6 +152,18 @@ class BasculeTest extends TestCase
         $this->assertSame('UDH', app(Licence::class)->verifierInstallation()['institution']);
     }
 
+    public function test_configuration_complete(): void
+    {
+        // Une modification automatique ratée avait mis ces réglages en commentaire
+        foreach (['dossier_sauvegardes', 'ancienne_app_chemin', 'dossier_images_portail', 'espaces_comptes'] as $cle) {
+            $this->assertArrayHasKey($cle, config('gesnotes'), "Réglage gesnotes.$cle absent");
+        }
+        foreach (glob(base_path('{app,config,routes,resources/views}/**/*.php'), GLOB_BRACE) ?: [] as $fichier) {
+            $this->assertStringNotContainsString('/x27', (string) file_get_contents($fichier), $fichier);
+        }
+        $this->assertStringNotContainsString('/x27', (string) file_get_contents(config_path('gesnotes.php')));
+    }
+
     public function test_page_de_presentation_complete(): void
     {
         $this->get('http://localhost/')->assertOk()->assertSee('Des problèmes réels')->assertSee('//udh.localhost/connexion', false)

@@ -23,7 +23,11 @@ return [
     // comme dans l'ancienne application (base UDH).
     'espaces_comptes' => env('ESPACES_UNIVERSITE_COMPTES', 'udh'),
 
-    // Sauvegardes SQL (page Sauvegarde) : hors du dossier public, un/n    // sous-dossier par université./n    /x27dossier_sauvegardes/x27 => env(/x27DOSSIER_SAUVEGARDES/x27, storage_path(/x27app/private/sauvegardes/x27)),/n/n    // Pièces déposées par les candidats sur le portail (CNI, extrait de
+    // Sauvegardes SQL (page Sauvegarde) : hors du dossier public, un
+    // sous-dossier par université.
+    'dossier_sauvegardes' => env('DOSSIER_SAUVEGARDES', storage_path('app/private/sauvegardes')),
+
+    // Pièces déposées par les candidats sur le portail (CNI, extrait de
     // naissance…), consultées depuis le dossier étudiant.
     'dossier_pieces_candidats' => env('DOSSIER_PIECES_CANDIDATS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/uploads/pieces' : null),
 
