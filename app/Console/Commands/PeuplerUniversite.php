@@ -76,6 +76,10 @@ class PeuplerUniversite extends Command
         }
         $courante->definir($u);
         $fichier = storage_path("app/private/essais/peuplement-{$u->code}.json");
+        // Le nom de la base vient du .env (UNI_<CODE>_DB) : le montrer avant d'écrire quoi que ce soit
+        if (! $this->confirm("Base « {$u->base} » ({$u->sigle}) : ".($this->option('annuler') ? 'retirer le peuplement' : 'ajouter des étudiants d\'essai').' ?', false)) {
+            return self::FAILURE;
+        }
 
         if ($this->option('annuler')) {
             return $this->annuler($fichier);
