@@ -59,7 +59,7 @@ class InscriptionEnLigneController extends Controller
             return $retour->with('erreur', app(\App\Services\Candidatures::class)->config('message_inscription_fermee', 'Les inscriptions académiques sont actuellement fermées.'));
         }
         $candidat = Auth::guard('candidat')->id();
-        $r = $this->service->identifier((string) $request->input('identifiant'), (string) $request->input('date_naissance'), $this->sigle(), $candidat ? (int) $candidat : null);
+        $r = $this->service->identifier((string) $request->input('identifiant'), $this->sigle(), $candidat ? (int) $candidat : null);
         if (isset($r['erreur'])) {
             return $retour->withInput()->with('erreur', $r['erreur']);
         }

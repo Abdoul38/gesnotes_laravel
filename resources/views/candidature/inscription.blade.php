@@ -53,11 +53,6 @@
           style="font-family:monospace;font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase">
         <div class="form-hint" id="ins-detect-text">Saisissez votre matricule {{ $sigle }}, N° dossier (D...) ou N° dépôt ({{ strtolower($sigle) }}...)</div>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="ins-naissance">Date de naissance <span class="req">*</span></label>
-        <input type="date" name="date_naissance" id="ins-naissance" class="form-control" value="{{ old('date_naissance') }}" required max="{{ now()->toDateString() }}">
-        <div class="form-hint">Celle enregistrée à l'université : elle protège votre dossier.</div>
-      </div>
       <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center">🔍 Vérifier et continuer</button>
     </form>
   </div></div>

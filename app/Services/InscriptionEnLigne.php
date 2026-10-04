@@ -41,27 +41,20 @@ class InscriptionEnLigne
      *
      * @return array{erreur?: string, deja?: object, inscription?: int}
      */
-    public function identifier(string $identifiant, string $dateNaissance, string $sigle, ?int $candidatId): array
+    public function identifier(string $identifiant, string $sigle, ?int $candidatId): array
     {
         $identifiant = mb_strtoupper(trim($identifiant));
         $annee = $this->anneeActive();
         if ($identifiant === '' || ! $annee) {
             return ['erreur' => $identifiant === '' ? 'Veuillez saisir votre identifiant.' : 'Aucune année académique active : contactez la scolarité.'];
         }
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateNaissance)) {
-            return ['erreur' => 'Veuillez saisir votre date de naissance.'];
-        }
         $nouveau = str_starts_with($identifiant, 'D') || ($sigle !== '' && str_starts_with($identifiant, mb_strtoupper($sigle)));
         $et = DB::table('etudiants as e')->leftJoin('filieres as f', 'f.id', '=', 'e.filiere_id')
             ->when($nouveau, fn ($q) => $q->where(fn ($w) => $w->whereRaw('UPPER(e.numero_dossier) = ?', [$identifiant])->orWhereRaw('UPPER(e.numero_depot) = ?', [$identifiant])),
                 fn ($q) => $q->where('e.numero', $identifiant))
-            ->first(['e.id', 'e.nom', 'e.prenoms', 'e.filiere_id', 'e.date_naissance', 'f.libelle as filiere', 'f.faculte']);
-        // Identifiant ET date de naissance : connaître un matricule (ils se suivent) ne suffit plus.
-        // Même message que l'identifiant soit inconnu ou la date fausse : rien n'est révélé.
-        if (! $et || ! $et->date_naissance || substr((string) $et->date_naissance, 0, 10) !== $dateNaissance) {
-            return ['erreur' => $et && ! $et->date_naissance
-                ? "Votre date de naissance n'est pas enregistrée : présentez-vous au service de la scolarité."
-                : 'Identifiant ou date de naissance incorrects. Vérifiez votre '.($nouveau ? 'N° dossier ou N° dépôt' : 'matricule').' et votre date de naissance.'];
+            ->first(['e.id', 'e.nom', 'e.prenoms', 'e.filiere_id', 'f.libelle as filiere', 'f.faculte']);
+        if (! $et) {
+            return ['erreur' => $nouveau ? 'Numéro introuvable. Vérifiez votre N° dossier ou N° dépôt.' : 'Matricule introuvable. Vérifiez votre numéro.'];
         }
 
         $deja = DB::table('inscriptions_en_ligne')->where(['etudiant_id' => $et->id, 'annee_id' => $annee->id, 'statut_paiement' => 'valide'])->first();

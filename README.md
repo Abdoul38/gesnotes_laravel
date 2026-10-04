@@ -415,9 +415,14 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | ANAB, détail d'un étudiant : session non indiquée | colonne Session | deux lignes « S1 » sans explication |
 | Champs de note : décimales illimitées à la saisie, arrondies à 2 sans le montrer | 2 décimales, valeur arrondie à l'écran en quittant le champ | |
 | Comptes étudiants : mot de passe initial = matricule (les matricules se suivent et sont imprimés sur les cartes), jamais changé | mot de passe provisoire aléatoire affiché une seule fois à la génération ; nouveau mot de passe obligatoire à la première connexion (et pour les anciens comptes encore au matricule) | n'importe qui pouvait ouvrir le compte d'un étudiant (décidé après les essais) |
-| Inscription en ligne : le matricule (ou N° dossier) suffisait pour voir le nom et la filière d'un étudiant et ouvrir son inscription | date de naissance exigée en plus ; même message que l'identifiant soit inconnu ou la date fausse | les matricules se suivent (décidé après les essais) |
 | Vérification publique : le numéro seul (ils se suivent) donnait nom complet, mention, moyenne, filière | détail seulement avec la clé portée par le QR code (`CleVerification`, `VERIFICATION_SECRET`) ou pour le personnel connecté ; sinon authenticité, type, initiales, année — c'est aussi ce qu'affichent les documents imprimés avant ce changement | relevé de tous les étudiants par simple énumération (décidé après les essais) |
 | Ministère et ANAB : lecture des bases des universités avec le compte MySQL principal (droits d'écriture) | compte dédié facultatif `ESPACES_DB_USERNAME` / `ESPACES_DB_PASSWORD` (lecture seule + journal), à créer au moment de la bascule (`BASCULE.md`) | défense en profondeur (décidé après les essais) |
+
+## Décisions prises (université)
+
+- **Inscription en ligne par matricule seul** (décidé le 04/10/2026) : le matricule (ou N° dossier) suffit, comme
+  avant ; pas de date de naissance demandée. Risque accepté : les matricules se suivent, donc on peut voir le nom et
+  la filière d'un autre étudiant. Garde-fou conservé : limite de tentatives par adresse IP.
 
 ## Décisions à prendre (université)
 
