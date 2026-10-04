@@ -79,6 +79,11 @@ class SessionActive
         }
         $request->session()->put('derniere_activite', time());
 
+        // Mot de passe provisoire : rien d'autre tant qu'il n'est pas remplacé
+        if ($request->session()->get('mdp_a_changer')) {
+            return $request->routeIs('mot_de_passe_initial', 'mot_de_passe_initial.*', 'logout') ? $next($request) : redirect()->route('mot_de_passe_initial');
+        }
+
         // Étudiant et recteur : leur portail (et ses actions), la déconnexion et la vérification publique.
         $portail = ['etudiant' => 'portail_etudiant', 'recteur' => 'rectorat'][$utilisateur->role] ?? null;
         if ($portail && ! $request->routeIs($portail, $portail.'.*', 'logout', 'verifier_diplome')) {

@@ -11,7 +11,7 @@
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px">
       <strong>ℹ️ Règles de génération :</strong><br>
       • <strong>Email</strong> : prenom.nom.matricule@{{ $domaine }} (ex: <code>abdou.hamadou.12345@{{ $domaine }}</code>)<br>
-      • <strong>Mot de passe initial</strong> : le matricule de l'étudiant<br>
+      • <strong>Mot de passe provisoire</strong> : aléatoire, affiché <strong>une seule fois</strong> après la génération — imprimez la liste à ce moment-là. L'étudiant doit le changer à sa première connexion.<br>
       • L'étudiant peut changer son mot de passe après connexion
     </div>
 
@@ -120,8 +120,10 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header"><span class="card-title">📋 Détail des comptes générés</span></div>
+<div class="card" id="fiche-identifiants">
+  <div class="card-header"><span class="card-title">📋 Détail des comptes générés</span>
+    <button type="button" class="btn btn-primary btn-sm" data-print="1">🖨️ Imprimer les identifiants</button></div>
+  <div class="alert alert-warning" style="margin:12px 16px;font-size:12px">⚠️ Les mots de passe provisoires ne sont affichés qu'ici, une seule fois : imprimez cette liste maintenant. Un mot de passe perdu se remplace en régénérant le compte (option « écraser »).</div>
   <div class="card-body" style="padding:0">
     <table class="table" style="font-size:12px">
       <thead><tr><th>Nom & Prénoms</th><th>Matricule</th><th>Email généré</th><th>Mot de passe initial</th><th>Statut</th></tr></thead>
@@ -140,7 +142,7 @@
         <td style="font-weight:600">{{ $d['nom'] }}</td>
         <td style="color:var(--text-muted)">{{ $d['matricule'] ?: '—' }}</td>
         <td>@if ($d['login'])<code>{{ $d['login'] }}</code>@else—@endif</td>
-        <td>@if ($d['statut'] !== 'erreur')<code style="background:#fef3c7;padding:2px 6px;border-radius:4px">{{ $d['motdepasse'] ?? $d['matricule'] }}</code>@else—@endif</td>
+        <td>@if ($d['statut'] !== 'erreur')<code style="background:#fef3c7;padding:2px 6px;border-radius:4px">{{ $d['motdepasse'] ?? 'inchangé' }}</code>@else—@endif</td>
         <td>
           <span style="background:{{ $fond }};color:{{ $texte }};padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">{{ $libelle }}</span>
           @if ($d['msg'])<span style="font-size:10px;color:var(--red-600)">{{ $d['msg'] }}</span>@endif
@@ -153,3 +155,7 @@
 </div>
 @endif
 @endsection
+
+@push('head')
+<style>@media print{body *{visibility:hidden}#fiche-identifiants,#fiche-identifiants *{visibility:visible}#fiche-identifiants{position:absolute;left:0;top:0;width:100%}#fiche-identifiants .btn,#fiche-identifiants .alert{display:none}}</style>
+@endpush

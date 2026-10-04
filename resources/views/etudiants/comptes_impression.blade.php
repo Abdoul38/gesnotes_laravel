@@ -20,7 +20,7 @@ tr:nth-child(even) td{background:#f9f9f9}
 <h2>{{ mb_strtoupper($universite->nom) }}</h2>
 <h3>Identifiants de connexion — {{ $promo->filiere }} {{ $promo->niveau }} — {{ $promo->annee }}</h3>
 <table>
-<thead><tr><th>N°</th><th>Nom & Prénoms</th><th>Matricule</th><th>Email de connexion</th><th>Mot de passe initial</th></tr></thead>
+<thead><tr><th>N°</th><th>Nom & Prénoms</th><th>Matricule</th><th>Email de connexion</th><th>Première connexion</th></tr></thead>
 <tbody>
 @foreach ($comptes as $c)
 <tr>
@@ -28,13 +28,13 @@ tr:nth-child(even) td{background:#f9f9f9}
   <td>{{ $c->nom }} {{ $c->prenoms }}</td>
   <td style="text-align:center">{{ $c->numero }}</td>
   <td><code>{{ $c->email }}</code></td>
-  <td style="text-align:center"><span class="mdp">{{ $c->numero }}</span></td>
+  <td style="text-align:center">{{ $c->derniere_connexion ? 'faite' : 'à faire' }}</td>
 </tr>
 @endforeach
 </tbody>
 </table>
 <div class="footer">
-  NB : Le mot de passe initial est le matricule de l'étudiant. Il peut être changé après la première connexion.<br>
+  NB : le mot de passe provisoire a été remis à la génération des comptes et n'est pas conservé. Mot de passe perdu : régénérer le compte de l'étudiant (option « écraser »).<br>
   URL de connexion : {{ $urlConnexion }}
 </div>
 </body>

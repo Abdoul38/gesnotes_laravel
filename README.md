@@ -414,14 +414,10 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Attestations : « M. (Mlle.) », « Né (e) », « Inscrit (e) » pour tous | selon le sexe enregistré (formes neutres s'il ne l'est pas) | |
 | ANAB, détail d'un étudiant : session non indiquée | colonne Session | deux lignes « S1 » sans explication |
 | Champs de note : décimales illimitées à la saisie, arrondies à 2 sans le montrer | 2 décimales, valeur arrondie à l'écran en quittant le champ | |
+| Comptes étudiants : mot de passe initial = matricule (les matricules se suivent et sont imprimés sur les cartes), jamais changé | mot de passe provisoire aléatoire affiché une seule fois à la génération ; nouveau mot de passe obligatoire à la première connexion (et pour les anciens comptes encore au matricule) | n'importe qui pouvait ouvrir le compte d'un étudiant (décidé après les essais) |
 
 ## Décisions à prendre (université)
 
-- **Mot de passe initial des comptes étudiants = matricule** (repris tel quel). Les matricules se
-  suivent (00001, 00002…) et figurent sur les cartes : quiconque connaît un matricule peut ouvrir
-  le compte d'un étudiant qui n'a pas encore changé son mot de passe, voire le changer avant lui.
-  Recommandé : mot de passe provisoire aléatoire, imprimé une seule fois à la génération, et
-  changement obligatoire à la première connexion (demande une colonne dans `utilisateurs`).
 - **Réclamation fondée sur un PV verrouillé** : comme avant, la note est corrigée et les résultats
   recalculés même si le PV source est verrouillé (c'est la procédure prévue après délibération).
   Faut-il plutôt exiger le déverrouillage, comme pour les autres modifications ?

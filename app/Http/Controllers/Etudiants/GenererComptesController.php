@@ -15,10 +15,14 @@ use Throwable;
 /**
  * Génération des comptes étudiants en masse — portage de
  * pages/etudiants/generer_comptes_etudiants.php (admin / sc_centrale).
- * Identifiant : prenom.nom.matricule@<code>.ne ; mot de passe initial :
- * le matricule (règle de l'université, voir README « Décisions à prendre »).
+ * Identifiant : prenom.nom.matricule@<code>.ne ; mot de passe provisoire
+ * aléatoire, affiché une seule fois dans le rapport de génération (jamais
+ * stocké en clair) et à changer à la première connexion.
  *
  * Différences voulues :
+ *  - mot de passe initial aléatoire au lieu du matricule (les matricules se
+ *    suivent et figurent sur les cartes : n'importe qui pouvait ouvrir le
+ *    compte d'un étudiant qui ne l'avait pas encore changé) ;
  *  - un étudiant SANS matricule n'a plus de compte au mot de passe vide :
  *    il est signalé en erreur ;
  *  - domaine de l'identifiant d'après l'université (udh.ne pour l'UDH,
@@ -69,14 +73,16 @@ class GenererComptesController extends Controller
                 continue;
             }
             try {
-                $valeurs = ['email' => $login, 'mot_de_passe' => Hash::make($matricule), 'nom' => $et->nom, 'prenoms' => $et->prenoms];
+                $provisoire = self::motDePasseProvisoire();
+                // derniere_connexion vide : changement obligatoire à la première connexion
+                $valeurs = ['email' => $login, 'mot_de_passe' => Hash::make($provisoire), 'nom' => $et->nom, 'prenoms' => $et->prenoms, 'derniere_connexion' => null];
                 if ($compte) {
                     DB::table('utilisateurs')->where('id', $compte)->update($valeurs);
                 } else {
                     DB::table('utilisateurs')->insert($valeurs + ['role' => 'etudiant', 'etudiant_id' => $et->id, 'actif' => 1]);
                 }
                 $rapport['crees']++;
-                $rapport['details'][] = ['statut' => $compte ? 'mis_a_jour' : 'cree', 'motdepasse' => $matricule] + $ligne;
+                $rapport['details'][] = ['statut' => $compte ? 'mis_a_jour' : 'cree', 'motdepasse' => $provisoire] + $ligne;
             } catch (Throwable $e) {
                 Log::error("Génération du compte de l'étudiant {$et->id} : ".$e->getMessage());
                 $rapport['erreurs']++;
@@ -168,5 +174,21 @@ class GenererComptesController extends Controller
         }
 
         return $login;
+    }
+    /**
+     * 10 caractères, lettres et chiffres, sans caractères ambigus à la
+     * lecture (0/O, 1/l/I) : il est recopié depuis une feuille imprimée.
+     */
+    public static function motDePasseProvisoire(): string
+    {
+        $lettres = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+        $chiffres = '23456789';
+        $tous = $lettres.$chiffres;
+        $mdp = $lettres[random_int(0, strlen($lettres) - 1)].$chiffres[random_int(0, strlen($chiffres) - 1)];
+        for ($i = 0; $i < 8; $i++) {
+            $mdp .= $tous[random_int(0, strlen($tous) - 1)];
+        }
+
+        return str_shuffle($mdp);
     }
 }

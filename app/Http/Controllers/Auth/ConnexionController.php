@@ -11,6 +11,7 @@ use App\Universites\UniversiteCourante;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -68,9 +69,19 @@ class ConnexionController extends Controller
             'derniere_activite' => time(),
         ]);
 
+        // Étudiant : mot de passe provisoire (jamais connecté) ou encore égal à son
+        // matricule → nouveau mot de passe obligatoire avant d'accéder au portail
+        $aChanger = $utilisateur->role === 'etudiant' && ($utilisateur->derniere_connexion === null
+            || $motDePasse === (string) DB::table('etudiants')->where('id', (int) $utilisateur->etudiant_id)->value('numero'));
         $utilisateur->forceFill(['derniere_connexion' => now()])->saveQuietly();
         $this->journal->audit('LOGIN', 'utilisateurs', $utilisateur->id);
         $this->journal->action('connexion', 'auth', 'Connexion réussie', $utilisateur->id);
+
+        if ($aChanger) {
+            $request->session()->put('mdp_a_changer', true);
+
+            return redirect()->route('mot_de_passe_initial');
+        }
 
         // Même destination selon le rôle que l'ancien login.php ;
         // un portail pas encore migré s'ouvre dans l'ancienne application.
