@@ -17,6 +17,11 @@ return [
     // Racine de l'ancienne application (images du portail candidats…).
     'ancienne_app_chemin' => env('ANCIENNE_APP_CHEMIN'),
 
+    // Espaces Ministère (MESR) et ANAB : leurs comptes (mesr_comptes,
+    // anab_comptes) et leur journal sont dans la base de cette université,
+    // comme dans l'ancienne application (base UDH).
+    'espaces_comptes' => env('ESPACES_UNIVERSITE_COMPTES', 'udh'),
+
     // Sauvegardes SQL (page Sauvegarde) : hors du dossier public, un/n    // sous-dossier par université./n    /x27dossier_sauvegardes/x27 => env(/x27DOSSIER_SAUVEGARDES/x27, storage_path(/x27app/private/sauvegardes/x27)),/n/n    // Pièces déposées par les candidats sur le portail (CNI, extrait de
     // naissance…), consultées depuis le dossier étudiant.
     'dossier_pieces_candidats' => env('DOSSIER_PIECES_CANDIDATS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/uploads/pieces' : null),

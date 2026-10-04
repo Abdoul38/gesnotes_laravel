@@ -1,5 +1,9 @@
 <?php
 
+use App\Models\Candidat;
+use App\Models\Espaces\CompteAnab;
+use App\Models\Espaces\CompteMesr;
+use App\Models\ParentEleve;
 use App\Models\Utilisateur;
 
 return [
@@ -52,6 +56,15 @@ return [
             'driver' => 'session',
             'provider' => 'candidats',
         ],
+        // Espaces Ministère et ANAB (sous-domaines ministere. et anab.)
+        'mesr' => [
+            'driver' => 'session',
+            'provider' => 'comptes_mesr',
+        ],
+        'anab' => [
+            'driver' => 'session',
+            'provider' => 'comptes_anab',
+        ],
     ],
 
     /*
@@ -78,11 +91,19 @@ return [
         ],
         'parents' => [
             'driver' => 'eloquent',
-            'model' => App\Models\ParentEleve::class,
+            'model' => ParentEleve::class,
         ],
         'candidats' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Candidat::class,
+            'model' => Candidat::class,
+        ],
+        'comptes_mesr' => [
+            'driver' => 'eloquent',
+            'model' => CompteMesr::class,
+        ],
+        'comptes_anab' => [
+            'driver' => 'eloquent',
+            'model' => CompteAnab::class,
         ],
 
         // 'users' => [

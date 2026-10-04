@@ -133,9 +133,10 @@ class SessionEtAccesTest extends TestCase
         $this->assertStringContainsString("script-src 'self'", $this->get($this->url('connexion'))->headers->get('Content-Security-Policy'));
     }
 
-    public function test_espace_ministere_pas_encore_disponible(): void
+    public function test_espace_ministere_ne_sert_que_ses_pages(): void
     {
-        $this->get('http://ministere.localhost/connexion')->assertNotFound();
+        // La connexion du personnel n'existe pas sur le sous-domaine du ministère
+        $this->get('http://ministere.localhost/connexion')->assertRedirect('http://ministere.localhost/ministere');
     }
 
     public function test_page_de_presentation_sur_le_domaine_nu(): void

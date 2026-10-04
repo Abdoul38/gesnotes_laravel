@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'roles' => ExigerRoles::class,
             'parent' => \App\Http\Middleware\ParentConnecte::class,
             'candidat' => \App\Http\Middleware\CandidatConnecte::class,
+            'espace' => \App\Http\Middleware\EspaceConnecte::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));

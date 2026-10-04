@@ -171,7 +171,17 @@ Plan en 13 étapes (section 11 de l'inventaire).
     (`parametres`), licence (`parametres_licence`, adresse `/licence`, ouverte même licence invalide), sauvegarde
     (`sauvegarde`), journaux (`logs`).
   - Non repris : `utilisateur_form` (nom autorisé par l'ancien routeur, sans fichier).
-- [ ] Étapes 12 et 13
+- [x] **Étape 12 — Ministère et ANAB** : espaces servis sur leur sous-domaine (`ministere.<domaine>`, `anab.<domaine>`),
+      routes `routes/espaces.php` (`/ministere`, `/anab`). Ministère : tableau de bord national (vue nationale, évolution,
+      comparaison et filières équivalentes, détail université → faculté → filière, PV, journal), export Excel, rapport et
+      PV imprimables. ANAB : étudiants éligibles (S1–S4 validés, licence et DUT) et dossier. Pour les deux : connexion,
+      mot de passe, gestion des comptes (administrateurs).
+  - Gardes `mesr` et `anab` (modèles `Espaces\CompteMesr`, `Espaces\CompteAnab`, tables existantes `mesr_comptes`,
+    `anab_comptes`, dans la base de `ESPACES_UNIVERSITE_COMPTES`, UDH par défaut), middleware `espace` / `espace:admin`.
+  - Service `IndicateursNationaux` : lit chaque université tour à tour (`UniversiteCourante::pour`) avec le calcul du
+    rectorat (étape 9), en cache 5 min par université ; une base injoignable est « hors ligne » sans bloquer les autres.
+  - Non repris : la table `mesr_cache` (cache de l'application à la place).
+- [ ] Étape 13 (bascule)
 
 ## Comportements volontairement modifiés
 
@@ -365,6 +375,13 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Paramètres : valeurs par défaut de l'UDH (nom, ville, contacts) écrites dans la base de toute nouvelle université ; images contrôlées par l'extension (logo, armoirie) | nom et ville de l'université courante, contacts vides ; contenu vérifié, 2 Mo | |
 | Licence : clé d'un autre établissement acceptée (puis application bloquée) ; page dans l'application bloquée par… la licence | refusée à l'activation ; `/licence` reste ouverte à l'administrateur | |
 | Sauvegarde : dossier commun à toutes les universités, téléchargement par nom de fichier (la sauvegarde d'une autre université était récupérable) ; tables entières chargées en mémoire ; erreur SQL affichée | un dossier par université hors du dossier web (`DOSSIER_SAUVEGARDES`), téléchargement par numéro ; écriture au fil de l'eau ; erreur dans le journal du serveur | fuite d'une base entière |
+| **Étape 12** | | |
+| Ministère : chaque consultation créait des tables, ajoutait des colonnes et marquait « finalisées » les matières notées dans la base de CHAQUE université | lecture seule | écriture dans les données des universités depuis un compte extérieur |
+| Ministère : détail d'un PV ouvert par numéro, brouillons compris ; journal des exports PDF écrit par le navigateur, sans jeton | PV finalisés ou publiés seulement ; exports produits et journalisés par le serveur | |
+| Taux de passage national : licences validées comptées deux fois ; répartition H/F : tous les étudiants « actifs » de la base, toutes années | comptées une fois ; inscrits de l'année affichée | chiffres faux |
+| ANAB : résultats des PV en brouillon pris en compte ; filière insérée dans la requête SQL ; aucune trace des dossiers consultés | PV finalisés ou publiés ; paramètres liés ; chaque dossier consulté inscrit au journal d'activité de l'université concernée | données personnelles consultées par un organisme extérieur |
+| Connexion Ministère / ANAB : jeton CSRF écrit dans l'attribut `action` du formulaire (jamais envoyé : « Session expirée ») ; drapeau de session sans expiration (24 h pour l'ANAB), compte désactivé resté connecté ; déconnexion par lien | connexion réparée, 5 essais puis 5 min ; 30 min d'inactivité ; compte relu à chaque requête ; déconnexion en POST | |
+| Comptes Ministère / ANAB : rôle quelconque envoyé à la base ; mot de passe de réinitialisation saisi en clair, 8 caractères quelconques ; propre compte et dernier administrateur désactivables | rôle contrôlé ; champ masqué, lettres et chiffres ; protégés | |
 
 ## Décisions à prendre (université)
 
@@ -430,6 +447,13 @@ Plan en 13 étapes (section 11 de l'inventaire).
   du serveur.
 - **Signature de l'autorité** (cartes étudiantes) : comme avant, l'image est rangée avec les logos, servis sans
   connexion (pour la page de connexion). La servir aux seuls utilisateurs connectés, comme le cachet ?
+- **Utilisateur MySQL en lecture seule pour le Ministère et l'ANAB** : ces espaces lisent toutes les bases avec le même
+  compte MySQL que les universités. Le code est désormais en lecture seule, mais un compte MySQL limité à `SELECT`
+  (plus l'écriture des journaux) protégerait les données même en cas de faille. À prévoir lors de la bascule ?
+- **Mentions de l'ANAB** : seuils fixes 16 / 14 / 12 et éligibilité à 12/20 (repris tels quels, point A4) alors que
+  les PV utilisent les seuils de chaque université. Unifier ?
+- **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
+  à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier

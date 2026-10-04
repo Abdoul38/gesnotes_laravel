@@ -44,7 +44,8 @@ return [
         'uim' => $universite('uim', ['nom' => 'Université Islamique de Niamey', 'sigle' => 'UIM', 'ville' => 'Niamey', 'couleur' => '#166534', 'logo' => 'logo_uaz.png']),
 
         // Espaces nationaux : pas de base propre, ils lisent les bases des
-        // universités (leurs comptes sont dans la base UDH). Migrés plus tard.
+        // universités (leurs comptes sont dans la base UDH, voir
+        // gesnotes.espaces_comptes) — routes/espaces.php.
         'ministere' => $universite('ministere', ['nom' => "Ministère de l'Enseignement Supérieur", 'sigle' => 'MESR', 'ville' => 'Niamey', 'couleur' => '#1A3A5C', 'logo' => 'logo_niger.png', 'espace' => 'ministere', 'base' => null]),
         'anab' => $universite('anab', ['nom' => 'Agence Nationale des Bourses', 'sigle' => 'ANAB', 'ville' => 'Niamey', 'couleur' => '#7C3AED', 'logo' => 'logo_anab.png', 'espace' => 'anab', 'base' => null]),
     ],

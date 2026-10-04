@@ -35,6 +35,7 @@ Route::middleware(['parent', 'licence'])->group(function () {
 Route::get('/fichiers/logos/{fichier}', [FichierController::class, 'logo'])->name('fichiers.logo');
 
 require __DIR__.'/candidature.php';
+require __DIR__.'/espaces.php';
 
 Route::middleware('auth')->group(function () {
     Route::post('/deconnexion', [ConnexionController::class, 'deconnecter'])->name('logout');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Espaces\Espaces;
 use App\Navigation\Menu;
 use App\Universites\UniversiteCourante;
 use Closure;
@@ -32,6 +33,11 @@ class SessionActive
 
     public function handle(Request $request, Closure $next): Response
     {
+        // Espaces Ministère / ANAB : sessions et comptes propres (middleware « espace »)
+        if (Espaces::courant($request)) {
+            return $next($request);
+        }
+
         // Session ouverte dans une autre université (même cookie) : on la
         // ferme AVANT de charger l'utilisateur, sinon l'identifiant de
         // l'université A serait lu dans la base de l'université B.

@@ -33,6 +33,13 @@ table.res { width: 100%; border-collapse: collapse; font-size: 10px; }
   <a href="#" data-window-close="1">✕ Fermer</a>
 </div>
 <div class="page">
+  @isset($entete)
+  {{-- Extrait depuis le tableau de bord national du ministère --}}
+  <div style="text-align:center;margin-bottom:14px">
+    <div style="font-weight:700;font-size:13px">MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR, DE LA RECHERCHE ET DE L'INNOVATION</div>
+    <div style="font-size:11px;margin-top:2px">République du Niger — {{ $entete }}</div>
+  </div>
+  @endisset
   <div style="text-align:center;font-weight:700;font-size:16px;text-decoration:underline">{{ $type === 'admis' ? 'LISTE DES ÉTUDIANTS ADMIS' : 'PROCÈS-VERBAL DE DÉLIBÉRATION' }}</div>
   <table class="infos">
     <tr><td><strong>Faculté :</strong> {{ $pv->faculte ?: '—' }}</td><td><strong>Filière :</strong> {{ $pv->filiere }}</td></tr>
@@ -58,6 +65,7 @@ table.res { width: 100%; border-collapse: collapse; font-size: 10px; }
     <div>Le Doyen / Directeur<br><br><br>______________________</div>
   </div>
   @endif
+  @isset($entete)<div style="margin-top:30px;font-size:9px;color:#6b7280;text-align:center">Document extrait du tableau de bord national MESR — consultation en lecture seule</div>@endisset
 </div>
 <script src="{{ asset('assets/js/impression.js') }}"></script>
 </body>

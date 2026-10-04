@@ -26,6 +26,23 @@ class UniversiteCourante
         $this->universite = $universite;
     }
 
+    /**
+     * Exécute $traitement sur la base de $universite, puis revient à
+     * l'université d'avant (tableaux de bord du ministère et de l'ANAB).
+     */
+    public function pour(Universite $universite, \Closure $traitement): mixed
+    {
+        $avant = $this->universite;
+        $this->definir($universite);
+        try {
+            return $traitement();
+        } finally {
+            if ($avant) {
+                $this->definir($avant);
+            }
+        }
+    }
+
     public function get(): Universite
     {
         return $this->universite ?? throw new RuntimeException('Aucune université définie pour cette requête.');

@@ -27,6 +27,15 @@
         <env name="DB_CONNECTION" value="universite"/>
         <env name="UNI_UDH_DB" value="gesnotes_test_udh"/>
         <env name="UNI_UAM_DB" value="gesnotes_test_uam"/>
+        <!-- Les autres universités sont désactivées : les tableaux de bord nationaux
+             (Ministère, ANAB) ne lisent ainsi que les bases de test. -->
+        <env name="UNI_UDO_ACTIF" value="false"/>
+        <env name="UNI_UDA_ACTIF" value="false"/>
+        <env name="UNI_UDDM_ACTIF" value="false"/>
+        <env name="UNI_UAS_ACTIF" value="false"/>
+        <env name="UNI_UBB_ACTIF" value="false"/>
+        <env name="UNI_UAZ_ACTIF" value="false"/>
+        <env name="UNI_UIM_ACTIF" value="false"/>
         <env name="UNIVERSITES_DOMAINE" value="localhost"/>
         <env name="UNIVERSITES_PARAMETRE_UNI" value="false"/>
         <env name="LICENCE_SECRET" value="secret-de-test"/>
