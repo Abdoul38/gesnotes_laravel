@@ -34,6 +34,7 @@ class PeuplerUniversite extends Command
         {universite : code de l\'université}
         {--etudiants=6 : étudiants par parcours et par promotion d\'entrée}
         {--annuler : retire tout ce qu\'un peuplement précédent a créé}
+        {--heures : déclare des heures faites (et complète les volumes prévus manquants) sur les trois années, après un peuplement}
         {--base-reelle-autorisee : autorise l\'écriture dans une base dont le nom ne contient pas _test}';
 
     protected $description = 'Ajoute (ou retire avec --annuler) des étudiants d\'essai et leur parcours dans une base d\'université existante';
@@ -83,6 +84,9 @@ class PeuplerUniversite extends Command
 
         if ($this->option('annuler')) {
             return $this->annuler($fichier);
+        }
+        if ($this->option('heures')) {
+            return $this->heures($fichier);
         }
         if (is_file($fichier)) {
             $this->error('Un peuplement existe déjà pour cette université : lancer d\'abord --annuler.');
@@ -375,6 +379,10 @@ class PeuplerUniversite extends Command
         }
         $m = json_decode((string) file_get_contents($fichier), true);
         $et = $m['etudiants'] ?? [];
+        // Heures et volumes : anciennes valeurs remises
+        foreach ($m['heures'] ?? [] as $matiere => [$volume, $heures]) {
+            DB::table('matieres')->where('id', (int) $matiere)->update(['volume_horaire_prevu' => $volume, 'heures_faites' => $heures]);
+        }
         DB::transaction(function () use ($m, $et) {
             foreach (['notes', 'resultats_semestre', 'resultats_ue', 'inscriptions_pedagogiques', 'inscriptions', 'paiements', 'passages_niveau', 'parents_etudiants'] as $t) {
                 DB::table($t)->whereIn('etudiant_id', $et)->delete();
@@ -404,6 +412,58 @@ class PeuplerUniversite extends Command
         }
         rename($fichier, $fichier.'.annule-'.date('Ymd-His'));
         $this->info(count($et).' étudiant(s) d\'essai et leurs données retirés.');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Heures faites des matières des trois années (aujourd'hui presque toutes à
+     * 0) : 85–100 % du volume prévu pour les années terminées, 30–70 % pour
+     * l'année active. Une matière sans volume prévu (maquette copiée) reprend
+     * celui de la même matière (même code) d'une autre année. Seules les
+     * matières à 0 heure sont touchées ; leurs anciennes valeurs vont dans le
+     * manifeste (remises par --annuler).
+     */
+    private function heures(string $fichier): int
+    {
+        if (! is_file($fichier)) {
+            $this->error('Lancer d\'abord le peuplement (le manifeste garde les anciennes valeurs).');
+
+            return self::FAILURE;
+        }
+        $m = json_decode((string) file_get_contents($fichier), true);
+        $m['heures'] ??= [];
+        // Années du peuplement (celles où les étudiants d'essai sont inscrits), quelle que soit l'année active aujourd'hui
+        $annees = DB::table('annees_academiques')->whereIn('id', DB::table('inscriptions')->whereIn('etudiant_id', $m['etudiants'] ?? [])->distinct()->pluck('annee_id'))
+            ->orderBy('libelle')->get()->all();
+        if (! $annees) {
+            $this->error("Aucune inscription d'essai trouvée.");
+
+            return self::FAILURE;
+        }
+        $active = end($annees)->id;
+        $volumes = DB::table('matieres')->whereNotNull('volume_horaire_prevu')->where('volume_horaire_prevu', '>', 0)
+            ->groupBy('code')->get(['code', DB::raw('MAX(volume_horaire_prevu) AS v')])->pluck('v', 'code');
+        $matieres = DB::table('matieres as m')->join('unites_enseignement as ue', 'ue.id', '=', 'm.ue_id')->join('promotions as p', 'p.id', '=', 'ue.promotion_id')
+            ->whereIn('p.annee_id', array_map(fn ($a) => $a->id, $annees))->where('m.actif', 1)->where('m.heures_faites', 0)
+            ->get(['m.id', 'm.code', 'm.volume_horaire_prevu', 'm.heures_faites', 'p.annee_id']);
+        mt_srand(crc32('heures'.count($matieres)));
+        $nb = ['heures' => 0, 'volumes' => 0];
+        DB::transaction(function () use ($matieres, $volumes, $active, &$m, &$nb) {
+            foreach ($matieres as $mat) {
+                $volume = $mat->volume_horaire_prevu !== null ? (float) $mat->volume_horaire_prevu : (isset($volumes[$mat->code]) ? (float) $volumes[$mat->code] : null);
+                if (! $volume) {
+                    continue;
+                }
+                $part = (int) $mat->annee_id === (int) $active ? mt_rand(30, 70) : mt_rand(85, 100);
+                $m['heures'][$mat->id] ??= [$mat->volume_horaire_prevu, $mat->heures_faites];
+                DB::table('matieres')->where('id', $mat->id)->update(['volume_horaire_prevu' => $volume, 'heures_faites' => round($volume * $part / 100 * 2) / 2]);
+                $nb['heures']++;
+                $nb['volumes'] += $mat->volume_horaire_prevu === null ? 1 : 0;
+            }
+        });
+        file_put_contents($fichier, json_encode($m, JSON_PRETTY_PRINT));
+        $this->info("Heures déclarées pour {$nb['heures']} matière(s), dont {$nb['volumes']} sans volume prévu complétée(s) depuis la même matière d'une autre année.");
 
         return self::SUCCESS;
     }
