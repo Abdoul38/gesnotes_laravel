@@ -131,8 +131,8 @@ class AnabController extends Controller
             ->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')->join('filieres as f', 'f.id', '=', 'p.filiere_id')
             ->join('niveaux as n', 'n.id', '=', 'p.niveau_id')
             ->where('rs.etudiant_id', $id)->whereIn('ps.statut', ['finalise', 'publie'])
-            ->orderBy('a.libelle')->orderBy('n.code')->orderBy('ps.libelle')
-            ->get(['a.libelle as annee', 'n.code as niveau', 'f.libelle as filiere', DB::raw('COALESCE(s.code, ps.libelle) AS sem_code'),
+            ->orderBy('a.libelle')->orderBy('n.code')->orderBy('s.code')->orderByRaw("ps.type_session = 'normale' DESC")
+            ->get(['a.libelle as annee', 'n.code as niveau', 'f.libelle as filiere', DB::raw('COALESCE(s.code, ps.libelle) AS sem_code'), 'ps.type_session',
                 'rs.moyenne_generale', 'rs.credits_obtenus', 'rs.credits_total', 'rs.mention', 'rs.valide', 'rs.defaillant', 'rs.rang']);
         $passages = DB::table('passages_niveau as pn')->join('annees_academiques as a', 'a.id', '=', 'pn.annee_depart_id')
             ->join('filieres as f', 'f.id', '=', 'pn.filiere_id')->where('pn.etudiant_id', $id)->orderByDesc('a.libelle')

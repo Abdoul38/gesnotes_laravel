@@ -24,6 +24,11 @@ class Maquette
      * Différence voulue : l'original assemblait les matières avec GROUP_CONCAT,
      * tronqué à 1 024 caractères par MySQL — une UE riche en matières n'était
      * copiée qu'en partie, sans message. Les matières sont lues ici normalement.
+     * Sont aussi recopiés (décision de l'université) : le nombre de matières à
+     * choisir d'une UE, le type « optionnelle » et le volume horaire prévu —
+     * l'original les perdait (maquette à options redevenue obligatoire,
+     * exécution du programme repartie de « volume non fixé » chaque année).
+     * Les heures faites et la finalisation, propres à une année, repartent de zéro.
      */
     public function copierUEs(int $promotionCible, ?int $promotionSource = null, bool $forcer = false): int
     {
@@ -62,6 +67,7 @@ class Maquette
                         'promotion_id' => $promotionCible, 'semestre_id' => $ue->semestre_id,
                         'code' => $ue->code, 'libelle' => $ue->libelle,
                         'credits_total' => $ue->credits_total, 'ordre' => $ue->ordre,
+                        'nb_options_a_choisir' => $ue->nb_options_a_choisir ?? 0,
                     ]);
                 } catch (QueryException) {
                     continue; // doublon ignoré, comme l'original
@@ -75,6 +81,7 @@ class Maquette
                         'note_max_examen' => $m->note_max_examen, 'note_max_cc' => $m->note_max_cc,
                         'note_max_totale' => $m->note_max_totale, 'credits' => $m->credits,
                         'coefficient' => $m->coefficient ?? 1, 'ordre' => $m->ordre ?? 0,
+                        'type_matiere' => $m->type_matiere ?? 'obligatoire', 'volume_horaire_prevu' => $m->volume_horaire_prevu,
                     ]);
                 }
             }

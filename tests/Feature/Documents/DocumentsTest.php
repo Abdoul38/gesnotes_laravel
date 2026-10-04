@@ -76,7 +76,9 @@ class DocumentsTest extends TestCase
         $pvS3 = DB::table('pv_sessions')->where('libelle', 'PV S3 L2')->value('id');
         $this->connecte($this->admin)->get($this->url('attestations/reussite'))->assertOk()->assertSee('Économie — L2 — S3', false);
         $this->get($this->url("attestations/reussite?pv_id=$pvS3&et_id={$this->alpha}"))->assertOk()
-            ->assertSee('Attestation de Réussite')->assertSee('ALPHA Awa')->assertSee('Admise');
+            ->assertSee('Attestation de Réussite')->assertSee('ALPHA Awa')->assertSee('Admise')
+            // Civilité selon le sexe (avant : « M. (Mlle.) » pour tous)
+            ->assertSee('Mlle ALPHA Awa')->assertSee('Inscrite sous le n°')->assertDontSee('M. (Mlle')->assertDontSee('Née (e)');
         // BETA n'a pas validé S3 : plus de fausse attestation « Admis »
         $this->get($this->url("attestations/reussite?pv_id=$pvS3&et_id={$this->beta}"))->assertRedirect($this->url('attestations/reussite'))
             ->assertSessionHas('erreur', "Pas d'attestation de réussite : l'étudiant n'est pas admis dans ce PV.");

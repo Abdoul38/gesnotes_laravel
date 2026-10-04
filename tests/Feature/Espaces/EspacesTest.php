@@ -125,6 +125,20 @@ class EspacesTest extends TestCase
         $this->mesr($lecteur)->get($this->url('ministere?onglet=journal', 'ministere'))->assertOk()->assertViewHas('onglet', 'national');
     }
 
+    public function test_taux_de_passage_sans_decision(): void
+    {
+        // Année en cours : aucune décision de passage encore — « — » et pas de fausse baisse
+        foreach (['uam', 'udh'] as $code) {
+            $this->universite($code);
+            DB::table('passages_niveau')->delete();
+        }
+        $page = $this->mesr($this->compteMesr())->get($this->url('ministere', 'ministere'))->assertOk();
+        $this->assertNull($page->viewData('totaux')['taux_passage']);
+        $this->assertNull($page->viewData('totaux')['delta_taux']);
+        $page->assertSee('color:#6b7280">—</div>', false);
+        $this->get($this->url('ministere/rapport', 'ministere'))->assertOk()->assertSee('<strong>—</strong>Taux de passage', false);
+    }
+
     public function test_pv_publies_seulement_et_exports(): void
     {
         $this->mesr($this->compteMesr());
@@ -191,7 +205,8 @@ class EspacesTest extends TestCase
         $this->get($this->url('anab?univ=udh&q=inconnu', 'anab'))->assertViewHas('eligibles', []);
         $this->get($this->url('anab?univ=pirate', 'anab'))->assertOk()->assertViewHas('uni', null);
 
-        $this->get($this->url("anab?univ=udh&etudiant=$et1", 'anab'))->assertOk()->assertSee('UDH-ETU1')->assertSee('Éligible bourse L2');
+        $this->get($this->url("anab?univ=udh&etudiant=$et1", 'anab'))->assertOk()->assertSee('UDH-ETU1')->assertSee('Éligible bourse L2')
+            ->assertSee('<th>Session</th>', false)->assertSee('Session normale');
         $this->assertTrue(DB::table('audit_log')->where('module', 'anab')->where('cible_id', $et1)->where('user_nom', 'ANAB — Agent Bourses')->exists());
 
         // Un agent ne gère pas les comptes

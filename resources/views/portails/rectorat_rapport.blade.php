@@ -1,4 +1,5 @@
 {{-- Rapport de synthèse du rectorat, imprimable (remplace l'export html2pdf de rectorat.php) --}}
+@php $pctTaux = fn ($t) => $t === null ? '—' : $t.'%'; @endphp
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -35,7 +36,7 @@ td:first-child { text-align: left; }
   </div>
   <div class="kpi">
     <div><strong>{{ number_format($stats['inscrits'], 0, '', ' ') }}</strong>Inscrits</div>
-    <div><strong>{{ $stats['taux_passage'] }}%</strong>Taux de passage</div>
+    <div><strong>{{ $pctTaux($stats['taux_passage']) }}</strong>Taux de passage</div>
     <div><strong>{{ $stats['taux_programme'] }}%</strong>Programme</div>
     <div><strong>{{ number_format($stats['pv_publies'], 0, '', ' ') }}</strong>PV publiés</div>
   </div>
@@ -43,9 +44,9 @@ td:first-child { text-align: left; }
     <thead><tr><th>Faculté</th><th>Inscrits</th><th>Passages</th><th>Redoublants</th><th>Taux passage</th><th>Programme</th></tr></thead>
     <tbody>
     @foreach ($stats['facultes'] as $f)
-    <tr><td>{{ $f['faculte'] }}</td><td>{{ number_format($f['inscrits'], 0, '', ' ') }}</td><td>{{ $f['passages'] }}</td><td>{{ $f['redoublants'] }}</td><td>{{ $f['taux'] }}%</td><td>{{ $f['taux_programme'] }}%</td></tr>
+    <tr><td>{{ $f['faculte'] }}</td><td>{{ number_format($f['inscrits'], 0, '', ' ') }}</td><td>{{ $f['passages'] }}</td><td>{{ $f['redoublants'] }}</td><td>{{ $pctTaux($f['taux']) }}</td><td>{{ $f['taux_programme'] }}%</td></tr>
     @endforeach
-    <tr style="font-weight:700;background:#f0f4ff"><td>TOTAL</td><td>{{ number_format($stats['inscrits'], 0, '', ' ') }}</td><td>{{ $stats['passages'] }}</td><td>{{ $stats['redoublants'] }}</td><td>{{ $stats['taux_passage'] }}%</td><td>{{ $stats['taux_programme'] }}%</td></tr>
+    <tr style="font-weight:700;background:#f0f4ff"><td>TOTAL</td><td>{{ number_format($stats['inscrits'], 0, '', ' ') }}</td><td>{{ $stats['passages'] }}</td><td>{{ $stats['redoublants'] }}</td><td>{{ $pctTaux($stats['taux_passage']) }}</td><td>{{ $stats['taux_programme'] }}%</td></tr>
     </tbody>
   </table>
   <div style="margin-top:24px;font-size:9px;color:#6b7280;text-align:center">Généré depuis le tableau de bord du rectorat — {{ now()->format('d/m/Y H:i') }}</div>

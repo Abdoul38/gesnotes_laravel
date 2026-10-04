@@ -278,3 +278,18 @@ window.APP_URL = (document.querySelector('meta[name="app-url"]') || {}).content 
         if (elFn) appelerFonction('data-onblur', 'data-arg', 'data-args', elFn);
     }, true);
 })();
+
+// ── Notes : 2 décimales au plus ──────────────────────────────
+// Le serveur arrondit à 2 décimales ; la valeur affichée est arrondie dès
+// qu'on quitte le champ, pour qu'on voie ce qui sera enregistré
+// (avant, 5,4135 restait affiché et 5,41 était enregistré).
+document.addEventListener('change', function (e) {
+    var champ = e.target.closest && e.target.closest('input[data-decimales]');
+    if (!champ || champ.value === '') return;
+    var n = parseFloat(String(champ.value).replace(',', '.'));
+    var d = parseInt(champ.getAttribute('data-decimales'), 10) || 2;
+    if (!isNaN(n) && String(champ.value).split(/[.,]/)[1] && String(champ.value).split(/[.,]/)[1].length > d) {
+        champ.value = n.toFixed(d);
+        champ.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}, true);

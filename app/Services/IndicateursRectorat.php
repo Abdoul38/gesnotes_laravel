@@ -24,14 +24,34 @@ class IndicateursRectorat
 
     public function pour(int $anneeId): array
     {
-        $code = $this->universite->estDefinie() ? $this->universite->get()->code : 'defaut';
-
-        return Cache::remember("rectorat:$code:$anneeId", 300, fn () => $this->calculer($anneeId));
+        return Cache::remember($this->cleCache($anneeId), 300, fn () => $this->calculer($anneeId));
     }
 
     public function oublier(int $anneeId): void
     {
-        Cache::forget('rectorat:'.($this->universite->estDefinie() ? $this->universite->get()->code : 'defaut').":$anneeId");
+        Cache::forget($this->cleCache($anneeId));
+    }
+
+    /**
+     * Toute écriture dans l'université (notes, heures, PV, inscriptions…)
+     * périme ses indicateurs : le numéro de version entre dans la clé du
+     * cache. Appelé par le middleware InvaliderIndicateurs et les commandes
+     * qui modifient les données. Avant : jusqu'à 5 minutes d'anciens chiffres
+     * au rectorat et au ministère après une déclaration d'heures.
+     */
+    public function invalider(): void
+    {
+        Cache::increment($this->prefixe().':version');
+    }
+
+    private function cleCache(int $anneeId): string
+    {
+        return $this->prefixe().':v'.(int) Cache::get($this->prefixe().':version', 0).":$anneeId";
+    }
+
+    private function prefixe(): string
+    {
+        return 'rectorat:'.($this->universite->estDefinie() ? $this->universite->get()->code : 'defaut');
     }
 
     private function calculer(int $a): array
@@ -58,7 +78,7 @@ class IndicateursRectorat
             $total = $r->passages + $r->redoublants;
 
             return ['annee' => $r->annee, 'inscrits' => (int) $r->inscrits, 'passages' => (int) $r->passages, 'redoublants' => (int) $r->redoublants,
-                'taux' => $total > 0 ? round($r->passages / $total * 100, 1) : 0];
+                'taux' => $total > 0 ? round($r->passages / $total * 100, 1) : null];
         }, DB::select("SELECT a.libelle AS annee, COUNT(DISTINCT i.etudiant_id) AS inscrits,
                 COALESCE(SUM(CASE WHEN pn.decision IN ('passage','licence_validee') THEN 1 ELSE 0 END), 0) AS passages,
                 COALESCE(SUM(CASE WHEN pn.decision = 'redoublement' THEN 1 ELSE 0 END), 0) AS redoublants
@@ -68,14 +88,14 @@ class IndicateursRectorat
             LEFT JOIN passages_niveau pn ON pn.etudiant_id = i.etudiant_id AND pn.annee_depart_id = a.id
             GROUP BY a.id, a.libelle ORDER BY a.libelle ASC LIMIT 6"));
 
-        $programme = DB::selectOne("SELECT COALESCE(SUM(m.volume_horaire_prevu), 0) AS prevues,
+        $programme = DB::selectOne('SELECT COALESCE(SUM(m.volume_horaire_prevu), 0) AS prevues,
                 COALESCE(SUM(LEAST(m.heures_faites, m.volume_horaire_prevu)), 0) AS faites,
                 COALESCE(SUM(m.volume_horaire_prevu IS NULL), 0) AS sans_volume,
                 COALESCE(SUM(m.volume_horaire_prevu IS NOT NULL AND m.heures_faites >= m.volume_horaire_prevu), 0) AS completes,
                 COALESCE(SUM(m.volume_horaire_prevu IS NOT NULL AND m.heures_faites > 0 AND m.heures_faites < m.volume_horaire_prevu), 0) AS en_cours,
                 COALESCE(SUM(m.volume_horaire_prevu IS NOT NULL AND m.heures_faites = 0), 0) AS sans_toucher
             FROM matieres m JOIN unites_enseignement ue ON ue.id = m.ue_id JOIN promotions p ON p.id = ue.promotion_id
-            WHERE p.annee_id = ? AND m.actif = 1", [$a]);
+            WHERE p.annee_id = ? AND m.actif = 1', [$a]);
 
         $decisions = $passages + $redoublants;
 
@@ -85,7 +105,7 @@ class IndicateursRectorat
             'femmes' => (int) $sexes->femmes,
             'passages' => $passages,
             'redoublants' => $redoublants,
-            'taux_passage' => $decisions > 0 ? round($passages / $decisions * 100, 1) : 0,
+            'taux_passage' => $decisions > 0 ? round($passages / $decisions * 100, 1) : null, // null : aucune décision de passage encore
             'pv_publies' => $pvPublies,
             'evolution' => $evolution,
             'facultes' => $this->facultes($a),
@@ -177,7 +197,7 @@ class IndicateursRectorat
         $decisions = $l['passages'] + $l['redoublants'];
 
         return $l + [
-            'taux' => $decisions > 0 ? round($l['passages'] / $decisions * 100, 1) : 0,
+            'taux' => $decisions > 0 ? round($l['passages'] / $decisions * 100, 1) : null,
             'taux_programme' => $l['heures_prevues'] > 0 ? round($l['heures_faites'] / $l['heures_prevues'] * 100, 1) : 0,
         ];
     }

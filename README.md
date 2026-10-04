@@ -234,6 +234,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Suppression d'une salle : bouton admin, serveur ouvert | admin aussi côté serveur | |
 | Bouton « Modifier » des salles (onclick en ligne bloqué par la CSP) | fonctionne | |
 | Copie de maquette : matières lues par GROUP_CONCAT (1 024 caractères) | requête normale | une UE riche en matières était copiée en partie |
+| Copie de maquette : nombre de matières à choisir, type « optionnelle » et volume horaire prévu perdus | recopiés (heures faites et finalisation repartent de zéro) | maquette à options redevenue obligatoire ; exécution du programme à « volume non fixé » chaque nouvelle année (décidé après les essais) |
 | Champ texte « code couleur » des facultés | retiré | ignoré par le serveur |
 | **Étape 3** | | |
 | Matricules calculés à 9 endroits, « UDH2026… » depuis la fiche | un seul service, 00001…, sous verrou | doublons lors d'inscriptions simultanées, formats mélangés |
@@ -407,14 +408,15 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Mot de passe oublié : limite de demandes tenue en session (il suffisait d'effacer le cookie) ; anciens liens toujours valables après une nouvelle demande ou un changement ; 6 caractères quelconques ; prénom inséré tel quel dans l'e-mail | 5 demandes / 15 min par adresse IP côté serveur ; un seul lien valable ; 8 caractères, lettres et chiffres ; prénom échappé | |
 | Import UE et matières : fichier temporaire dans `uploads/` (dossier public), désigné par un nom renvoyé par le formulaire ; toutes les promotions proposées ; pas de jeton CSRF à l'analyse | dossier privé, désigné par la session ; promotions de la faculté de l'utilisateur ; transaction par semestre | |
 | Page de présentation : liens `index.php?page=login` | liens directs vers la connexion de chaque université et des espaces | |
+| **Après les essais sur données réelles** | | |
+| Indicateurs du rectorat et du ministère gardés 5 min en cache | périmés à chaque écriture dans l'université (formulaire envoyé, commandes de peuplement) | une déclaration d'heures n'apparaissait pas au ministère |
+| Taux de passage à 0 % (et « ↓ » vs l'année précédente) sans aucune décision de passage | « — » | fausse alerte pour l'année en cours |
+| Attestations : « M. (Mlle.) », « Né (e) », « Inscrit (e) » pour tous | selon le sexe enregistré (formes neutres s'il ne l'est pas) | |
+| ANAB, détail d'un étudiant : session non indiquée | colonne Session | deux lignes « S1 » sans explication |
+| Champs de note : décimales illimitées à la saisie, arrondies à 2 sans le montrer | 2 décimales, valeur arrondie à l'écran en quittant le champ | |
 
 ## Décisions à prendre (université)
 
-- **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
-  d'une UE (`nb_options_a_choisir`), ni le type « optionnelle » des matières, ni le **volume horaire prévu** (constaté
-  sur les données de démonstration : chaque nouvelle année, l'exécution du programme du rectorat et du ministère
-  repart de « volume non fixé » tant qu'il n'est pas ressaisi). Une maquette à options
-  redevient entièrement obligatoire après copie. Recopier ces deux champs ?
 - **Mot de passe initial des comptes étudiants = matricule** (repris tel quel). Les matricules se
   suivent (00001, 00002…) et figurent sur les cartes : quiconque connaît un matricule peut ouvrir
   le compte d'un étudiant qui n'a pas encore changé son mot de passe, voire le changer avant lui.
@@ -481,12 +483,11 @@ Plan en 13 étapes (section 11 de l'inventaire).
   les PV utilisent les seuils de chaque université. Unifier ?
 - **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
   à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
-- **Remarques des essais sur données de démonstration** (comportements repris de l'ancienne application, à trancher) :
-  - « Défaillant » désigne à la fois une absence et une note sous la note éliminatoire : distinguer les deux libellés ?
-  - Attestations : « M. (Mlle.) » quel que soit le sexe, pourtant connu ;
-  - Ministère : taux de passage affiché à 0 % (et « ↓ » par rapport à l'année précédente) pour l'année en cours, faute de
-    décisions de passage — afficher « — » tant qu'aucune décision n'est prise ?
-  - ANAB, détail par semestre : la session (normale ou rattrapage) n'est pas indiquée, deux lignes « S1 » se suivent.
+- **« Défaillant »** désigne à la fois une absence et une note sous la note éliminatoire (repris tel quel) :
+  deux libellés distincts ?
+- **Comptes « étudiant » orphelins** : environ 825 comptes pour 4 étudiants dans les bases actuelles (aucune fiche liée).
+  Écran de nettoyage, ou suppression ?
+- **Session partagée** : se déconnecter du personnel ferme aussi l'Espace Parents ouvert dans le même navigateur.
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier

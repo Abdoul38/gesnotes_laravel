@@ -114,7 +114,9 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 </div>
 
 @forelse ($etudiants as $et)
-@php $civF = ($et->sexe ?? 'M') === 'F'; @endphp
+@php $civF = ($et->sexe ?? 'M') === 'F';
+  // Civilité selon le sexe enregistré ; formes neutres s'il ne l'est pas
+  [$civ, $ne, $inscrit] = ['F' => ['Mlle', 'Née', 'Inscrite'], 'M' => ['M.', 'Né', 'Inscrit']][$et->sexe ?? ''] ?? ['M. (Mlle)', 'Né(e)', 'Inscrit(e)']; @endphp
 <div class="page">
   <div class="frame-outer"></div>
   <div class="frame-inner"></div>
@@ -147,13 +149,13 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
       <div class="corps">
         <div class="intro">Le Doyen de {{ $faculte }} de l'{{ $institution }} atteste que :</div>
 
-        <div class="identite-nom">M. (Mlle.) {{ $et->nom }} {{ $et->prenoms }}</div>
+        <div class="identite-nom">{{ $civ }} {{ $et->nom }} {{ $et->prenoms }}</div>
         <div class="identite-detail">
           @if ($et->date_naissance)
-          {{ $civF ? 'Née (e)' : 'Né (e)' }} le {{ \App\Support\Format::dateFR($et->date_naissance) }}{{ $et->lieu_naissance ? ' à '.$et->lieu_naissance : '' }}
+          {{ $ne }} le {{ \App\Support\Format::dateFR($et->date_naissance) }}{{ $et->lieu_naissance ? ' à '.$et->lieu_naissance : '' }}
           &nbsp;·&nbsp;
           @endif
-          {{ $civF ? 'Inscrite (e)' : 'Inscrit (e)' }} sous le n° {{ $et->numero }}
+          {{ $inscrit }} sous le n° {{ $et->numero }}
         </div>
 
         <div class="texte-attest">

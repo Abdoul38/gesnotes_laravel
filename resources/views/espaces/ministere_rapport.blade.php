@@ -1,4 +1,5 @@
 {{-- Rapport national imprimable (remplace l'export html2pdf de ministere.php) --}}
+@php $pctTaux = fn ($t) => $t === null ? '—' : $t.'%'; @endphp
 @php $t = $totaux; $fmt = fn ($n) => number_format((float) $n, 0, '', ' '); @endphp
 <!DOCTYPE html>
 <html lang="fr">
@@ -37,7 +38,7 @@ td:first-child { text-align: left; }
   <div class="kpi">
     <div><strong>{{ $t['universites'] }}</strong>Universités</div>
     <div><strong>{{ $fmt($t['inscrits']) }}</strong>Inscrits</div>
-    <div><strong>{{ $t['taux_passage'] }}%</strong>Taux de passage</div>
+    <div><strong>{{ $pctTaux($t['taux_passage']) }}</strong>Taux de passage</div>
     <div><strong>{{ $t['taux_programme'] }}%</strong>Programme</div>
     <div><strong>{{ $fmt($t['pv_publies']) }}</strong>PV publiés</div>
   </div>
@@ -47,10 +48,10 @@ td:first-child { text-align: left; }
     @foreach ($stats as $s)
     <tr><td>{{ $s['uni']->nom }}</td>
       @if ($s['erreur'])<td colspan="6" style="color:#991b1b">Connexion impossible</td>
-      @else<td>{{ $fmt($s['inscrits']) }}</td><td>{{ $s['passages'] }}</td><td>{{ $s['redoublants'] }}</td><td>{{ $s['taux_passage'] }}%</td><td>{{ $s['taux_programme'] }}%</td><td>{{ $s['pv_publies'] }}</td>@endif
+      @else<td>{{ $fmt($s['inscrits']) }}</td><td>{{ $s['passages'] }}</td><td>{{ $s['redoublants'] }}</td><td>{{ $pctTaux($s['taux_passage']) }}</td><td>{{ $s['taux_programme'] }}%</td><td>{{ $s['pv_publies'] }}</td>@endif
     </tr>
     @endforeach
-    <tr style="font-weight:700;background:#f0f4ff"><td>TOTAL NATIONAL</td><td>{{ $fmt($t['inscrits']) }}</td><td>{{ $t['passages'] }}</td><td>{{ $t['redoublants'] }}</td><td>{{ $t['taux_passage'] }}%</td><td>{{ $t['taux_programme'] }}%</td><td>{{ $fmt($t['pv_publies']) }}</td></tr>
+    <tr style="font-weight:700;background:#f0f4ff"><td>TOTAL NATIONAL</td><td>{{ $fmt($t['inscrits']) }}</td><td>{{ $t['passages'] }}</td><td>{{ $t['redoublants'] }}</td><td>{{ $pctTaux($t['taux_passage']) }}</td><td>{{ $t['taux_programme'] }}%</td><td>{{ $fmt($t['pv_publies']) }}</td></tr>
     </tbody>
   </table>
   <div style="margin-top:24px;font-size:9px;color:#6b7280;text-align:center">Généré depuis le tableau de bord national MESR — {{ now()->format('d/m/Y H:i') }}</div>

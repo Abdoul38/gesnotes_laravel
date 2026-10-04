@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\IndicateursRectorat;
 use App\Services\Inscriptions;
 use App\Services\Matricules;
 use App\Services\Pv;
@@ -133,6 +134,8 @@ class PeuplerUniversite extends Command
         ]);
         $this->info('Manifeste : '.$fichier);
         $this->info('Identifiants des comptes d\'essai : storage/app/private/essais/identifiants.txt');
+
+        app(IndicateursRectorat::class)->invalider(); // indicateurs du rectorat et du ministère à recalculer
 
         return self::SUCCESS;
     }
@@ -413,6 +416,8 @@ class PeuplerUniversite extends Command
         rename($fichier, $fichier.'.annule-'.date('Ymd-His'));
         $this->info(count($et).' étudiant(s) d\'essai et leurs données retirés.');
 
+        app(IndicateursRectorat::class)->invalider(); // indicateurs du rectorat et du ministère à recalculer
+
         return self::SUCCESS;
     }
 
@@ -464,6 +469,8 @@ class PeuplerUniversite extends Command
         });
         file_put_contents($fichier, json_encode($m, JSON_PRETTY_PRINT));
         $this->info("Heures déclarées pour {$nb['heures']} matière(s), dont {$nb['volumes']} sans volume prévu complétée(s) depuis la même matière d'une autre année.");
+
+        app(IndicateursRectorat::class)->invalider(); // indicateurs du rectorat et du ministère à recalculer
 
         return self::SUCCESS;
     }

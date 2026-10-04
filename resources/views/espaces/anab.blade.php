@@ -85,11 +85,12 @@
 @forelse ($dossier['resultats'] as $anneeLib => $lignes)
 <div style="font-weight:700;color:#7C3AED;margin:10px 0 6px">📅 {{ $anneeLib }}</div>
 <div class="card mb-16"><div style="overflow-x:auto"><table class="table" style="font-size:11.5px">
-  <thead><tr><th>Filière</th><th>Niv.</th><th>Sem.</th><th style="text-align:center">Moyenne</th><th style="text-align:center">Crédits</th><th>Mention</th><th style="text-align:center">Statut</th><th style="text-align:center">Rang</th></tr></thead>
+  <thead><tr><th>Filière</th><th>Niv.</th><th>Sem.</th><th>Session</th><th style="text-align:center">Moyenne</th><th style="text-align:center">Crédits</th><th>Mention</th><th style="text-align:center">Statut</th><th style="text-align:center">Rang</th></tr></thead>
   <tbody>
   @foreach ($lignes as $r)
   <tr>
     <td style="font-weight:600">{{ $r->filiere }}</td><td><span class="badge badge-blue">{{ $r->niveau }}</span></td><td style="font-weight:700;color:#7C3AED">{{ $r->sem_code }}</td>
+    <td>{{ \App\Services\IndicateursNationaux::SESSIONS[$r->type_session] ?? $r->type_session }}</td>
     <td style="text-align:center">@if ($r->defaillant)<span style="color:#dc2626;font-weight:700">Défaillant</span>@elseif ($r->moyenne_generale !== null)<strong style="color:{{ $r->valide ? '#166534' : '#dc2626' }}">{{ $note($r->moyenne_generale) }}</strong>/20 @else — @endif</td>
     <td style="text-align:center">{{ $r->defaillant ? '—' : $r->credits_obtenus.'/'.$r->credits_total }}</td>
     <td>{{ $r->mention ?? '—' }}</td>

@@ -166,7 +166,7 @@
               <td style="font-size:11px;color:var(--text-muted)">{{ $et->numero }}</td>
               <td>
                 @if ($editable)
-                <input type="number" name="notes[{{ $et->id }}]" class="form-control form-control-sm" value="{{ old('notes.'.$et->id, $note) }}" min="0" max="{{ $max }}" step="0.25" placeholder="—" aria-label="Note de {{ $et->nom }} {{ $et->prenoms }}">
+                <input type="number" name="notes[{{ $et->id }}]" class="form-control form-control-sm" value="{{ old('notes.'.$et->id, $note) }}" min="0" max="{{ $max }}" step="0.25" data-decimales="2" placeholder="—" aria-label="Note de {{ $et->nom }} {{ $et->prenoms }}">
                 @else
                 <span style="font-weight:600">{{ $note ?? ($et->defaillant ? 'Abs.' : '—') }}</span>
                 @endif

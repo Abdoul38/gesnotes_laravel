@@ -4,7 +4,9 @@
 @php
   $s = $stats;
   $fmt = fn ($n) => number_format((float) $n, 0, '', ' ');
-  $couleurTaux = fn ($t) => $t >= 50 ? '#166534' : '#dc2626';
+  $couleurTaux = fn ($t) => $t === null ? '#6b7280' : ($t >= 50 ? '#166534' : '#dc2626');
+  // Taux vide (aucune décision de passage encore) : « — » plutôt que 0 %
+  $pctTaux = fn ($t) => $t === null ? '—' : $t.'%';
   $couleurProg = fn ($t) => $t >= 80 ? '#166534' : ($t >= 50 ? '#C8860A' : '#dc2626');
   $badgeProg = fn ($t) => $t >= 80 ? 'badge-green' : ($t >= 50 ? 'badge-amber' : 'badge-red');
   $lien = fn (array $p = []) => route('rectorat', $p + ['onglet' => $onglet, 'annee_id' => $annee?->id]);
@@ -54,7 +56,7 @@
 @if ($onglet === 'accueil')
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
   @foreach ([['🏫', 'Facultés', count($s['facultes']), '#1A3A5C'], ['📋', 'Inscrits '.($annee->libelle ?? ''), $fmt($s['inscrits']), '#166534'],
-             ['🏆', 'Taux de passage', $s['taux_passage'].'%', $couleurTaux($s['taux_passage'])],
+             ['🏆', 'Taux de passage', $pctTaux($s['taux_passage']), $couleurTaux($s['taux_passage'])],
              ['📘', 'Exécution du programme', $s['taux_programme'].'%', $couleurProg($s['taux_programme'])], ['📄', 'PV publiés', $fmt($s['pv_publies']), '#7C3AED']] as [$ic, $lb, $val, $c])
   <div class="card" style="padding:14px"><div style="font-size:20px">{{ $ic }}</div><div style="font-size:22px;font-weight:800;color:{{ $c }}">{{ $val }}</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">{{ $lb }}</div></div>
   @endforeach
@@ -75,12 +77,12 @@
       <tr>
         <td style="font-weight:700">{{ $f['faculte'] }}</td><td style="font-weight:700">{{ $fmt($f['inscrits']) }}</td>
         <td style="color:#166534;font-weight:700">{{ $f['passages'] }}</td><td style="color:#f59e0b">{{ $f['redoublants'] }}</td>
-        <td style="font-weight:700;color:{{ $couleurTaux($f['taux']) }}">{{ $f['taux'] }}%</td>
+        <td style="font-weight:700;color:{{ $couleurTaux($f['taux']) }}">{{ $pctTaux($f['taux']) }}</td>
         <td><span class="badge {{ $badgeProg($f['taux_programme']) }}">{{ $f['taux_programme'] }}%</span> <span style="font-size:10px;color:var(--text-muted)">({{ $f['heures_faites'] }}h/{{ $f['heures_prevues'] }}h)</span></td>
         <td style="text-align:center;font-weight:700">{{ $f['pv_publies'] }}</td>
       </tr>
       @endforeach
-      <tr style="background:#f0f4ff;font-weight:700"><td>TOTAL ÉTABLISSEMENT</td><td>{{ $fmt($s['inscrits']) }}</td><td>{{ $s['passages'] }}</td><td>{{ $s['redoublants'] }}</td><td>{{ $s['taux_passage'] }}%</td><td>{{ $s['taux_programme'] }}%</td><td style="text-align:center">{{ $s['pv_publies'] }}</td></tr>
+      <tr style="background:#f0f4ff;font-weight:700"><td>TOTAL ÉTABLISSEMENT</td><td>{{ $fmt($s['inscrits']) }}</td><td>{{ $s['passages'] }}</td><td>{{ $s['redoublants'] }}</td><td>{{ $pctTaux($s['taux_passage']) }}</td><td>{{ $s['taux_programme'] }}%</td><td style="text-align:center">{{ $s['pv_publies'] }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -100,7 +102,7 @@
   <tbody>
   @foreach ($s['evolution'] as $e)
   <tr><td style="font-weight:700">{{ $e['annee'] }}</td><td style="text-align:center">{{ $fmt($e['inscrits']) }}</td><td style="text-align:center;color:#166534;font-weight:700">{{ $e['passages'] }}</td>
-    <td style="text-align:center;color:#f59e0b">{{ $e['redoublants'] }}</td><td style="text-align:center;font-weight:700;color:{{ $couleurTaux($e['taux']) }}">{{ $e['taux'] }}%</td></tr>
+    <td style="text-align:center;color:#f59e0b">{{ $e['redoublants'] }}</td><td style="text-align:center;font-weight:700;color:{{ $couleurTaux($e['taux']) }}">{{ $pctTaux($e['taux']) }}</td></tr>
   @endforeach
   </tbody>
 </table></div></div>
@@ -116,7 +118,7 @@
     <span><strong>🏫 {{ $f['faculte'] }}</strong> <span style="font-size:11px;color:var(--text-muted)">{{ count($f['filieres']) }} filière(s)</span></span>
     <span style="display:flex;gap:6px;flex-wrap:wrap">
       <span class="badge badge-blue">👥 {{ $fmt($f['inscrits']) }} inscrits</span>
-      <span class="badge {{ $f['taux'] >= 50 ? 'badge-green' : 'badge-red' }}">🏆 {{ $f['taux'] }}%</span>
+      <span class="badge {{ $f['taux'] === null ? 'badge-gray' : ($f['taux'] >= 50 ? 'badge-green' : 'badge-red') }}">🏆 {{ $pctTaux($f['taux']) }}</span>
       <span class="badge badge-blue">📄 {{ $f['passages'] }} passages</span>
     </span>
   </summary>
@@ -135,7 +137,7 @@
       @foreach ($f['filieres'] as $l)
       <tr><td style="font-weight:600">{{ $l['filiere'] }}</td><td><span class="badge badge-blue">{{ $l['niveau'] }}</span></td><td>{{ $l['inscrits'] }}</td>
         <td style="color:#166534;font-weight:700">{{ $l['passages'] }}</td><td style="color:#f59e0b">{{ $l['redoublants'] }}</td>
-        <td style="font-weight:700;color:{{ $couleurTaux($l['taux']) }}">{{ $l['taux'] }}%</td></tr>
+        <td style="font-weight:700;color:{{ $couleurTaux($l['taux']) }}">{{ $pctTaux($l['taux']) }}</td></tr>
       @endforeach
       </tbody>
     </table>

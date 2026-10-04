@@ -203,7 +203,7 @@
               <td style="text-align:center">
                 @if ($saisie)
                 <input type="number" class="note-input" name="notes[{{ $et->id }}][{{ $m->id }}][exam]" value="{{ $note?->note_examen }}"
-                  min="0" max="{{ (float) $m->note_max_examen }}" step="any" placeholder="—" aria-label="Examen {{ $m->libelle }} — {{ $et->nom }}">
+                  min="0" max="{{ (float) $m->note_max_examen }}" step="0.01" data-decimales="2" placeholder="—" aria-label="Examen {{ $m->libelle }} — {{ $et->nom }}">
                 @else
                 <span style="font-size:11px;font-weight:600;color:{{ $etat !== 'saisie' ? 'var(--green-600)' : 'inherit' }}">{{ $f2($note?->note_examen) }}{!! $marque !!}</span>
                 @endif
@@ -212,7 +212,7 @@
               <td style="text-align:center">
                 @if ($saisie)
                 <input type="number" class="note-input cc-input" name="notes[{{ $et->id }}][{{ $m->id }}][cc]" value="{{ $note?->note_cc }}"
-                  min="0" max="{{ (float) $m->note_max_cc }}" step="any" placeholder="TD" style="width:56px" aria-label="TD {{ $m->libelle }} — {{ $et->nom }}">
+                  min="0" max="{{ (float) $m->note_max_cc }}" step="0.01" data-decimales="2" placeholder="TD" style="width:56px" aria-label="TD {{ $m->libelle }} — {{ $et->nom }}">
                 @else
                 <span style="font-size:11px;font-weight:600;color:{{ $etat !== 'saisie' ? 'var(--green-600)' : 'inherit' }}">{{ $f2($note?->note_cc) }}{!! $marque !!}</span>
                 @endif

@@ -105,7 +105,7 @@ class IndicateursNationaux
         $passages = $somme('passages');
         $decisions = $passages + $somme('redoublants');
         $prevues = $somme('heures_prevues');
-        $taux = $decisions > 0 ? round($passages / $decisions * 100, 1) : 0;
+        $taux = $decisions > 0 ? round($passages / $decisions * 100, 1) : null; // null : aucune décision de passage encore
 
         $prec = ['inscrits' => 0, 'passages' => 0, 'redoublants' => 0, 'trouve' => false];
         foreach ($ok as $s) {
@@ -127,7 +127,7 @@ class IndicateursNationaux
             'pv_publies' => $somme('pv_publies'),
             'matieres' => array_map(fn ($k) => array_sum(array_map(fn ($s) => $s['matieres'][$k], $ok)), ['completes' => 'completes', 'en_cours' => 'en_cours', 'sans_toucher' => 'sans_toucher', 'sans_volume' => 'sans_volume']),
             'delta_inscrits' => $prec['trouve'] ? $somme('inscrits') - $prec['inscrits'] : null,
-            'delta_taux' => $prec['trouve'] && $decPrec > 0 ? round($taux - $prec['passages'] / $decPrec * 100, 1) : null,
+            'delta_taux' => $prec['trouve'] && $decPrec > 0 && $taux !== null ? round($taux - $prec['passages'] / $decPrec * 100, 1) : null,
         ];
     }
 

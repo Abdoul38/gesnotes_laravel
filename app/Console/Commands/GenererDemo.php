@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\IndicateursRectorat;
 use App\Services\Inscriptions;
 use App\Services\Licence;
 use App\Services\Matricules;
@@ -91,6 +92,8 @@ class GenererDemo extends Command
             ->map(fn ($t) => [$t, DB::table($t)->count()])->all());
         $this->info('Comptes : admin@demo.test, secretaire@demo.test, scolarite.fs@demo.test (agent FS), doyen.fs@demo.test, enseignant@demo.test, recteur@demo.test,');
         $this->info('etudiant@demo.test (portail étudiant) ; parent : téléphone 90000001 — mot de passe commun : constante GenererDemo::MOT_DE_PASSE.');
+
+        app(IndicateursRectorat::class)->invalider(); // indicateurs du rectorat et du ministère à recalculer
 
         return self::SUCCESS;
     }
