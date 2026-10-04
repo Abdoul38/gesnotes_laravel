@@ -32,8 +32,8 @@ class InscriptionEnLigneTest extends TestCase
         $this->l2 = DB::table('niveaux')->insertGetId(['code' => 'L2', 'libelle' => 'Licence 2']);
         DB::table('tarifs_niveaux')->insert(['niveau_id' => $this->l2, 'montant' => 15000]);
         $this->filiere = DB::table('filieres')->insertGetId(['code' => 'ECO', 'libelle' => 'Économie', 'departement' => '', 'faculte' => 'FSEJ', 'actif' => 1]);
-        $this->ancien = DB::table('etudiants')->insertGetId(['numero' => '00007', 'nom' => 'ALPHA', 'prenoms' => 'Awa', 'filiere_id' => $this->filiere]);
-        $this->nouveau = DB::table('etudiants')->insertGetId(['numero' => null, 'numero_dossier' => 'D123456', 'nom' => 'BETA', 'prenoms' => 'Zara', 'filiere_id' => $this->filiere]);
+        $this->ancien = DB::table('etudiants')->insertGetId(['numero' => '00007', 'nom' => 'ALPHA', 'prenoms' => 'Awa', 'filiere_id' => $this->filiere, 'date_naissance' => '2004-05-06']);
+        $this->nouveau = DB::table('etudiants')->insertGetId(['numero' => null, 'numero_dossier' => 'D123456', 'nom' => 'BETA', 'prenoms' => 'Zara', 'filiere_id' => $this->filiere, 'date_naissance' => '2004-05-06']);
         DB::table('passages_niveau')->insert(['etudiant_id' => $this->ancien, 'filiere_id' => $this->filiere, 'niveau_actuel_id' => $l1, 'niveau_suivant_id' => $this->l2,
             'annee_depart_id' => $precedente, 'annee_arrivee_id' => $this->annee, 'decision' => 'passage', 'date_decision' => '2026-07-01']);
     }
@@ -47,9 +47,9 @@ class InscriptionEnLigneTest extends TestCase
         ]);
     }
 
-    private function identifier(string $identifiant)
+    private function identifier(string $identifiant, string $naissance = '2004-05-06')
     {
-        return $this->post($this->url('candidature/inscription'), ['identifiant' => $identifiant]);
+        return $this->post($this->url('candidature/inscription'), ['identifiant' => $identifiant, 'date_naissance' => $naissance]);
     }
 
     private function idInscription(int $etudiant): int
@@ -61,7 +61,14 @@ class InscriptionEnLigneTest extends TestCase
     {
         $this->komipay();
         $this->get($this->url('candidature/inscription'))->assertOk()->assertSee('Identification');
-        $this->identifier('99999')->assertSessionHas('erreur', 'Matricule introuvable. Vérifiez votre numéro.');
+        // Matricule inconnu ou date fausse : même message (les matricules se suivent)
+        $message = 'Identifiant ou date de naissance incorrects. Vérifiez votre matricule et votre date de naissance.';
+        $this->identifier('99999')->assertSessionHas('erreur', $message);
+        $this->identifier('00007', '2004-05-07')->assertSessionHas('erreur', $message);
+        $this->identifier('00007', '')->assertSessionHas('erreur', 'Veuillez saisir votre date de naissance.');
+        DB::table('etudiants')->where('id', $this->ancien)->update(['date_naissance' => null]);
+        $this->identifier('00007')->assertSessionHas('erreur', "Votre date de naissance n'est pas enregistrée : présentez-vous au service de la scolarité.");
+        DB::table('etudiants')->where('id', $this->ancien)->update(['date_naissance' => '2004-05-06']);
         $this->identifier('00007')->assertRedirect();
         $id = $this->idInscription($this->ancien);
         $etape = fn (int $n) => $this->url("candidature/inscription/$id/etape/$n");
@@ -95,7 +102,7 @@ class InscriptionEnLigneTest extends TestCase
     public function test_nouveau_bachelier_matricule_et_garde_fous(): void
     {
         $this->komipay();
-        DB::table('etudiants')->insert(['numero' => null, 'numero_dossier' => 'D777777', 'nom' => 'SANS', 'prenoms' => 'Filiere']);
+        DB::table('etudiants')->insert(['numero' => null, 'numero_dossier' => 'D777777', 'nom' => 'SANS', 'prenoms' => 'Filiere', 'date_naissance' => '2004-05-06']);
         $this->identifier('D777777')->assertSessionHas('erreur', "Votre filière n'a pas encore été attribuée : contactez la scolarité avant de payer.");
         $this->assertSame(0, DB::table('inscriptions_en_ligne')->count());
 

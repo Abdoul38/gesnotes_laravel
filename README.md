@@ -415,6 +415,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | ANAB, détail d'un étudiant : session non indiquée | colonne Session | deux lignes « S1 » sans explication |
 | Champs de note : décimales illimitées à la saisie, arrondies à 2 sans le montrer | 2 décimales, valeur arrondie à l'écran en quittant le champ | |
 | Comptes étudiants : mot de passe initial = matricule (les matricules se suivent et sont imprimés sur les cartes), jamais changé | mot de passe provisoire aléatoire affiché une seule fois à la génération ; nouveau mot de passe obligatoire à la première connexion (et pour les anciens comptes encore au matricule) | n'importe qui pouvait ouvrir le compte d'un étudiant (décidé après les essais) |
+| Inscription en ligne : le matricule (ou N° dossier) suffisait pour voir le nom et la filière d'un étudiant et ouvrir son inscription | date de naissance exigée en plus ; même message que l'identifiant soit inconnu ou la date fausse | les matricules se suivent (décidé après les essais) |
 
 ## Décisions à prendre (université)
 
@@ -440,9 +441,6 @@ Plan en 13 étapes (section 11 de l'inventaire).
   en base64, lisibles par quiconque accède à la base ou à ses sauvegardes). À faire par l'université : changer le
   mot de passe SMTP, puis vider cette colonne (`UPDATE email_logs SET reponse_brute = NULL WHERE reponse_brute LIKE '%AUTH LOGIN%'`).
   Je ne l'ai pas exécuté : ce sont vos données réelles.
-- **Inscription en ligne par matricule, sans compte** : comme avant, connaître un matricule (ils se suivent) suffit à
-  voir le nom et la filière d'un étudiant et à ouvrir son inscription. La limite par adresse IP freine sans empêcher.
-  Recommandé : demander aussi la date de naissance (ou un code reçu par SMS) avant d'afficher quoi que ce soit.
 - **Paiement par carte** : les données de carte passent par notre serveur avant d'aller à KomiPay (c'est le
   fonctionnement de leur API) ; le canal est désactivé par défaut (`KOMIPAY_MOYENS`). L'activer impose les obligations
   PCI-DSS correspondantes ; préférer une page de paiement hébergée par KomiPay si elle existe.
