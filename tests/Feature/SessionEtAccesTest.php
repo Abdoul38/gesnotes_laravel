@@ -110,7 +110,9 @@ class SessionEtAccesTest extends TestCase
 
         $this->actingAs($this->creerUtilisateur('admin'))->withSession($this->sessionUdh())
             ->get($this->url('accueil'))
-            ->assertStatus(403)->assertSee('index.php?page=parametres_licence', false);
+            ->assertStatus(403)->assertSee('/licence', false);
+        // La page Licence reste accessible pour corriger la clé
+        $this->get($this->url('licence'))->assertOk()->assertSee('Licence invalide');
     }
 
     public function test_licence_d_une_autre_universite_refusee(): void

@@ -162,11 +162,15 @@ Plan en 13 étapes (section 11 de l'inventaire).
     l'application `MOBILE/` du dépôt ; l'ancien fichier racine n'a pas été modifié.
   - Non repris : `api/notes.php`, `api/promotions.php`, `api/resultats.php`, `api/stats.php`, `api/test_session.php`
     (aucune page ne les appelle) ; `ajax_recalcul_queue` est devenu `pv_detail.file` (étape 5).
-- [ ] **Pages encore dans l'ancienne application** (hors des étapes du plan, à porter avant la bascule) :
-      statistiques (`stats`), historique académique (`historique`), présence (`presence`, avec `api_matieres_promotion`),
-      planning des examens (`planning`), emploi du temps (`emploi_temps`), rapports (`rapports`, `rapports_export`),
-      suivi d'exécution (`suivi_execution`), utilisateurs et rôles (`utilisateurs`, `utilisateur_form`, `roles`),
-      signataires, paramètres (`parametres`), licence (`parametres_licence`), sauvegarde, journaux (`logs`).
+- [x] **Pages hors étapes** (portées avant les étapes 12 et 13) :
+  - Rapports et suivi : statistiques (`stats`), historique académique (`historique`), rapports (`rapports`,
+    `rapports_export`), suivi d'exécution (`suivi_execution`).
+  - Examens et cours : présence (`presence`, avec `api_matieres_promotion`), planning des examens (`planning`),
+    emploi du temps (`emploi_temps`).
+  - Administration : utilisateurs (`utilisateurs`), rôles (`roles`), signataires (`signataires`), paramètres
+    (`parametres`), licence (`parametres_licence`, adresse `/licence`, ouverte même licence invalide), sauvegarde
+    (`sauvegarde`), journaux (`logs`).
+  - Non repris : `utilisateur_form` (nom autorisé par l'ancien routeur, sans fichier).
 - [ ] Étapes 12 et 13
 
 ## Comportements volontairement modifiés
@@ -345,6 +349,22 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | « Marquer lu » : tout message portant le même numéro de destinataire ; reçu en erreur (colonne inexistante) ; annonces par niveau jamais affichées | messages adressés à l'étudiant ; réparé ; affichées | |
 | Version racine en Latin-1 : réponses JSON vides dès qu'un message contenait un accent | UTF-8 | |
 | Mot de passe de 6 caractères ; licence non vérifiée | 8 caractères, lettres et chiffres ; licence vérifiée (réponse JSON) | |
+| **Pages hors étapes — rapports, examens et cours** | | |
+| Rapports : export, comparatif inter-années, rapport financier et chiffres globaux portant sur toute l'université ; historique de n'importe quel étudiant | limités à la faculté (ou au département) de l'utilisateur | fuite de données entre facultés |
+| Export CSV des rapports : cellules recopiées telles quelles ; en-tête « UDH » | protégé contre les formules (=, +, -, @), journalisé ; université courante | injection de formules dans Excel |
+| Statistiques : graphiques jamais affichés (CDN bloqué par la CSP, éléments inexistants) | Chart.js servi localement | |
+| Présence : tout compte autorisé créait des séances et modifiait les présences de toute l'université ; étudiants hors promotion enregistrables | périmètre de chacun (faculté, département, matières affectées) ; inscrits de la promotion seulement | |
+| Planning des examens : salle déjà occupée seulement signalée ; aucune façon de retirer une matière ; logos UDH/FADEG en dur | refusée à l'enregistrement ; date vidée = ligne retirée ; logos de l'université et de la faculté | doubles réservations |
+| Emploi du temps : tout compte en lecture ajoutait, modifiait ou supprimait des séances de n'importe quelle promotion ; couleur insérée telle quelle dans les styles | personnel de scolarité, dans sa faculté ; couleur #rrggbb, matière/salle/enseignant contrôlés, salle occupée refusée | |
+| Suivi d'exécution : un chef de département corrigeait les heures de toute matière | celles de son département | |
+| **Pages hors étapes — administration** | | |
+| Utilisateurs : rôle, faculté, département et liaisons non vérifiés ; un agent « sc_entite », un doyen ou un chef de département pouvait être créé sans faculté (il voyait alors toutes les facultés) ; mot de passe quelconque ; dernier administrateur supprimable ou rétrogradable ; création en échec (`prenoms` absent) | vérifiés ; faculté obligatoire pour ces rôles, département pour le chef ; 8 caractères, lettres et chiffres ; dernier administrateur et propre rôle protégés ; actions journalisées | élévation de périmètre |
+| Rôles : n'importe quel nom de rôle et de permission enregistré ; message affiché en HTML brut | rôle et permissions vérifiés contre leurs listes ; enregistrement atomique, journalisé | |
+| Signataires : un agent ne voyait que sa faculté mais pouvait ajouter, modifier, activer ou supprimer les signataires de toutes | limité à sa faculté | signature de documents d'une autre faculté |
+| Paramètres « Général » : toute clé envoyée était enregistrée (licence, SMTP, KomiPay…) ; page ouverte à tout détenteur de `inscription_ped` (agents de faculté compris) | clés de l'institution seulement ; administrateur et secrétariat (voir « Décisions ») | réécriture de la configuration |
+| Paramètres : valeurs par défaut de l'UDH (nom, ville, contacts) écrites dans la base de toute nouvelle université ; images contrôlées par l'extension (logo, armoirie) | nom et ville de l'université courante, contacts vides ; contenu vérifié, 2 Mo | |
+| Licence : clé d'un autre établissement acceptée (puis application bloquée) ; page dans l'application bloquée par… la licence | refusée à l'activation ; `/licence` reste ouverte à l'administrateur | |
+| Sauvegarde : dossier commun à toutes les universités, téléchargement par nom de fichier (la sauvegarde d'une autre université était récupérable) ; tables entières chargées en mémoire ; erreur SQL affichée | un dossier par université hors du dossier web (`DOSSIER_SAUVEGARDES`), téléchargement par numéro ; écriture au fil de l'eau ; erreur dans le journal du serveur | fuite d'une base entière |
 
 ## Décisions à prendre (université)
 
@@ -400,6 +420,16 @@ Plan en 13 étapes (section 11 de l'inventaire).
 - **Matières déjà notées non finalisées** : l'ancien portail enseignant marquait finalisée, une fois par session,
   toute matière ayant au moins une note (rattrapage de données). Ce n'est pas repris : sur les données migrées,
   les matières déjà finalisées le restent ; les autres attendent des notes complètes ou une finalisation manuelle.
+- **Paramètres réservés à l'administrateur et au secrétariat** : l'ancienne page était ouverte à tout compte ayant
+  `inscription_ped` (agents de faculté, doyens…), alors que ses réglages (règles de calcul des PV, logo, nom de
+  l'institution, visas des diplômes) valent pour toute l'université. Si d'autres rôles doivent y accéder, préciser
+  lesquels et pour quels onglets.
+- **Anciennes sauvegardes** : celles faites par l'ancienne application sont dans `pages/backups/` (dossier commun à
+  toutes les universités). Elles restent visibles dans l'historique mais marquées « Fichier absent » : les déplacer
+  dans le dossier de leur université (`DOSSIER_SAUVEGARDES/<code>/`) pour les retélécharger, ou les archiver hors
+  du serveur.
+- **Signature de l'autorité** (cartes étudiantes) : comme avant, l'image est rangée avec les logos, servis sans
+  connexion (pour la page de connexion). La servir aux seuls utilisateurs connectés, comme le cachet ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier

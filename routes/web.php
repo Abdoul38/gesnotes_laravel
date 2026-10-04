@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccueilController;
+use App\Http\Controllers\Administration\LicenceController;
 use App\Http\Controllers\Auth\ConnexionController;
 use App\Http\Controllers\Documents\VerifierDocumentController;
 use App\Http\Controllers\FichierController;
@@ -38,6 +39,12 @@ require __DIR__.'/candidature.php';
 Route::middleware('auth')->group(function () {
     Route::post('/deconnexion', [ConnexionController::class, 'deconnecter'])->name('logout');
 
+    // Licence : hors du contrôle de licence, puisque c'est là qu'on la corrige.
+    Route::middleware('roles:admin')->group(function () {
+        Route::get('/licence', [LicenceController::class, 'index'])->name('parametres_licence');
+        Route::post('/licence', [LicenceController::class, 'activer'])->name('parametres_licence.activer');
+    });
+
     Route::middleware('licence')->group(function () {
         // Accueil : sans permission, comme dans l'ancien routeur (sinon un
         // refus de permission, qui ramène à l'accueil, tournerait en boucle).
@@ -52,5 +59,6 @@ Route::middleware('auth')->group(function () {
         require __DIR__.'/communication.php';
         require __DIR__.'/portails.php';
         require __DIR__.'/rapports.php';
+        require __DIR__.'/administration.php';
     });
 });

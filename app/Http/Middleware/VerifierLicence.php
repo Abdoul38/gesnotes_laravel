@@ -27,8 +27,7 @@ class VerifierLicence
 
         return response()->view('licence-invalide', [
             'erreur' => $statut['erreur'],
-            // La page de licence n'est pas encore migrée : lien vers l'ancienne.
-            'lienLicence' => $admin ? $this->menu->ancienneUrl('parametres_licence') : null,
+            'lienLicence' => $admin ? $this->menu->lien('parametres_licence') : null,
         ], 403);
     }
 }
