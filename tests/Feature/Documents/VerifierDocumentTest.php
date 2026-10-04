@@ -3,6 +3,7 @@
 namespace Tests\Feature\Documents;
 
 use App\Http\Controllers\Documents\VerifierDocumentController;
+use App\Services\CleVerification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
@@ -25,11 +26,23 @@ class VerifierDocumentTest extends TestCase
     {
         $this->get($this->url('verification'))->assertOk()->assertSee('Saisissez le numéro')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+        // Numéro seul (tapé, ou document imprimé avant la clé) : authenticité, type, initiales, année
         $this->get($this->url('verification?num=R26-000001'))->assertOk()
-            ->assertSee('Ce document est authentique')->assertSee('ALPHA Awa')->assertSee('Relevé de notes')->assertSee('Semestre 1');
-        $this->get($this->url('verification?num=D26-LI-000001'))->assertOk()->assertSee('Diplôme de Licence')->assertSee('Économie');
+            ->assertSee('Ce document est authentique')->assertSee('A. A.')->assertSee('Relevé de notes')->assertSee('2025-2026')
+            ->assertDontSee('ALPHA')->assertDontSee('Bien')->assertDontSee('Semestre 1')->assertSee('détail masqué');
+        $this->get($this->url('verification?num=R26-000001&cle=0000000000000000'))->assertOk()->assertDontSee('ALPHA');
+        // Adresse du QR code (clé valide) : détail complet
+        $this->get(app(CleVerification::class)->url('R26-000001'))->assertOk()
+            ->assertSee('ALPHA Awa')->assertSee('Semestre 1')->assertSee('Bien')->assertDontSee('détail masqué');
+        $this->get(app(CleVerification::class)->url('D26-LI-000001'))->assertOk()->assertSee('Diplôme de Licence')->assertSee('Économie');
+        // La clé d'un document ne vaut pas pour un autre
+        $cle = app(CleVerification::class)->cle('R26-000001');
+        $this->get($this->url("verification?num=D26-LI-000001&cle=$cle"))->assertOk()->assertDontSee('Économie');
+        // Personnel connecté : détail complet
+        $this->connecte($this->creerUtilisateur('secretaire'))->get($this->url('verification?num=R26-000001'))->assertOk()->assertSee('ALPHA Awa');
+        $this->post($this->url('deconnexion'));
         $this->get($this->url('verification?num=R26-999999'))->assertOk()->assertSee('Numéro introuvable');
-        $this->get($this->url('verification?num='.urlencode("<script>x</script>")))->assertOk()
+        $this->get($this->url('verification?num='.urlencode('<script>x</script>')))->assertOk()
             ->assertSee("n'a pas un format valide", false)->assertDontSee('<script>x', false);
     }
 

@@ -80,7 +80,7 @@ class CartesController extends Controller
                 'nationalite' => $et->nationalite ?: 'Nigérienne',
                 'numero' => $carte['numero'],
                 'emission' => $carte['date_emission'] ? date('d/m/Y', strtotime($carte['date_emission'])) : date('d/m/Y'),
-                'urlVerification' => app('App\Navigation\Menu')->lien('verifier_diplome', ['num' => $carte['numero']]),
+                'urlVerification' => app(\App\Services\CleVerification::class)->url($carte['numero']),
                 'codeBarres' => CodeBarres::code128b($carte['numero']),
             ];
         }

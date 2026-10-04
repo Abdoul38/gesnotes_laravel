@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Documents;
 
 use App\Http\Controllers\Controller;
+use App\Services\CleVerification;
 use App\Services\Parametres;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\Request;
@@ -22,7 +23,9 @@ use Illuminate\Support\Facades\RateLimiter;
  *    relever nom, mention et moyenne de tous les étudiants) ;
  *  - numéro contrôlé (lettres, chiffres, tirets, 30 caractères) ;
  *  - page exclue des moteurs de recherche (noindex) ;
- *  - plus de création de tables à l'exécution (elles sont dans le schéma).
+ *  - plus de création de tables à l'exécution (elles sont dans le schéma) ;
+ *  - détail (nom complet, mention, filière…) seulement avec la clé du QR code
+ *    ou pour le personnel connecté ; sinon : authenticité, type, initiales, année.
  */
 class VerifierDocumentController extends Controller
 {
@@ -39,10 +42,12 @@ class VerifierDocumentController extends Controller
 
     public const FENETRE_SECONDES = 600;
 
-    public function __invoke(Request $request, Parametres $parametres, UniversiteCourante $universite): Response
+    public function __invoke(Request $request, Parametres $parametres, UniversiteCourante $universite, CleVerification $cles): Response
     {
         $numero = mb_substr(trim((string) $request->query('num', '')), 0, 60);
+        $personnel = $request->user() && $request->user()->role !== 'etudiant';
         $donnees = ['numero' => $numero, 'resultat' => null, 'type' => null, 'attente' => 0, 'invalide' => false,
+            'complet' => $personnel || $cles->valide($numero, (string) $request->query('cle', '')),
             'institution' => $parametres->valeur('institution_nom', 'EDUFILE')];
         $statut = 200;
 

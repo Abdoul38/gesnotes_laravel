@@ -91,7 +91,7 @@ class AttestationsController extends Controller
             'republique' => $parametres->valeur('institution_republique', 'REPUBLIQUE DU NIGER'),
             'institution' => $parametres->valeur('institution_nom', 'Université Djibo Hamani de Tahoua'),
             'ville' => $parametres->valeur('institution_ville', 'Tahoua'),
-            'urlVerification' => $menu->lien('verifier_diplome', ['num' => $numero]),
+            'urlVerification' => app(\App\Services\CleVerification::class)->url($numero),
         ]);
     }
 }

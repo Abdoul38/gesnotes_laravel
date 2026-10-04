@@ -46,7 +46,7 @@ class InscriptionEnLigne
         $identifiant = mb_strtoupper(trim($identifiant));
         $annee = $this->anneeActive();
         if ($identifiant === '' || ! $annee) {
-            return ['erreur' => $identifiant === '' ? 'Veuillez saisir votre identifiant.' : "Aucune année académique active : contactez la scolarité."];
+            return ['erreur' => $identifiant === '' ? 'Veuillez saisir votre identifiant.' : 'Aucune année académique active : contactez la scolarité.'];
         }
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateNaissance)) {
             return ['erreur' => 'Veuillez saisir votre date de naissance.'];

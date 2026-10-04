@@ -22,6 +22,8 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
      par université ;
    - `KOMIPAY_*` (paiement en ligne) : identifiants **neufs** si les anciens ont circulé dans le dépôt (voir README) ;
    - `ESPACES_UNIVERSITE_COMPTES` (base des comptes Ministère / ANAB, `udh` par défaut).
+   - `VERIFICATION_SECRET` : longue valeur aléatoire, fixée **avant** d'imprimer le moindre document et **jamais changée
+     ensuite** (elle signe les QR codes ; la changer ramène les documents déjà imprimés à la vérification réduite).
 4. **Dossiers de fichiers**, hors du dossier web, accessibles en écriture par le serveur :
    | Variable | Contenu à copier depuis l'ancienne application |
    |---|---|

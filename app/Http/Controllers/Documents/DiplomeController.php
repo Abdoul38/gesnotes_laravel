@@ -150,7 +150,7 @@ class DiplomeController extends Controller
             'institution' => $parametres->valeur('institution_nom', 'Université Djibo Hamani de Tahoua'),
             'faculteDefaut' => $parametres->valeur('institution_faculte_defaut'),
             'ville' => $parametres->valeur('institution_ville', 'Tahoua'),
-            'urlVerification' => $menu->lien('verifier_diplome', ['num' => $numero]),
+            'urlVerification' => app(\App\Services\CleVerification::class)->url($numero),
         ]);
     }
 

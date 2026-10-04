@@ -114,6 +114,7 @@ class GenererComptesTest extends TestCase
         $this->connecte($this->creerUtilisateur('secretaire'))->post($this->url('etudiants/comptes'), ['annee_id' => $this->annee])->assertRedirect();
         $this->assertSame(0, DB::table('utilisateurs')->whereNotNull('etudiant_id')->count());
     }
+
     public function test_premier_mot_de_passe_obligatoire(): void
     {
         $a = $this->inscrire('SALEY', 'Amina', '00031');

@@ -23,6 +23,10 @@ return [
     // comme dans l'ancienne application (base UDH).
     'espaces_comptes' => env('ESPACES_UNIVERSITE_COMPTES', 'udh'),
 
+    // Clé des QR codes de vérification (App\Services\CleVerification) : ne jamais
+    // la changer une fois des documents imprimés. À défaut : APP_KEY.
+    'verification_secret' => env('VERIFICATION_SECRET'),
+
     // Sauvegardes SQL (page Sauvegarde) : hors du dossier public, un
     // sous-dossier par université.
     'dossier_sauvegardes' => env('DOSSIER_SAUVEGARDES', storage_path('app/private/sauvegardes')),

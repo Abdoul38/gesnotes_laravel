@@ -416,17 +416,13 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Champs de note : décimales illimitées à la saisie, arrondies à 2 sans le montrer | 2 décimales, valeur arrondie à l'écran en quittant le champ | |
 | Comptes étudiants : mot de passe initial = matricule (les matricules se suivent et sont imprimés sur les cartes), jamais changé | mot de passe provisoire aléatoire affiché une seule fois à la génération ; nouveau mot de passe obligatoire à la première connexion (et pour les anciens comptes encore au matricule) | n'importe qui pouvait ouvrir le compte d'un étudiant (décidé après les essais) |
 | Inscription en ligne : le matricule (ou N° dossier) suffisait pour voir le nom et la filière d'un étudiant et ouvrir son inscription | date de naissance exigée en plus ; même message que l'identifiant soit inconnu ou la date fausse | les matricules se suivent (décidé après les essais) |
+| Vérification publique : le numéro seul (ils se suivent) donnait nom complet, mention, moyenne, filière | détail seulement avec la clé portée par le QR code (`CleVerification`, `VERIFICATION_SECRET`) ou pour le personnel connecté ; sinon authenticité, type, initiales, année — c'est aussi ce qu'affichent les documents imprimés avant ce changement | relevé de tous les étudiants par simple énumération (décidé après les essais) |
 
 ## Décisions à prendre (université)
 
 - **Réclamation fondée sur un PV verrouillé** : comme avant, la note est corrigée et les résultats
   recalculés même si le PV source est verrouillé (c'est la procédure prévue après délibération).
   Faut-il plutôt exiger le déverrouillage, comme pour les autres modifications ?
-- **QR codes infalsifiables** : la vérification publique se fait avec le seul numéro, qui se suit
-  (R26-000001, R26-000002…). La limite par adresse IP freine un robot mais ne l'empêche pas avec
-  plusieurs adresses. Recommandé : ajouter au QR une clé secrète (signature du numéro) et n'afficher
-  le nom complet, la mention et la moyenne qu'avec cette clé (sinon : document authentique, type,
-  initiales). Les documents déjà imprimés n'ont pas de clé : ils afficheraient la version réduite.
 - **Numéro « ANM/DepD/aa/0001 » des attestations de réussite et « N° 0001/aaaa » des convocations** :
   simple compteur de la page imprimée (repris tel quel), il recommence à 1 à chaque impression et
   n'est enregistré nulle part. Le remplacer par un numéro enregistré et vérifiable ?

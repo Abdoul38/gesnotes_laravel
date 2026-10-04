@@ -70,7 +70,7 @@ class CertificatScolariteController extends Controller
             'signataire' => $identite->signataire($fac),
             'logos' => $identite->logos($fac),
             'p' => fn (string $cle, string $defaut = '') => $parametres->valeur($cle, $defaut),
-            'urlVerification' => $menu->lien('verifier_diplome', ['num' => $numero]),
+            'urlVerification' => app(\App\Services\CleVerification::class)->url($numero),
         ]);
     }
 }

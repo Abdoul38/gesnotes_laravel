@@ -45,6 +45,7 @@ class VerifierBascule extends Command
         $this->ligne($secret !== '', 'LICENCE_SECRET renseignée');
         $this->ligne($secret === '' || ! hash_equals(self::EMPREINTE_SECRET_ANCIEN, hash('sha256', $secret)),
             'LICENCE_SECRET différente de la valeur par défaut de l\'ancienne application', bloquant: false);
+        $this->ligne(filled(config('gesnotes.verification_secret')), 'VERIFICATION_SECRET renseignée (clé des QR codes, à ne plus changer ensuite)', bloquant: false);
         $this->ligne(filled(config('komipay.login')) && filled(config('komipay.api_key')), 'Identifiants KomiPay renseignés (paiement en ligne)', bloquant: false);
 
         if (! $prod) {

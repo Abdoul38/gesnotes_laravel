@@ -6,7 +6,8 @@
     $r = $resultat;
     $lignes = [];
     if ($r) {
-        $lignes['Titulaire'] = $r->nom.' '.$r->prenoms;
+        $lignes['Titulaire'] = $complet ? $r->nom.' '.$r->prenoms
+        : implode(' ', array_map(fn ($m) => mb_strtoupper(mb_substr($m, 0, 1)).'.', preg_split('/[\s-]+/u', trim($r->nom.' '.$r->prenoms), -1, PREG_SPLIT_NO_EMPTY)));
         switch ($type) {
             case 'diplome':
                 $lignes += ['Document' => 'Diplôme de '.($niveaux[$r->niveau] ?? $r->niveau), 'Spécialité' => $r->specialite,
@@ -86,6 +87,7 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
     @elseif ($numero === '')
       <p style="color:#777;font-size:13.5px;text-align:center">Saisissez le numéro inscrit sur le diplôme, ou scannez son QR code directement.</p>
     @elseif ($resultat)
+      @php if (! $complet) { $lignes = array_intersect_key($lignes, array_flip(['Titulaire', 'Document', 'Année académique', 'Session'])); } @endphp
       <div class="resultat-ok">
         <div class="icone">✅</div>
         <div class="msg">Ce document est authentique</div>
@@ -94,6 +96,7 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
           <div class="ligne"><span class="lbl">{{ $libelle }}</span><span class="val">{{ $valeur }}</span></div>
           @endforeach
         </div>
+        @unless ($complet)<p style="font-size:12px;color:#555;margin-top:12px">Vérification par numéro : détail masqué. Scannez le QR code du document pour afficher le détail complet.</p>@endunless
       </div>
     @else
       <div class="resultat-ko">

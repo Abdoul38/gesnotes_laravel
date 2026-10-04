@@ -65,7 +65,7 @@
           <td style="text-align:center">{{ $r->moyenne !== null ? number_format((float) $r->moyenne, 2) : '—' }}</td>
           <td style="color:var(--text-muted)">{{ date('d/m/Y H:i', strtotime($r->date_emission)) }}</td>
           <td style="text-align:center">
-            <a href="{{ route('verifier_diplome', ['num' => $r->numero]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary" title="Ouvrir la vérification" aria-label="Vérifier {{ $r->numero }}">🔍</a>
+            <a href="{{ app(\App\Services\CleVerification::class)->url($r->numero) }}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary" title="Ouvrir la vérification" aria-label="Vérifier {{ $r->numero }}">🔍</a>
           </td>
         </tr>
         @endforeach

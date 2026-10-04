@@ -78,7 +78,7 @@ class ReleveNotesController extends Controller
             $numero = $registre->enregistrer($et, $pv, $et->mention, $et->moyenne_generale);
             $journal->action('creer', 'releve', "Relevé généré : $numero — {$et->nom} {$et->prenoms}", (int) $et->id);
 
-            return ['et' => $et, 'lignes' => $lignes, 'numero' => $numero, 'urlVerification' => $menu->lien('verifier_diplome', ['num' => $numero]),
+            return ['et' => $et, 'lignes' => $lignes, 'numero' => $numero, 'urlVerification' => app(\App\Services\CleVerification::class)->url($numero),
                 'taille' => $nbLignes >= 35 ? 'tres-compact' : ($nbLignes >= 25 ? 'compact' : '')];
         });
 

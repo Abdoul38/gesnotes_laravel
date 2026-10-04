@@ -3,6 +3,7 @@
 namespace Tests\Feature\Documents;
 
 use App\Models\Utilisateur;
+use App\Services\CleVerification;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -94,7 +95,9 @@ class DocumentsTest extends TestCase
         $this->connecte($this->admin)->get($this->url("attestations?et_id={$this->alpha}&type=validation_l2"))->assertOk()
             ->assertSee('ATTESTATION DE VALIDATION')->assertSee('LICENCE 2ÈME ANNÉE')->assertSee('A validé avec succès les quatre semestres')
             ->assertSee('Mention <strong>Bien</strong>', false)->assertSee('A'.date('y').'-VA-000001');
-        $this->get($this->url("attestations?et_id={$this->alpha}&type=validation_l2"))->assertOk()->assertSee('A'.date('y').'-VA-000001');
+        $page = $this->get($this->url("attestations?et_id={$this->alpha}&type=validation_l2"))->assertOk()->assertSee('A'.date('y').'-VA-000001');
+        // Le QR code porte la clé du document
+        $page->assertSee(e(app(CleVerification::class)->url('A'.date('y').'-VA-000001')), false);
         $this->assertSame(1, DB::table('attestations_emises')->count());
         $this->assertEquals(14, DB::table('attestations_emises')->value('moyenne'));
 

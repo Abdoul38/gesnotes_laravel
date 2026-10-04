@@ -175,6 +175,7 @@ class GenererComptesController extends Controller
 
         return $login;
     }
+
     /**
      * 10 caractères, lettres et chiffres, sans caractères ambigus à la
      * lecture (0/O, 1/l/I) : il est recopié depuis une feuille imprimée.
