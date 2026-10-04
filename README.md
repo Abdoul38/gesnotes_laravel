@@ -51,13 +51,25 @@ php artisan test
 
 La commande refuse de recréer une base dont le nom ne contient pas `_test`.
 
-Données de démonstration (base de test uniquement) :
+### Données de démonstration
+
+Jeu minimal (étape 1) : `UNI_UDH_DB=gesnotes_test_udh php artisan db:seed --class=DemoSeeder`.
+
+Jeu complet :
+
+`php artisan gesnotes:demo <code> [--permissions-depuis=<base>] [--etudiants=8]` remplit la base d'une université
+(dont le nom doit contenir `_test`) : 2 facultés, 2 licences, 3 années, des promotions aux profils variés, PV normaux
+et de rattrapage calculés par le moteur, passages, paiements, comptes de chaque rôle (`*@demo.test`, mot de passe :
+constante `GenererDemo::MOT_DE_PASSE`). Exemple, sans toucher aux vraies bases :
 
 ```bash
-php artisan gesnotes:preparer-bases-test gesnotes_test_udh
-UNI_UDH_DB=gesnotes_test_udh php artisan db:seed --class=DemoSeeder
-UNI_UDH_DB=gesnotes_test_udh php artisan serve --port=8011
+php artisan gesnotes:preparer-bases-test gesnotes_test_demo_udh
+UNI_UDH_DB=gesnotes_test_demo_udh php artisan gesnotes:demo udh --permissions-depuis=gesnotes
 ```
+
+Pour l'ouvrir dans le navigateur, lancer le serveur PHP depuis `public/` avec les mêmes variables
+(ex. `UNI_UDH_DB=gesnotes_test_demo_udh php -S 127.0.0.1:8010 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`),
+puis `http://udh.localhost:8010`.
 
 ## Avancement
 
@@ -399,7 +411,9 @@ Plan en 13 étapes (section 11 de l'inventaire).
 ## Décisions à prendre (université)
 
 - **Copie de maquette** : comme l'original, elle ne recopie ni le nombre de matières à choisir
-  d'une UE (`nb_options_a_choisir`) ni le type « optionnelle » des matières. Une maquette à options
+  d'une UE (`nb_options_a_choisir`), ni le type « optionnelle » des matières, ni le **volume horaire prévu** (constaté
+  sur les données de démonstration : chaque nouvelle année, l'exécution du programme du rectorat et du ministère
+  repart de « volume non fixé » tant qu'il n'est pas ressaisi). Une maquette à options
   redevient entièrement obligatoire après copie. Recopier ces deux champs ?
 - **Mot de passe initial des comptes étudiants = matricule** (repris tel quel). Les matricules se
   suivent (00001, 00002…) et figurent sur les cartes : quiconque connaît un matricule peut ouvrir
@@ -467,6 +481,12 @@ Plan en 13 étapes (section 11 de l'inventaire).
   les PV utilisent les seuils de chaque université. Unifier ?
 - **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
   à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
+- **Remarques des essais sur données de démonstration** (comportements repris de l'ancienne application, à trancher) :
+  - « Défaillant » désigne à la fois une absence et une note sous la note éliminatoire : distinguer les deux libellés ?
+  - Attestations : « M. (Mlle.) » quel que soit le sexe, pourtant connu ;
+  - Ministère : taux de passage affiché à 0 % (et « ↓ » par rapport à l'année précédente) pour l'année en cours, faute de
+    décisions de passage — afficher « — » tant qu'aucune décision n'est prise ?
+  - ANAB, détail par semestre : la session (normale ou rattrapage) n'est pas indiquée, deux lignes « S1 » se suivent.
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
