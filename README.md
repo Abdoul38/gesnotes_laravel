@@ -417,6 +417,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Comptes étudiants : mot de passe initial = matricule (les matricules se suivent et sont imprimés sur les cartes), jamais changé | mot de passe provisoire aléatoire affiché une seule fois à la génération ; nouveau mot de passe obligatoire à la première connexion (et pour les anciens comptes encore au matricule) | n'importe qui pouvait ouvrir le compte d'un étudiant (décidé après les essais) |
 | Inscription en ligne : le matricule (ou N° dossier) suffisait pour voir le nom et la filière d'un étudiant et ouvrir son inscription | date de naissance exigée en plus ; même message que l'identifiant soit inconnu ou la date fausse | les matricules se suivent (décidé après les essais) |
 | Vérification publique : le numéro seul (ils se suivent) donnait nom complet, mention, moyenne, filière | détail seulement avec la clé portée par le QR code (`CleVerification`, `VERIFICATION_SECRET`) ou pour le personnel connecté ; sinon authenticité, type, initiales, année — c'est aussi ce qu'affichent les documents imprimés avant ce changement | relevé de tous les étudiants par simple énumération (décidé après les essais) |
+| Ministère et ANAB : lecture des bases des universités avec le compte MySQL principal (droits d'écriture) | compte dédié facultatif `ESPACES_DB_USERNAME` / `ESPACES_DB_PASSWORD` (lecture seule + journal), à créer au moment de la bascule (`BASCULE.md`) | défense en profondeur (décidé après les essais) |
 
 ## Décisions à prendre (université)
 
@@ -466,9 +467,6 @@ Plan en 13 étapes (section 11 de l'inventaire).
   du serveur.
 - **Signature de l'autorité** (cartes étudiantes) : comme avant, l'image est rangée avec les logos, servis sans
   connexion (pour la page de connexion). La servir aux seuls utilisateurs connectés, comme le cachet ?
-- **Utilisateur MySQL en lecture seule pour le Ministère et l'ANAB** : ces espaces lisent toutes les bases avec le même
-  compte MySQL que les universités. Le code est désormais en lecture seule, mais un compte MySQL limité à `SELECT`
-  (plus l'écriture des journaux) protégerait les données même en cas de faille. À prévoir lors de la bascule ?
 - **Mentions de l'ANAB** : seuils fixes 16 / 14 / 12 et éligibilité à 12/20 (repris tels quels, point A4) alors que
   les PV utilisent les seuils de chaque université. Unifier ?
 - **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait

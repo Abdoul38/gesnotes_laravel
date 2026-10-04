@@ -23,6 +23,10 @@ return [
     // comme dans l'ancienne application (base UDH).
     'espaces_comptes' => env('ESPACES_UNIVERSITE_COMPTES', 'udh'),
 
+    // Compte MySQL avec lequel le Ministère et l'ANAB lisent les bases des
+    // universités (SELECT partout + INSERT sur audit_log). Vide : compte principal.
+    'espaces_db' => ['username' => env('ESPACES_DB_USERNAME'), 'password' => env('ESPACES_DB_PASSWORD')],
+
     // Clé des QR codes de vérification (App\Services\CleVerification) : ne jamais
     // la changer une fois des documents imprimés. À défaut : APP_KEY.
     'verification_secret' => env('VERIFICATION_SECRET'),

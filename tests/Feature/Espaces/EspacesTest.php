@@ -125,6 +125,19 @@ class EspacesTest extends TestCase
         $this->mesr($lecteur)->get($this->url('ministere?onglet=journal', 'ministere'))->assertOk()->assertViewHas('onglet', 'national');
     }
 
+    public function test_compte_mysql_dedie_aux_espaces(): void
+    {
+        // Compte inexistant : preuve que les lectures des universités passent par lui…
+        config(['gesnotes.espaces_db' => ['username' => 'compte_inexistant_lecture', 'password' => 'x']]);
+        $page = $this->mesr($this->compteMesr())->get($this->url('ministere', 'ministere'))->assertOk()->assertSee('Hors ligne');
+        $this->assertTrue(collect($page->viewData('stats'))->every(fn ($s) => $s['erreur']));
+        // …et que le compte principal est rendu ensuite (journal du ministère écrit, requêtes normales)
+        $this->assertSame(1, DB::table('mesr_logs_consultation')->count());
+        $this->assertNotSame('compte_inexistant_lecture', config('database.connections.universite.username'));
+        config(['gesnotes.espaces_db' => ['username' => null, 'password' => null]]);
+        $this->get($this->url('ministere', 'ministere'))->assertOk()->assertViewHas('totaux', fn ($t) => $t['inscrits'] === 5);
+    }
+
     public function test_taux_de_passage_sans_decision(): void
     {
         // Année en cours : aucune décision de passage encore — « — » et pas de fausse baisse

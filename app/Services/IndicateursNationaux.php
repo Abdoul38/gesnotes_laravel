@@ -46,12 +46,26 @@ class IndicateursNationaux
     /** Exécute $traitement dans la base de $u ; null si elle est injoignable. */
     public function dans(Universite $u, \Closure $traitement): mixed
     {
+        // Compte MySQL dédié aux espaces nationaux (lecture seule, + écriture du
+        // journal audit_log pour l'ANAB) s'il est configuré — voir BASCULE.md
+        $lecture = config('gesnotes.espaces_db');
+        $avant = null;
+        if (filled($lecture['username'] ?? null)) {
+            $avant = [config('database.connections.universite.username'), config('database.connections.universite.password')];
+            config(['database.connections.universite.username' => $lecture['username'], 'database.connections.universite.password' => (string) ($lecture['password'] ?? '')]);
+            DB::purge('universite');
+        }
         try {
             return $this->courante->pour($u, $traitement);
         } catch (Throwable $e) {
             Log::warning("Espace national : université {$u->code} injoignable", ['erreur' => $e->getMessage()]);
 
             return null;
+        } finally {
+            if ($avant) {
+                config(['database.connections.universite.username' => $avant[0], 'database.connections.universite.password' => $avant[1]]);
+                DB::purge('universite');
+            }
         }
     }
 
