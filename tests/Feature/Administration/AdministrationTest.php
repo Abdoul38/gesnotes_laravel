@@ -149,6 +149,9 @@ class AdministrationTest extends TestCase
         $this->post($this->url('parametres/annees/verrouiller'), ['annee_id' => $annee])->assertSessionHas('succes');
         $this->assertSame('non', DB::table('parametres_annee')->where('annee_id', $annee)->where('cle', 'compensation_ue')->value('valeur'));
         $this->get($this->url('parametres?tab=regles_pv'))->assertOk()->assertSee('🔒 Verrouillée');
+        // Une année non verrouillée listée avant une verrouillée (each() s'arrêtait au premier « false »)
+        DB::table('annees_academiques')->insert(['libelle' => '2026-2027', 'active' => 1]);
+        $this->get($this->url('parametres?tab=regles_pv'))->assertOk()->assertSee('🔓 Suit le global')->assertSee('🔒 Verrouillée');
         $this->post($this->url('parametres/annees/deverrouiller'), ['annee_id' => $annee])->assertSessionHas('succes');
         $this->assertSame(0, DB::table('parametres_annee')->count());
 
@@ -217,7 +220,10 @@ class AdministrationTest extends TestCase
         $this->assertStringContainsString('CREATE TABLE `etudiants`', $contenu);
         $this->assertStringContainsString("'O\\'NEIL'", $contenu);
 
-        $this->get($this->url('sauvegarde'))->assertOk()->assertSee($s->nom_fichier);
+        // Une ligne dont le fichier manque, listée avant une ligne présente
+        DB::table('sauvegardes')->insert(['nom_fichier' => 'disparu.sql', 'statut' => 'ok', 'created_at' => now()->addMinute()]);
+        $this->get($this->url('sauvegarde'))->assertOk()->assertSee($s->nom_fichier)->assertSee('Fichier absent')->assertSee('⬇️ Télécharger');
+        DB::table('sauvegardes')->where('nom_fichier', 'disparu.sql')->delete();
         $this->post($this->url('sauvegarde/telecharger'), ['id' => $s->id])->assertDownload($s->nom_fichier);
         // Un nom de fichier forgé en base ne sort pas du dossier
         DB::table('sauvegardes')->where('id', $s->id)->update(['nom_fichier' => '../../.env']);

@@ -37,7 +37,7 @@ class SauvegardeController extends Controller
         $historique = DB::table('sauvegardes as s')->leftJoin('utilisateurs as u', 'u.id', '=', 's.cree_par')
             ->orderByDesc('s.created_at')->orderByDesc('s.id')->limit(20)
             ->get(['s.*', 'u.nom as createur_nom', 'u.prenoms as createur_prenom'])
-            ->each(fn ($s) => $s->present = $this->nomValide($s->nom_fichier) && is_file($dossier.DIRECTORY_SEPARATOR.$s->nom_fichier));
+            ->map(fn ($s) => tap($s, fn ($s) => $s->present = $this->nomValide($s->nom_fichier) && is_file($dossier.DIRECTORY_SEPARATOR.$s->nom_fichier)));
 
         return view('administration.sauvegarde', [
             'base' => $base,

@@ -92,8 +92,9 @@ class ParametresController extends Controller
                 'couleurDefaut' => $universite->get()->couleur,
             ];
         } elseif ($onglet === 'regles_pv') {
+            $verrouillees = DB::table('parametres_annee')->distinct()->pluck('annee_id')->map(fn ($id) => (int) $id)->all();
             $donnees['annees'] = DB::table('annees_academiques')->orderByDesc('id')->get(['id', 'libelle'])
-                ->each(fn ($a) => $a->verrouillee = DB::table('parametres_annee')->where('annee_id', $a->id)->exists());
+                ->map(fn ($a) => tap($a, fn ($a) => $a->verrouillee = in_array((int) $a->id, $verrouillees, true)));
         } elseif ($onglet === 'signataires') {
             $f = $this->perimetre->faculte($request->user());
             $donnees += [
