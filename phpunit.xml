@@ -39,7 +39,6 @@
         <env name="UNIVERSITES_DOMAINE" value="localhost"/>
         <env name="UNIVERSITES_PARAMETRE_UNI" value="false"/>
         <env name="LICENCE_SECRET" value="secret-de-test"/>
-        <env name="ANCIENNE_APP_URL" value="http://{code}.localhost"/>
         <env name="DOSSIER_UPLOADS" value="storage/framework/testing/uploads"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>

@@ -3,12 +3,10 @@
 namespace App\Http\Middleware;
 
 use App\Espaces\Espaces;
-use App\Navigation\Menu;
 use App\Universites\UniversiteCourante;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -24,10 +22,9 @@ use Symfony\Component\HttpFoundation\Response;
 class SessionActive
 {
     /** Routes ouvertes sans compte du personnel. */
-    private const PUBLIQUES = ['candidature', 'candidature.*', 'verifier_diplome', 'login_parent', 'login_parent.*', 'portail_parent', 'portail_parent.*', 'logout_parent', 'fichiers.logo'];
+    private const PUBLIQUES = ['candidature', 'candidature.*', 'verifier_diplome', 'login_parent', 'login_parent.*', 'portail_parent', 'portail_parent.*', 'logout_parent', 'fichiers.logo', 'anciennes.*'];
 
     public function __construct(
-        private readonly Menu $menu,
         private readonly UniversiteCourante $universite,
     ) {}
 
@@ -83,10 +80,9 @@ class SessionActive
         $request->session()->put('derniere_activite', time());
 
         // Étudiant et recteur : leur portail (et ses actions), la déconnexion et la vérification publique.
-        // Un portail pas encore migré s'ouvre dans l'ancienne application.
         $portail = ['etudiant' => 'portail_etudiant', 'recteur' => 'rectorat'][$utilisateur->role] ?? null;
         if ($portail && ! $request->routeIs($portail, $portail.'.*', 'logout', 'verifier_diplome')) {
-            return Route::has($portail) ? redirect()->route($portail) : redirect()->away($this->menu->ancienneUrl($portail));
+            return redirect()->route($portail);
         }
 
         return $next($request);

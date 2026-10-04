@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Candidature;
 
+use App\Http\Controllers\AnciennesAdressesController;
 use App\Http\Controllers\Controller;
 use App\Models\Candidat;
 use App\Services\Candidatures;
@@ -43,6 +44,10 @@ class ConnexionCandidatController extends Controller
 
     public function accueil(Request $request, Parametres $parametres): View|RedirectResponse
     {
+        // Ancienne adresse candidature/?page=… (étape 13)
+        if ($request->filled('page')) {
+            return app(AnciennesAdressesController::class)->candidature($request);
+        }
         if ($this->connecte($request)) {
             return redirect()->route('candidature.tableau');
         }
@@ -138,9 +143,9 @@ class ConnexionCandidatController extends Controller
 
     private function cheminSlide(int $n): ?string
     {
-        $racine = config('gesnotes.ancienne_app_chemin');
+        $racine = config('gesnotes.dossier_images_portail');
         $u = $this->universite->get();
-        $chemin = $racine ? rtrim($racine, '/\\')."/candidature/assets/img/".strtolower($u->sigle ?: $u->code)."/slide-$n.jpg" : null;
+        $chemin = $racine ? rtrim($racine, '/\\').'/'.strtolower($u->sigle ?: $u->code)."/slide-$n.jpg" : null;
 
         return $n >= 1 && $n <= 4 && $chemin && is_file($chemin) ? $chemin : null;
     }

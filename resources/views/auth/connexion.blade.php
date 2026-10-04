@@ -1,21 +1,7 @@
 {{-- Connexion — portage de pages/comptes/login.php --}}
 @extends('layouts.app', ['titre' => 'Connexion'])
 
-@push('head')
-<style>
-/* Mêmes couleurs que l'Espace Parents — navy et crème */
-.login-page { background: #0F2942 !important; font-family: Georgia, 'Times New Roman', serif; }
-.login-card { background: #FAF6ED !important; box-shadow: 0 10px 40px rgba(0,0,0,.3) !important; }
-.login-logo h1 { color: #0F2942 !important; font-family: Georgia, serif; letter-spacing: 1px; }
-.login-logo p { color: #8B6F1F !important; font-style: italic; }
-.logo-big { background: #0F2942 !important; }
-.login-card .form-label { color: #444 !important; }
-.login-card .form-control { border: 1px solid #d8cfb8 !important; background: #fff !important; }
-.login-card .form-control:focus { border-color: #0F2942 !important; }
-.login-card .btn-primary { background: #0F2942 !important; border-color: #0F2942 !important; }
-.login-card .btn-primary:hover { background: #1A3A5C !important; border-color: #1A3A5C !important; }
-</style>
-@endpush
+@include('auth._style')
 
 @section('contenu')
 @php $bloque = $attente > 0; @endphp
@@ -45,6 +31,8 @@
     </div>
     @elseif (session('erreur'))
     <div class="alert alert-danger">⚠️ {{ session('erreur') }}</div>
+    @elseif (session('succes'))
+    <div class="alert alert-success">✅ {{ session('succes') }}</div>
     @endif
 
     <form method="post" action="{{ route('login.envoyer') }}" autocomplete="off" novalidate @if ($bloque) style="opacity:.5;pointer-events:none" @endif>
@@ -58,7 +46,7 @@
         <label class="form-label" for="mot_de_passe">Mot de passe</label>
         <input type="password" id="mot_de_passe" name="mot_de_passe" class="form-control" placeholder="••••••••" required @disabled($bloque)>
         <div style="text-align:right;margin-top:6px">
-          <a href="{{ app('App\Navigation\Menu')->ancienneUrl('mot_de_passe_oublie') }}" style="font-size:12px;color:#8B6F1F;text-decoration:none">Mot de passe oublié ?</a>
+          <a href="{{ route('mot_de_passe_oublie') }}" style="font-size:12px;color:#8B6F1F;text-decoration:none">Mot de passe oublié ?</a>
         </div>
       </div>
       <button type="submit" class="btn btn-primary w-100 btn-lg" @disabled($bloque)>
@@ -67,7 +55,7 @@
     </form>
 
     <div style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid #eee">
-      <a href="{{ app('App\Navigation\Menu')->ancienneUrl('login_parent') }}" style="font-size:12.5px;color:#8B6F1F;text-decoration:none">
+      <a href="{{ route('login_parent') }}" style="font-size:12.5px;color:#8B6F1F;text-decoration:none">
         👨‍👩‍👧 Vous êtes un parent d'élève ? Accéder à l'Espace Parents →
       </a>
     </div>

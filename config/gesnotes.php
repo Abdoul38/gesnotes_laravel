@@ -5,17 +5,18 @@ return [
     // Déconnexion après N minutes sans activité (ancien session_start_secure()).
     'inactivite_minutes' => (int) env('INACTIVITE_MINUTES', 30),
 
-    // Pendant la migration, les pages pas encore converties s'ouvrent dans
-    // l'ancienne application. {code} = code de l'université (udh, uam…).
-    'ancienne_url' => env('ANCIENNE_APP_URL', 'https://{code}.cursus-niger.net'),
-
-    // Dossier uploads/ de l'ancienne application : photos, logos, pièces y
-    // restent pendant la migration, lus et écrits par les deux versions
-    // (App\Services\Fichiers, FichierController).
+    // Fichiers déposés (photos, logos, documents) : DOSSIER_UPLOADS, sinon le
+    // dossier uploads/ de l'ancienne application (lu et écrit par les deux
+    // versions pendant la migration — voir BASCULE.md pour le déplacer).
+    // App\Services\Fichiers, FichierController.
     'dossier_uploads' => env('DOSSIER_UPLOADS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/uploads' : null),
 
-    // Racine de l'ancienne application (images du portail candidats…).
+    // Racine de l'ancienne application (pendant la migration seulement).
     'ancienne_app_chemin' => env('ANCIENNE_APP_CHEMIN'),
+
+    // Images du carrousel du portail candidats : <dossier>/<sigle>/slide-N.jpg
+    // (ancien candidature/assets/img/).
+    'dossier_images_portail' => env('DOSSIER_IMAGES_PORTAIL', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/assets/img' : null),
 
     // Espaces Ministère (MESR) et ANAB : leurs comptes (mesr_comptes,
     // anab_comptes) et leur journal sont dans la base de cette université,

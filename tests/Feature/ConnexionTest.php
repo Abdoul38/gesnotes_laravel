@@ -21,7 +21,8 @@ class ConnexionTest extends TestCase
             ->assertOk()
             ->assertSee('CURSUS — UDH')
             ->assertSee('Université Djibo Hamani de Tahoua')
-            ->assertSee('index.php?page=login_parent', false);
+            ->assertSee('/parents/connexion', false)->assertSee('/mot-de-passe-oublie', false)
+            ->assertDontSee('index.php?page=', false);
     }
 
     public function test_connexion_avec_un_mot_de_passe_cree_par_l_ancienne_application(): void

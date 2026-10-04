@@ -5,9 +5,13 @@
 // son entrée de menu (page:…) et les rôles que l'ancienne page exigeait.
 
 use App\Http\Controllers\Structure\AnneesController;
+use App\Http\Controllers\Structure\EmploiTempsController;
 use App\Http\Controllers\Structure\FacultesController;
 use App\Http\Controllers\Structure\FilieresController;
+use App\Http\Controllers\Structure\ImportUeMatieresController;
 use App\Http\Controllers\Structure\NiveauxController;
+use App\Http\Controllers\Structure\PlanningController;
+use App\Http\Controllers\Structure\PresenceController;
 use App\Http\Controllers\Structure\PromotionsController;
 use App\Http\Controllers\Structure\SallesController;
 use Illuminate\Support\Facades\Route;
@@ -64,7 +68,7 @@ Route::middleware('page:filieres')->controller(FilieresController::class)->group
 });
 
 // Présence (permission notes_saisir ; périmètre par rôle dans le contrôleur)
-Route::middleware('page:presence')->controller(\App\Http\Controllers\Structure\PresenceController::class)->group(function () {
+Route::middleware('page:presence')->controller(PresenceController::class)->group(function () {
     Route::get('/presence', 'index')->name('presence');
     Route::post('/presence/seances', 'creer')->name('presence.creer');
     Route::post('/presence', 'enregistrer')->name('presence.enregistrer');
@@ -73,16 +77,23 @@ Route::middleware('page:presence')->controller(\App\Http\Controllers\Structure\P
 
 // Planning des examens (ancien contrôle de rôle de planning.php)
 Route::middleware(['page:planning', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])
-    ->controller(\App\Http\Controllers\Structure\PlanningController::class)->group(function () {
+    ->controller(PlanningController::class)->group(function () {
         Route::get('/planning', 'index')->name('planning');
         Route::get('/planning/disponibilite', 'disponibilite')->name('planning.disponibilite');
         Route::post('/planning', 'sauvegarder')->name('planning.sauvegarder');
     });
 
 // Emploi du temps (lecture : permission ; modification : personnel de scolarité, contrôlé dans le contrôleur)
-Route::middleware('page:emploi_temps')->controller(\App\Http\Controllers\Structure\EmploiTempsController::class)->group(function () {
+Route::middleware('page:emploi_temps')->controller(EmploiTempsController::class)->group(function () {
     Route::get('/emploi-du-temps', 'index')->name('emploi_temps');
     Route::get('/emploi-du-temps/disponibilite', 'disponibilite')->name('emploi_temps.disponibilite');
     Route::post('/emploi-du-temps', 'enregistrer')->name('emploi_temps.enregistrer');
     Route::post('/emploi-du-temps/supprimer', 'supprimer')->name('emploi_temps.supprimer');
+});
+
+// Import des UE et matières (ancien outils/import_ue_matieres.php, lien depuis Filières)
+Route::middleware('page:import_ue_matieres')->controller(ImportUeMatieresController::class)->group(function () {
+    Route::get('/filieres/import-ue', 'index')->name('import_ue_matieres');
+    Route::post('/filieres/import-ue', 'analyser')->name('import_ue_matieres.analyser');
+    Route::post('/filieres/import-ue/confirmer', 'confirmer')->name('import_ue_matieres.confirmer');
 });

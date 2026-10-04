@@ -141,6 +141,6 @@ class SessionEtAccesTest extends TestCase
 
     public function test_page_de_presentation_sur_le_domaine_nu(): void
     {
-        $this->get('http://localhost/')->assertOk()->assertSee('Choisissez votre établissement');
+        $this->get('http://localhost/')->assertOk()->assertSee('Universités partenaires')->assertSee('//ministere.localhost/ministere/connexion', false);
     }
 }

@@ -67,8 +67,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
       session, licence, paramètres, journaux, mise en page, tableau de bord (`accueil`).
   - Tableau de bord vérifié : mêmes chiffres que l'ancien sur les 45 combinaisons
     année × faculté de la base locale.
-  - Reste dans l'étape 1 : page de présentation complète (`landing.php`, version provisoire en place),
-    mot de passe oublié, espace parents (liens vers l'ancienne application en attendant).
+  - Page de présentation complète et mot de passe oublié : portés à l'étape 13.
 - [x] **Étape 2 — structure académique** : années (`annees`), niveaux (`niveaux`), facultés
       (`facultes`), salles (`salles`), promotions (`promotions`), filières / départements / UE /
       matières (`filieres`, 3 onglets, copie de maquette, volume horaire en masse).
@@ -181,7 +180,17 @@ Plan en 13 étapes (section 11 de l'inventaire).
   - Service `IndicateursNationaux` : lit chaque université tour à tour (`UniversiteCourante::pour`) avec le calcul du
     rectorat (étape 9), en cache 5 min par université ; une base injoignable est « hors ligne » sans bloquer les autres.
   - Non repris : la table `mesr_cache` (cache de l'application à la place).
-- [ ] Étape 13 (bascule)
+- [x] **Étape 13 — bascule** (préparée ; la mise en production elle-même suit `BASCULE.md`) :
+  - dernières pages : mot de passe oublié et réinitialisation (`mot_de_passe_oublie`, `reinitialiser_mot_de_passe`),
+    import des UE et matières (`import_ue_matieres`), page de présentation complète (domaine nu) ;
+  - redirection des anciennes adresses (`index.php?page=…`, QR codes imprimés, `candidature/index.php?page=…`,
+    `portail2/…` de l'application mobile, `uploads/logos|photos/…`, pages des espaces Ministère / ANAB) :
+    `AnciennesAdressesController` ;
+  - plus aucun lien vers l'ancienne application (`Menu::ancienneUrl` et `ANCIENNE_APP_URL` supprimés) ; les fichiers
+    déposés se règlent par `DOSSIER_UPLOADS`, `DOSSIER_PIECES_CANDIDATS`, `DOSSIER_IMAGES_PORTAIL` ;
+  - `php artisan gesnotes:verifier-bascule` : contrôles avant mise en production (lecture seule, aucun secret affiché).
+  - Toutes les pages du routeur de l'ancienne application ont leur équivalent ; non repris : `portail_admin`
+    (redirigé vers `portail_candidats_admin`), `utilisateur_form` (sans fichier).
 
 ## Comportements volontairement modifiés
 
@@ -382,6 +391,10 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | ANAB : résultats des PV en brouillon pris en compte ; filière insérée dans la requête SQL ; aucune trace des dossiers consultés | PV finalisés ou publiés ; paramètres liés ; chaque dossier consulté inscrit au journal d'activité de l'université concernée | données personnelles consultées par un organisme extérieur |
 | Connexion Ministère / ANAB : jeton CSRF écrit dans l'attribut `action` du formulaire (jamais envoyé : « Session expirée ») ; drapeau de session sans expiration (24 h pour l'ANAB), compte désactivé resté connecté ; déconnexion par lien | connexion réparée, 5 essais puis 5 min ; 30 min d'inactivité ; compte relu à chaque requête ; déconnexion en POST | |
 | Comptes Ministère / ANAB : rôle quelconque envoyé à la base ; mot de passe de réinitialisation saisi en clair, 8 caractères quelconques ; propre compte et dernier administrateur désactivables | rôle contrôlé ; champ masqué, lettres et chiffres ; protégés | |
+| **Étape 13** | | |
+| Mot de passe oublié : limite de demandes tenue en session (il suffisait d'effacer le cookie) ; anciens liens toujours valables après une nouvelle demande ou un changement ; 6 caractères quelconques ; prénom inséré tel quel dans l'e-mail | 5 demandes / 15 min par adresse IP côté serveur ; un seul lien valable ; 8 caractères, lettres et chiffres ; prénom échappé | |
+| Import UE et matières : fichier temporaire dans `uploads/` (dossier public), désigné par un nom renvoyé par le formulaire ; toutes les promotions proposées ; pas de jeton CSRF à l'analyse | dossier privé, désigné par la session ; promotions de la faculté de l'utilisateur ; transaction par semestre | |
+| Page de présentation : liens `index.php?page=login` | liens directs vers la connexion de chaque université et des espaces | |
 
 ## Décisions à prendre (université)
 

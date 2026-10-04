@@ -27,7 +27,9 @@ class ResoudreUniversite
         $universite = $this->registre->resoudre($request->getHost(), $request->query('uni'));
 
         if ($universite === null) {
-            return response()->view('presentation', ['universites' => $this->registre->actives()]);
+            $espace = fn (string $code) => ($e = $this->registre->trouver($code)) && $e->actif ? $e : null;
+
+            return response()->view('presentation', ['universites' => $this->registre->actives(), 'anab' => $espace('anab'), 'ministere' => $espace('ministere')]);
         }
 
         if (! $universite->estUniversite()) {
@@ -61,7 +63,15 @@ class ResoudreUniversite
         View::share('espace', Espaces::config($espace->espace));
 
         if (! $request->routeIs($espace->espace.'.*')) {
-            return redirect()->route($espace->espace.'.accueil');
+            // Anciennes adresses index.php?page=… de l'espace
+            $page = (string) $request->query('page');
+            $cible = match (true) {
+                str_starts_with($page, 'changer_mdp') => 'mot_de_passe',
+                str_starts_with($page, 'gerer_comptes') => 'comptes',
+                default => 'accueil',
+            };
+
+            return redirect()->route($espace->espace.'.'.$cible);
         }
 
         return $next($request);

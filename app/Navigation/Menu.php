@@ -3,7 +3,6 @@
 namespace App\Navigation;
 
 use App\Models\Utilisateur;
-use App\Universites\UniversiteCourante;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -12,10 +11,8 @@ use Illuminate\Support\Facades\Route;
  */
 class Menu
 {
-    public function __construct(private readonly UniversiteCourante $universite) {}
-
     /**
-     * @return array<string, list<array{page:string, icone:string, libelle:string, url:string, migree:bool}>>
+     * @return array<string, list<array{page:string, icone:string, libelle:string, url:string}>>
      */
     public function pour(Utilisateur $utilisateur): array
     {
@@ -25,13 +22,14 @@ class Menu
                 if ($permission !== null && ! $utilisateur->aPermission($permission)) {
                     continue;
                 }
-                $migree = Route::has($page);
+                if (! Route::has($page)) {
+                    continue;
+                }
                 $sections[$section][] = [
                     'page' => $page,
                     'icone' => $icone,
                     'libelle' => $libelle,
-                    'url' => $migree ? route($page) : $this->ancienneUrl($page),
-                    'migree' => $migree,
+                    'url' => route($page),
                 ];
             }
         }
@@ -52,19 +50,12 @@ class Menu
     }
 
     /**
-     * Lien vers une page, où qu'elle soit pendant la migration : la route
-     * Laravel du même nom si elle existe, sinon l'ancienne application.
+     * Lien vers une page désignée par son ancien nom (?page=…), qui est
+     * aussi le nom de sa route. Toutes les pages sont migrées (étape 13) ;
+     * un nom inconnu mène au tableau de bord.
      */
     public function lien(string $page, array $parametres = []): string
     {
-        return Route::has($page) ? route($page, $parametres) : $this->ancienneUrl($page, $parametres);
-    }
-
-    /** Lien vers la même page dans l'ancienne application. */
-    public function ancienneUrl(string $page, array $parametres = []): string
-    {
-        $base = str_replace('{code}', $this->universite->get()->code, config('gesnotes.ancienne_url'));
-
-        return rtrim($base, '/').'/index.php?'.http_build_query(['page' => $page] + $parametres);
+        return Route::has($page) ? route($page, $parametres) : route('accueil');
     }
 }

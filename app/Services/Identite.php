@@ -60,10 +60,17 @@ class Identite
                 return $chemin;
             }
         }
-        $racine = config('gesnotes.dossier_uploads') ? dirname(rtrim(config('gesnotes.dossier_uploads'), '/\\')) : null;
+        $uploads = config('gesnotes.dossier_uploads') ? rtrim(config('gesnotes.dossier_uploads'), '/\\') : null;
+        if (! $uploads) {
+            return null;
+        }
+        // Après la bascule : cachet.png / signature.png directement dans DOSSIER_UPLOADS ;
+        // pendant la migration : emplacements de l'ancienne application (parent de uploads/).
         foreach (self::IMAGES_OFFICIELLES[$type] as $relatif) {
-            if ($racine && is_file($racine.DIRECTORY_SEPARATOR.$relatif)) {
-                return $racine.DIRECTORY_SEPARATOR.$relatif;
+            foreach ([$uploads.DIRECTORY_SEPARATOR.basename($relatif), dirname($uploads).DIRECTORY_SEPARATOR.$relatif] as $chemin) {
+                if (is_file($chemin)) {
+                    return $chemin;
+                }
             }
         }
 

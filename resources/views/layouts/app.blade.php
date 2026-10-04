@@ -48,8 +48,7 @@
     @foreach ($navigation->pour($utilisateur) as $section => $items)
       <div class="nav-section-label">{{ $section }}</div>
       @foreach ($items as $item)
-        <a href="{{ $item['url'] }}" class="nav-item{{ $pageCourante === $item['page'] ? ' active' : '' }}"
-           @unless ($item['migree']) title="S'ouvre dans l'ancienne version" @endunless>
+        <a href="{{ $item['url'] }}" class="nav-item{{ $pageCourante === $item['page'] ? ' active' : '' }}">
           <span class="nav-icon">{{ $item['icone'] }}</span><span>{{ $item['libelle'] }}</span>
         </a>
       @endforeach

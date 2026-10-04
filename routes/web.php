@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\AccueilController;
 use App\Http\Controllers\Administration\LicenceController;
+use App\Http\Controllers\AnciennesAdressesController;
 use App\Http\Controllers\Auth\ConnexionController;
+use App\Http\Controllers\Auth\MotDePasseOublieController;
 use App\Http\Controllers\Documents\VerifierDocumentController;
 use App\Http\Controllers\FichierController;
 use App\Http\Controllers\Portails\ConnexionParentController;
@@ -13,11 +15,20 @@ use Illuminate\Support\Facades\Route;
 // (?page=accueil → route « accueil ») : le menu s'en sert pour savoir si
 // une page est déjà migrée (voir App\Navigation\Menu).
 
-Route::redirect('/', '/accueil');
+// Racine et anciennes adresses (index.php?page=…, portails, fichiers) — étape 13
+Route::get('/', [AnciennesAdressesController::class, 'routeur'])->name('anciennes.routeur');
+Route::get('/index.php', [AnciennesAdressesController::class, 'routeur'])->name('anciennes.index');
+Route::get('/candidature/index.php', [AnciennesAdressesController::class, 'candidature'])->name('anciennes.candidature');
+Route::get('/portail2/index.php', [AnciennesAdressesController::class, 'candidature'])->name('anciennes.portail2');
+Route::get('/uploads/{dossier}/{fichier}', [AnciennesAdressesController::class, 'fichier'])->whereIn('dossier', ['logos', 'photos'])->name('anciennes.fichier');
 
 Route::middleware('guest')->group(function () {
     Route::get('/connexion', [ConnexionController::class, 'formulaire'])->name('login');
     Route::post('/connexion', [ConnexionController::class, 'connecter'])->name('login.envoyer');
+    Route::get('/mot-de-passe-oublie', [MotDePasseOublieController::class, 'formulaire'])->name('mot_de_passe_oublie');
+    Route::post('/mot-de-passe-oublie', [MotDePasseOublieController::class, 'envoyer'])->name('mot_de_passe_oublie.envoyer');
+    Route::get('/reinitialiser-mot-de-passe', [MotDePasseOublieController::class, 'formulaireReinitialisation'])->name('reinitialiser_mot_de_passe');
+    Route::post('/reinitialiser-mot-de-passe', [MotDePasseOublieController::class, 'reinitialiser'])->name('reinitialiser_mot_de_passe.envoyer');
 });
 
 // Vérification publique des documents (cible des QR codes) : sans connexion.
