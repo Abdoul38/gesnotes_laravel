@@ -90,9 +90,17 @@ class PaiementsTest extends TestCase
         $p = DB::table('paiements')->first();
         $this->assertSame(['partiel', $this->etA], [$p->statut, (int) $p->etudiant_id]);
 
-        $this->post($this->url('paiements/supprimer'), ['id' => $p->id])->assertSessionHas('succes');
+        // Annulation : motif obligatoire ; le paiement sort des totaux mais reste archivé
+        $this->post($this->url('paiements/annuler'), ['id' => $p->id, 'motif' => ''])->assertSessionHas('erreur');
+        $this->assertSame(1, DB::table('paiements')->count());
+        $this->post($this->url('paiements/annuler'), ['id' => $p->id, 'motif' => 'Saisie en double'])->assertSessionHas('succes');
         $this->assertSame(0, DB::table('paiements')->count());
-        $this->assertDatabaseHas('audit_log', ['action' => 'supprimer', 'module' => 'paiement']);
+        $a = DB::table('paiements_annules')->first();
+        $this->assertSame([(int) $p->id, $this->etA, 30000.0, 'Saisie en double'], [(int) $a->paiement_id, (int) $a->etudiant_id, (float) $a->montant_paye, $a->motif]);
+        $this->assertSame((int) $p->id, json_decode($a->donnees)->id);
+        $this->assertDatabaseHas('audit_log', ['action' => 'annuler', 'module' => 'paiement']);
+        $this->get($this->url("paiements?et_id={$this->etA}"))->assertOk()->assertSee('Paiements annulés (1)')->assertSee('Saisie en double');
+        $this->post($this->url('paiements/supprimer'), ['id' => $p->id])->assertNotFound();
     }
 
     public function test_perimetre_des_actions(): void
@@ -103,14 +111,14 @@ class PaiementsTest extends TestCase
         $this->connecte($agent);
         $this->post($this->url('paiements'), ['etudiant_id' => $this->etB] + $champs)->assertSessionHas('erreur', 'Étudiant introuvable.');
         $this->post($this->url('paiements'), ['action' => 'modifier', 'id' => $pB] + $champs)->assertSessionHas('erreur', 'Paiement introuvable.');
-        $this->post($this->url('paiements/supprimer'), ['id' => $pB])->assertSessionHas('erreur', 'Paiement introuvable.');
+        $this->post($this->url('paiements/annuler'), ['id' => $pB, 'motif' => 'Hors périmètre'])->assertSessionHas('erreur', 'Paiement introuvable.');
         $this->assertSame(1, DB::table('paiements')->count());
         $this->get($this->url("paiements/recu?id=$pB"))->assertRedirect($this->url('paiements'));
 
         // Sans « paiements_gerer » : lecture seule
         $this->donnerPermissions('secretaire', ['paiements_voir']);
         $this->connecte($this->creerUtilisateur('secretaire'))->get($this->url('paiements'))->assertOk()->assertDontSee('Nouveau paiement');
-        $this->post($this->url('paiements/supprimer'), ['id' => $pB])->assertRedirect($this->url('accueil'));
+        $this->post($this->url('paiements/annuler'), ['id' => $pB, 'motif' => 'Sans permission'])->assertRedirect($this->url('accueil'));
         $this->assertSame(1, DB::table('paiements')->count());
     }
 

@@ -417,6 +417,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Comptes étudiants : mot de passe initial = matricule (les matricules se suivent et sont imprimés sur les cartes), jamais changé | mot de passe provisoire aléatoire affiché une seule fois à la génération ; nouveau mot de passe obligatoire à la première connexion (et pour les anciens comptes encore au matricule) | n'importe qui pouvait ouvrir le compte d'un étudiant (décidé après les essais) |
 | Vérification publique : le numéro seul (ils se suivent) donnait nom complet, mention, moyenne, filière | détail seulement avec la clé portée par le QR code (`CleVerification`, `VERIFICATION_SECRET`) ou pour le personnel connecté ; sinon authenticité, type, initiales, année — c'est aussi ce qu'affichent les documents imprimés avant ce changement | relevé de tous les étudiants par simple énumération (décidé après les essais) |
 | Ministère et ANAB : lecture des bases des universités avec le compte MySQL principal (droits d'écriture) | compte dédié facultatif `ESPACES_DB_USERNAME` / `ESPACES_DB_PASSWORD` (lecture seule + journal), à créer au moment de la bascule (`BASCULE.md`) | défense en profondeur (décidé après les essais) |
+| Paiements : suppression définitive (seule trace : une ligne du journal) | annulation avec motif obligatoire ; la ligne complète est archivée dans `paiements_annules` (agent, date) et listée sur la fiche paiements de l'étudiant | un encaissement ne doit pas pouvoir disparaître (table à créer : `gesnotes:completer-schema --appliquer`) |
 
 ## Décisions prises (université)
 

@@ -124,12 +124,16 @@
             data-paiement="{{ json_encode(['id' => $p->id, 'etudiant_id' => $p->etudiant_id, 'type_paiement' => $p->type_paiement, 'annee_id' => $p->annee_id,
               'montant_du' => (float) $p->montant_du, 'montant_paye' => (float) $p->montant_paye, 'date_paiement' => $p->date_paiement,
               'mode_paiement' => $p->mode_paiement, 'reference' => $p->reference, 'notes' => $p->notes]) }}">✏️</button>
-          <form method="post" action="{{ route('paiements.supprimer') }}" style="display:inline" data-confirm="Supprimer ce paiement de {{ $fcfa($p->montant_paye) }} FCFA ?">
-            @csrf
-            <input type="hidden" name="id" value="{{ $p->id }}">
-            <input type="hidden" name="retour_et_id" value="{{ $filtres['et_id'] }}">
-            <button type="submit" class="btn btn-sm btn-danger" aria-label="Supprimer">🗑️</button>
-          </form>
+          <details class="annulation-paiement" style="display:inline-block;vertical-align:top">
+            <summary class="btn btn-sm btn-danger" aria-label="Annuler ce paiement" style="list-style:none;display:inline-block">🚫</summary>
+            <form method="post" action="{{ route('paiements.annuler') }}" style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;max-width:260px" data-confirm="Annuler ce paiement de {{ $fcfa($p->montant_paye) }} FCFA ? Il sortira des totaux et restera dans l'historique des annulations.">
+              @csrf
+              <input type="hidden" name="id" value="{{ $p->id }}">
+              <input type="hidden" name="retour_et_id" value="{{ $filtres['et_id'] }}">
+              <input type="text" name="motif" class="form-control" style="font-size:11px;padding:3px 6px;flex:1;min-width:140px" placeholder="Motif (obligatoire)" minlength="5" maxlength="500" required>
+              <button type="submit" class="btn btn-sm btn-danger" style="font-size:11px">Annuler</button>
+            </form>
+          </details>
         </td>
         @endif
       </tr>
@@ -146,6 +150,31 @@
   @if ($pagination['page'] < $pagination['totalPages'])<a href="{{ request()->fullUrlWithQuery(['pg' => $pagination['page'] + 1]) }}" class="btn btn-sm btn-secondary">Suivant →</a>@endif
 </div>
 @endif
+@endif
+
+@if ($annules->isNotEmpty())
+<div class="card" style="margin-top:16px">
+  <div style="padding:10px 14px;font-size:13px;font-weight:700">🚫 Paiements annulés ({{ $annules->count() }})</div>
+  <div class="card-body" style="padding:0">
+    <table class="table" style="font-size:12px">
+      <thead><tr><th>Type</th><th style="text-align:right">Dû</th><th style="text-align:right">Payé</th><th>Date</th><th>Mode</th><th>Annulé le</th><th>Par</th><th>Motif</th></tr></thead>
+      <tbody>
+      @foreach ($annules as $a)
+      <tr style="color:var(--text-muted)">
+        <td>{{ $a->type_paiement }}</td>
+        <td style="text-align:right">{{ $fcfa($a->montant_du) }}</td>
+        <td style="text-align:right;text-decoration:line-through">{{ $fcfa($a->montant_paye) }}</td>
+        <td>{{ $a->date_paiement ? date('d/m/Y', strtotime($a->date_paiement)) : '—' }}</td>
+        <td>{{ $a->mode_paiement }}</td>
+        <td>{{ date('d/m/Y H:i', strtotime($a->annule_le)) }}</td>
+        <td>{{ trim(($a->agent_prenom ?? '').' '.($a->agent_nom ?? '')) ?: '—' }}</td>
+        <td>{{ $a->motif }}</td>
+      </tr>
+      @endforeach
+      </tbody>
+    </table>
+  </div>
+</div>
 @endif
 
 @if ($peutGerer)

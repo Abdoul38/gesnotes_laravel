@@ -16,17 +16,18 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Suivi des paiements — portage de pages/finances/paiements.php : liste
- * filtrée et paginée, totaux, export CSV ; ajout, modification, suppression
+ * filtrée et paginée, totaux, export CSV ; ajout, modification, annulation
  * (permission « paiements_gerer »).
  *
  * Différences voulues :
- *  - ajout, modification et suppression limités aux étudiants de la
+ *  - ajout, modification et annulation limités aux étudiants de la
  *    faculté de l'agent (n'importe quel identifiant était accepté) ;
  *  - type, mode, année, montants (positifs, plafonnés), date et longueurs
  *    contrôlés (une valeur inconnue provoquait une erreur SQL) ;
  *  - modification qui fonctionne (le bouton, en JavaScript en ligne, était
  *    bloqué par la CSP) ; l'étudiant d'un paiement ne change pas ;
- *  - suppression journalisée avec le montant et l'étudiant ;
+ *  - plus de suppression : annulation avec motif obligatoire, le paiement
+ *    est archivé dans paiements_annules (agent, date, ligne complète) ;
  *  - export CSV protégé contre l'injection de formules (une cellule
  *    commençant par =, +, - ou @ était exécutée par Excel) ;
  *  - compteur « en retard » limité au périmètre de l'agent.
@@ -72,6 +73,10 @@ class PaiementsController extends Controller
             'grille' => $peutGerer ? DB::table('grille_tarifaire')->get(['filiere_id', 'niveau_id', 'type_paiement', 'montant'])
                 ->mapWithKeys(fn ($t) => ["{$t->filiere_id}_{$t->niveau_id}_{$t->type_paiement}" => (float) $t->montant]) : collect(),
             'inscriptionEtudiant' => $f['et_id'] ? $this->derniereInscription($f['et_id']) : null,
+            'annules' => $f['et_id'] && $this->paiements->etudiantAutorise($u, $f['et_id'])
+                ? DB::table('paiements_annules as a')->leftJoin('utilisateurs as us', 'us.id', '=', 'a.annule_par')
+                    ->where('a.etudiant_id', $f['et_id'])->orderByDesc('a.annule_le')->get(['a.*', 'us.nom as agent_nom', 'us.prenoms as agent_prenom'])
+                : collect(),
         ]);
     }
 
@@ -131,17 +136,37 @@ class PaiementsController extends Controller
         return $retour->with('succes', 'Paiement enregistré.');
     }
 
-    public function supprimer(Request $request): RedirectResponse
+    /**
+     * Annulation (remplace la suppression) : le paiement sort des totaux et des
+     * reçus, mais il est conservé dans paiements_annules avec son motif, l'agent
+     * et la date — un encaissement ne peut plus disparaître sans trace.
+     */
+    public function annuler(Request $request): RedirectResponse
     {
-        $p = $this->paiements->trouver($request->user(), (int) $request->input('id'));
+        $u = $request->user();
+        $p = $this->paiements->trouver($u, (int) $request->input('id'));
         $retour = redirect()->route('paiements', array_filter(['et_id' => (int) $request->input('retour_et_id')]));
         if (! $p) {
             return $retour->with('erreur', 'Paiement introuvable.');
         }
-        DB::table('paiements')->where('id', $p->id)->delete();
-        $this->journal->action('supprimer', 'paiement', "Suppression paiement #{$p->id} ({$p->type_paiement}, {$p->montant_paye}/{$p->montant_du} FCFA, {$p->statut}) — {$p->nom} {$p->prenoms} ({$p->numero})", (int) $p->id);
+        $motif = trim((string) $request->input('motif'));
+        if (mb_strlen($motif) < 5 || mb_strlen($motif) > 500) {
+            return $retour->with('erreur', "Indiquez le motif de l'annulation (5 à 500 caractères).");
+        }
+        $ligne = (array) DB::table('paiements')->where('id', $p->id)->first();
+        DB::transaction(function () use ($ligne, $motif, $u) {
+            DB::table('paiements_annules')->insert([
+                'paiement_id' => $ligne['id'], 'etudiant_id' => $ligne['etudiant_id'], 'annee_id' => $ligne['annee_id'],
+                'type_paiement' => $ligne['type_paiement'], 'montant_du' => $ligne['montant_du'], 'montant_paye' => $ligne['montant_paye'],
+                'date_paiement' => $ligne['date_paiement'], 'mode_paiement' => $ligne['mode_paiement'], 'reference' => $ligne['reference'],
+                'statut' => $ligne['statut'], 'saisi_par' => $ligne['saisi_par'], 'donnees' => json_encode($ligne, JSON_UNESCAPED_UNICODE),
+                'motif' => $motif, 'annule_par' => $u->id,
+            ]);
+            DB::table('paiements')->where('id', $ligne['id'])->delete();
+        });
+        $this->journal->action('annuler', 'paiement', "Annulation paiement #{$p->id} ({$p->type_paiement}, {$p->montant_paye}/{$p->montant_du} FCFA, {$p->statut}) — {$p->nom} {$p->prenoms} ({$p->numero}) — motif : $motif", (int) $p->id);
 
-        return $retour->with('succes', 'Paiement supprimé.');
+        return $retour->with('succes', "Paiement annulé (conservé dans l'historique des annulations).");
     }
 
     private function filtres(Request $request): array

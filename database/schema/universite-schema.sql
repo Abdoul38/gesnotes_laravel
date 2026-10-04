@@ -942,6 +942,30 @@ CREATE TABLE `paiements` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `paiements_annules` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `paiement_id` int(10) unsigned NOT NULL,
+  `etudiant_id` int(10) unsigned NOT NULL,
+  `annee_id` int(10) unsigned DEFAULT NULL,
+  `type_paiement` varchar(30) NOT NULL,
+  `montant_du` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `montant_paye` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `date_paiement` date DEFAULT NULL,
+  `mode_paiement` varchar(30) DEFAULT NULL,
+  `reference` varchar(100) DEFAULT NULL,
+  `statut` varchar(30) DEFAULT NULL,
+  `saisi_par` int(10) unsigned DEFAULT NULL,
+  `donnees` longtext DEFAULT NULL,
+  `motif` varchar(500) NOT NULL,
+  `annule_par` int(10) unsigned DEFAULT NULL,
+  `annule_le` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `etudiant_id` (`etudiant_id`),
+  KEY `paiement_id` (`paiement_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `parametres` (
   `cle` varchar(100) NOT NULL,
   `valeur` text DEFAULT NULL,

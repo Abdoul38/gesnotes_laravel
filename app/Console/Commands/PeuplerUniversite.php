@@ -12,6 +12,7 @@ use App\Universites\RegistreUniversites;
 use App\Universites\UniversiteCourante;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -396,6 +397,9 @@ class PeuplerUniversite extends Command
         DB::transaction(function () use ($m, $et) {
             foreach (['notes', 'resultats_semestre', 'resultats_ue', 'inscriptions_pedagogiques', 'inscriptions', 'paiements', 'passages_niveau', 'parents_etudiants'] as $t) {
                 DB::table($t)->whereIn('etudiant_id', $et)->delete();
+            }
+            if (Schema::hasTable('paiements_annules')) {
+                DB::table('paiements_annules')->whereIn('etudiant_id', $et)->delete();
             }
             DB::table('utilisateurs')->whereIn('id', $m['utilisateurs'] ?? [])->delete();
             DB::table('parents_etudiants')->whereIn('parent_id', $m['parents'] ?? [])->delete();
