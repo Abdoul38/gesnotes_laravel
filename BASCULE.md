@@ -31,10 +31,17 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
    | `DOSSIER_SAUVEGARDES` | rien d'obligatoire ; les anciennes sauvegardes (`pages/backups/`) vont dans `<dossier>/<code>/` si on veut pouvoir les retélécharger |
    Tant que `ANCIENNE_APP_CHEMIN` est renseignée et ces variables vides, les fichiers sont lus dans l'ancienne
    application : pratique pour essayer, **à ne pas garder** puisque l'ancienne application sera retirée.
-5. **Vérification** : `php artisan gesnotes:verifier-bascule`. Elle contrôle la configuration, les dossiers, puis
+5. **Bases et licences** :
+   - `php artisan gesnotes:completer-schema` liste les tables du schéma absentes d'une base (l'ancienne application en
+     créait certaines seulement à la première utilisation d'une page, ex. `mobile_reset_codes`) ; après une sauvegarde,
+     `--appliquer` les crée (uniquement des `CREATE TABLE IF NOT EXISTS`, aucune donnée touchée) ;
+   - `php artisan gesnotes:licence <code> [--expiration=AAAA-MM-JJ] [--max=N] --installer` émet et installe la licence
+     d'une université (une licence ne vaut que pour l'université dont elle porte le code) ;
+   - une université pas encore ouverte : `UNI_<CODE>_ACTIF=false` dans le `.env`.
+6. **Vérification** : `php artisan gesnotes:verifier-bascule`. Elle contrôle la configuration, les dossiers, puis
    pour chaque université active : tables du schéma de référence, licence, administrateur actif, messagerie. Elle ne
    modifie rien et n'affiche aucun secret. Corriger toutes les erreurs (✘) ; lire les alertes (!).
-6. **Répétition** : faire une fois toute la procédure sur une copie des bases (nom de base en `UNI_<CODE>_DB`) et
+7. **Répétition** : faire une fois toute la procédure sur une copie des bases (nom de base en `UNI_<CODE>_DB`) et
    dérouler les essais du §3.
 
 ## 2. Le jour J

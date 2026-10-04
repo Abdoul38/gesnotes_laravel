@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Espaces\CompteMesr;
 use App\Services\Communication\Courriel;
+use App\Services\Licence;
 use App\Services\Parametres;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /** Étape 13 : dernières pages portées et redirection des anciennes adresses. */
@@ -122,6 +124,32 @@ class BasculeTest extends TestCase
             ->expectsOutputToContain('Université UAM (uam)')
             ->doesntExpectOutputToContain('secret-de-test')
             ->assertFailed();
+    }
+
+    public function test_completer_schema_et_licence(): void
+    {
+        $this->universite('uam');
+        DB::statement('DROP TABLE IF EXISTS mobile_reset_codes');
+        $this->universite('udh');
+
+        // Sans --appliquer : rien n'est créé
+        $this->artisan('gesnotes:completer-schema', ['--universite' => ['uam']])->expectsOutputToContain('mobile_reset_codes')->assertSuccessful();
+        $this->universite('uam');
+        $this->assertFalse(Schema::hasTable('mobile_reset_codes'));
+        $this->universite('udh');
+        $this->artisan('gesnotes:completer-schema', ['--universite' => ['uam'], '--appliquer' => true])->expectsOutputToContain('créée : mobile_reset_codes')->assertSuccessful();
+        $this->universite('uam');
+        $this->assertTrue(Schema::hasTable('mobile_reset_codes'));
+        $this->universite('udh');
+
+        // Licence propre à UAM, installée dans sa base
+        $this->artisan('gesnotes:licence', ['universite' => 'uam', '--installer' => true])
+            ->expectsConfirmation('Enregistrer cette licence dans la base de UAM ?', 'yes')
+            ->expectsOutputToContain('Licence installée et valide pour UAM')->assertSuccessful();
+        $this->artisan('gesnotes:licence', ['universite' => 'inconnue'])->assertFailed();
+        $this->artisan('gesnotes:licence', ['universite' => 'uam', '--expiration' => '31/12/2027'])->assertFailed();
+        // UDH garde sa propre licence
+        $this->assertSame('UDH', app(Licence::class)->verifierInstallation()['institution']);
     }
 
     public function test_page_de_presentation_complete(): void

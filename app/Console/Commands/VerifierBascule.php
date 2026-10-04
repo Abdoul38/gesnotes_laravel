@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Communication\Courriel;
 use App\Services\Licence;
+use App\Support\SchemaReference;
 use App\Universites\RegistreUniversites;
 use App\Universites\UniversiteCourante;
 use Illuminate\Console\Command;
@@ -46,13 +47,17 @@ class VerifierBascule extends Command
             'LICENCE_SECRET différente de la valeur par défaut de l\'ancienne application', bloquant: false);
         $this->ligne(filled(config('komipay.login')) && filled(config('komipay.api_key')), 'Identifiants KomiPay renseignés (paiement en ligne)', bloquant: false);
 
+        if (! $prod) {
+            $this->line('  (Environnement '.app()->environment().' : les alertes ci-dessus sont normales ici ; à régler dans le .env du serveur de production.)');
+        }
+
         $this->newLine();
         $this->info('Dossiers');
         $ancienne = rtrim(str_replace('\\', '/', (string) config('gesnotes.ancienne_app_chemin')), '/');
         foreach (['dossier_uploads' => 'Fichiers déposés (DOSSIER_UPLOADS)', 'dossier_pieces_candidats' => 'Pièces des candidats (DOSSIER_PIECES_CANDIDATS)',
             'dossier_sauvegardes' => 'Sauvegardes (DOSSIER_SAUVEGARDES)'] as $cle => $libelle) {
             $d = (string) config("gesnotes.$cle");
-            $this->ligne($d !== '' && is_dir($d) && is_writable($d), "$libelle : existe et accessible en écriture");
+            $this->ligne($d !== '' && $this->inscriptible($d), "$libelle : accessible en écriture (ou créable)");
             if ($d !== '' && $ancienne !== '' && str_starts_with(str_replace('\\', '/', $d), $ancienne.'/')) {
                 $this->ligne(false, "$libelle : encore dans l'ancienne application — à déplacer avant de la retirer", bloquant: false);
             }
@@ -61,7 +66,7 @@ class VerifierBascule extends Command
         $images = (string) config('gesnotes.dossier_images_portail');
         $this->ligne($images !== '' && is_dir($images), 'Images du portail candidats (DOSSIER_IMAGES_PORTAIL)', bloquant: false);
 
-        $schema = $this->tablesDuSchema();
+        $schema = array_diff(SchemaReference::tables(), SchemaReference::INUTILISEES);
         foreach ($registre->actives() as $u) {
             $this->newLine();
             $this->info("Université {$u->sigle} ({$u->code})");
@@ -69,9 +74,9 @@ class VerifierBascule extends Command
                 $courante->pour($u, function () use ($schema) {
                     $tables = array_map(fn ($t) => $t->n, DB::select('SELECT table_name AS n FROM information_schema.tables WHERE table_schema = DATABASE()'));
                     $manquantes = array_diff($schema, $tables);
-                    $this->ligne(! $manquantes, 'Tables du schéma de référence'.($manquantes ? ' — manquantes : '.implode(', ', array_slice($manquantes, 0, 10)) : ''));
+                    $this->ligne(! $manquantes, 'Tables du schéma de référence'.($manquantes ? ' — manquantes : '.implode(', ', array_slice($manquantes, 0, 10)).' → php artisan gesnotes:completer-schema' : ''));
                     $licence = app(Licence::class)->verifierInstallation();
-                    $this->ligne($licence['valide'], 'Licence'.($licence['valide'] ? '' : ' — '.$licence['erreur']));
+                    $this->ligne($licence['valide'], 'Licence'.($licence['valide'] ? '' : ' — '.$licence['erreur'].' → php artisan gesnotes:licence <code> --installer'));
                     $this->ligne(DB::table('utilisateurs')->where('role', 'admin')->where('actif', 1)->exists(), 'Au moins un administrateur actif');
                     $this->ligne(app(Courriel::class)->actif(), 'Messagerie (SMTP) configurée', bloquant: false);
                 });
@@ -101,11 +106,17 @@ class VerifierBascule extends Command
         $this->line($bloquant ? "  <fg=red>✘</> $texte" : "  <fg=yellow>!</> $texte");
     }
 
-    /** @return list<string> tables (hors vues) du schéma de référence */
-    private function tablesDuSchema(): array
+    /** Dossier accessible en écriture, ou qui pourra être créé (premier parent existant inscriptible). */
+    private function inscriptible(string $dossier): bool
     {
-        preg_match_all('/^CREATE TABLE `([^`]+)`/m', (string) file_get_contents(database_path('schema/universite-schema.sql')), $m);
+        while (! is_dir($dossier)) {
+            $parent = dirname($dossier);
+            if ($parent === $dossier) {
+                return false;
+            }
+            $dossier = $parent;
+        }
 
-        return $m[1];
+        return is_writable($dossier);
     }
 }
