@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Documents;
 use App\Http\Controllers\Controller;
 use App\Navigation\Menu;
 use App\Services\Identite;
+use App\Services\Journal;
 use App\Services\Parametres;
 use App\Services\Pv;
+use App\Services\RegistreDocuments;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +31,10 @@ use Illuminate\View\View;
  *    l'étudiant : PV publié seulement ;
  *  - en rattrapage, un étudiant déjà admis en session normale reçoit un
  *    message au lieu d'une page vide ;
+ *  - numéro enregistré (registre attestations_emises, type « reussite_<pv> ») :
+ *    le même à chaque réimpression, vérifiable sur la page publique (avant :
+ *    rang dans la liste imprimée, donc le même numéro pour des étudiants
+ *    différents d'un PV à l'autre) ;
  *  - bouton « Générer » sans étudiant retiré (il menait à « Étudiant non
  *    spécifié ») ; ville tirée des paramètres (« Tahoua » en dur).
  */
@@ -39,7 +45,8 @@ class AttestationReussiteController extends Controller
     private const NIVEAUX = ['L1' => 'Licence 1ère Année', 'L2' => 'Licence 2ème Année', 'L3' => 'Licence 3ème Année',
         'M1' => 'Master 1', 'M2' => 'Master 2', 'DUT1' => 'DUT 1ère Année', 'DUT2' => 'DUT 2ème Année'];
 
-    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres, Menu $menu): View|RedirectResponse
+    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres, Menu $menu,
+        RegistreDocuments $registre, Journal $journal): View|RedirectResponse
     {
         $u = $request->user();
         $estEtudiant = $u->role === 'etudiant';
@@ -90,8 +97,15 @@ class AttestationReussiteController extends Controller
         $libelles = DB::table('filieres as f')->leftJoin('facultes as fac', 'fac.id', '=', 'f.faculte_id')
             ->where('f.id', $pv->filiere_id)->first([DB::raw('COALESCE(fac.libelle, f.faculte) AS faculte')]);
         $faculte = $pv->faculte_id ? (int) $pv->faculte_id : null;
+        $numeros = $etudiants->mapWithKeys(fn ($e) => [$e->id => $registre->enregistrer('attestations_emises', 'AR'.date('y').'-',
+            ['etudiant_id' => $e->id, 'type' => 'reussite_'.$pv->id],
+            ['nom' => $e->nom, 'prenoms' => $e->prenoms, 'filiere' => $pv->filiere ?: null, 'mention_grade' => $e->mention ?: null,
+                'moyenne' => $e->moyenne_generale, 'annee_academique' => $pv->annee ?: null])]);
+        $journal->action('creer', 'attestation', 'Attestation de réussite générée — '.$pv->libelle.' : '
+            .($masse ? $numeros->count().' étudiant(s)' : $numeros->first()), $masse ? (int) $pv->id : $etId);
 
         return view('documents.attestation_reussite', [
+            'numeros' => $numeros,
             'pv' => $pv,
             'masse' => $masse,
             'etudiants' => $etudiants,

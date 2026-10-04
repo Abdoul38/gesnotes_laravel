@@ -47,7 +47,7 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
      créait certaines seulement à la première utilisation d'une page, ex. `mobile_reset_codes`) ; après une sauvegarde,
      `--appliquer` les crée (uniquement des `CREATE TABLE IF NOT EXISTS`, aucune donnée touchée) — nécessaire aussi pour
      les tables propres à la version Laravel (`paiements_annules`, sans laquelle l'annulation d'un paiement échoue ; `pv_publications`, sans laquelle
-     la publication d'un PV échoue) ;
+     la publication d'un PV échoue ; `convocations_emises`, sans laquelle l'impression des convocations échoue) ;
    - `php artisan gesnotes:licence <code> [--expiration=AAAA-MM-JJ] [--max=N] --installer` émet et installe la licence
      d'une université (une licence ne vaut que pour l'université dont elle porte le code) ;
    - une université pas encore ouverte : `UNI_<CODE>_ACTIF=false` dans le `.env`.

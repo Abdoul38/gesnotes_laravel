@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Identite;
 use App\Services\Parametres;
 use App\Services\Pv;
+use App\Services\RegistreDocuments;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,11 +22,13 @@ use Illuminate\View\View;
  *    rattrapage, ceux déjà admis en session normale ne sont plus convoqués ;
  *  - convocation individuelle seulement pour un étudiant du PV (n'importe
  *    quel identifiant était accepté) ;
- *  - PV du périmètre de l'agent aussi pour un chef de département.
+ *  - PV du périmètre de l'agent aussi pour un chef de département ;
+ *  - numéro enregistré (convocations_emises), le même à chaque
+ *    réimpression (avant : rang dans la liste imprimée).
  */
 class ConvocationsController extends Controller
 {
-    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres): View|RedirectResponse
+    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres, RegistreDocuments $registre): View|RedirectResponse
     {
         $u = $request->user();
         if (! $request->filled('pv_id')) {
@@ -51,6 +54,8 @@ class ConvocationsController extends Controller
         $faculte = $pv->faculte_id ? (int) $pv->faculte_id : null;
 
         return view('documents.convocations', [
+            'numeros' => $etudiants->mapWithKeys(fn ($e) => [$e->id => $registre->enregistrer('convocations_emises', 'CV'.date('y').'-',
+                ['etudiant_id' => $e->id, 'pv_id' => $pv->id], ['date_emission' => now()])]),
             'pv' => $pv,
             'masse' => $masse,
             'etudiants' => $etudiants,

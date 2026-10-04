@@ -7,7 +7,8 @@ use RuntimeException;
 
 /**
  * Registres des documents officiels numérotés (diplomes_emis,
- * attestations_emises, certificats_emis) : un numéro par document, attribué
+ * attestations_emises — dont les attestations de réussite, type
+ * « reussite_<pv> » —, certificats_emis, convocations_emises) : un numéro par document, attribué
  * une fois puis réutilisé à chaque réimpression ; c'est ce numéro que vérifie
  * la page publique.
  *
@@ -17,7 +18,7 @@ use RuntimeException;
  */
 class RegistreDocuments
 {
-    private const TABLES = ['diplomes_emis', 'attestations_emises', 'certificats_emis'];
+    private const TABLES = ['diplomes_emis', 'attestations_emises', 'certificats_emis', 'convocations_emises'];
 
     public function existant(string $table, array $cle): ?object
     {

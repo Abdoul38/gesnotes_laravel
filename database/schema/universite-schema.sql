@@ -301,6 +301,19 @@ CREATE TABLE `choix_options_etudiants` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `convocations_emises` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `numero` varchar(30) NOT NULL,
+  `etudiant_id` int(10) unsigned NOT NULL,
+  `pv_id` int(10) unsigned NOT NULL,
+  `date_emission` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_numero` (`numero`),
+  UNIQUE KEY `uk_et_pv` (`etudiant_id`,`pv_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `demandes_inscription` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `token` varchar(64) NOT NULL,

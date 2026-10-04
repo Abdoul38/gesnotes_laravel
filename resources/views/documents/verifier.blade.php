@@ -14,7 +14,7 @@
                     'Mention' => $r->mention_grade, 'Session' => $r->session_libelle];
                 break;
             case 'attestation':
-                $lignes += ['Document' => $typesAttestation[$r->type] ?? $r->type, 'Filière' => $r->filiere,
+                $lignes += ['Document' => $typesAttestation[$r->type] ?? (str_starts_with($r->type, 'reussite_') ? 'Attestation de réussite (semestre)' : $r->type), 'Filière' => $r->filiere,
                     'Mention' => $r->mention_grade, 'Année académique' => $r->annee_academique];
                 break;
             case 'releve':

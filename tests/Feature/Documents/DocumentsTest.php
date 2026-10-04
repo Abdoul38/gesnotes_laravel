@@ -85,6 +85,14 @@ class DocumentsTest extends TestCase
             ->assertSessionHas('erreur', "Pas d'attestation de réussite : l'étudiant n'est pas admis dans ce PV.");
         $this->get($this->url("attestations/reussite?pv_id=$pvS3&masse=1"))->assertOk()->assertSee('ALPHA')->assertDontSee('BETA');
 
+        // Numéro enregistré : le même à chaque réimpression, vérifiable sur la page publique
+        $numero = DB::table('attestations_emises')->where(['etudiant_id' => $this->alpha, 'type' => "reussite_$pvS3"])->value('numero');
+        $this->assertMatchesRegularExpression('/^AR\d{2}-000001$/', $numero);
+        $this->assertSame(1, DB::table('attestations_emises')->count());
+        $this->get($this->url("attestations/reussite?pv_id=$pvS3&et_id={$this->alpha}"))->assertSee("N° $numero")->assertDontSee('ANM/DepD');
+        $this->post('/logout');
+        $this->get($this->url('verification?num='.$numero))->assertOk()->assertSee('Attestation de réussite (semestre)');
+
         $this->connecte($this->agentAutreFaculte())->get($this->url("attestations/reussite?pv_id=$pvS3&masse=1"))->assertRedirect($this->url('attestations/reussite'));
         $this->donnerPermissions('enseignant', ['inscription_ped']);
         $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url('attestations/reussite'))->assertRedirect($this->url('accueil'));

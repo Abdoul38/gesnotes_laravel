@@ -189,7 +189,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 
     <div class="pied">
       <div class="avis"><strong>Avis important —</strong> Il n'est délivré qu'une seule attestation. Le titulaire devra en faire établir des copies certifiées conformes par les autorités compétentes. Cette attestation ne doit comporter ni rature ni surcharge, sous peine de nullité.</div>
-      <div class="numero">ANM/DepD/{{ date('y') }}/{{ str_pad((string) $loop->iteration, 4, '0', STR_PAD_LEFT) }}</div>
+      <div class="numero">N° {{ $numeros[$et->id] }}</div>
     </div>
 
   </div>

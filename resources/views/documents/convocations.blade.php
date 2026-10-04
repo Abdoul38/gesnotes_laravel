@@ -64,7 +64,7 @@ table.mat td.center{text-align:center}
 <div class="conv">
 <div class="conv-inner">
 
-  <div class="num-conv">N° {{ str_pad((string) $loop->iteration, 4, '0', STR_PAD_LEFT) }}/{{ date('Y') }}</div>
+  <div class="num-conv">N° {{ $numeros[$et->id] }}</div>
 
   <div class="header">
     <img src="{{ $logos['gauche'] }}" alt="" data-onerror-hide="1">

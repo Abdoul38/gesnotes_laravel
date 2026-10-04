@@ -392,6 +392,11 @@ class PvTest extends TestCase
         $this->get($this->url("convocations?pv_id={$this->pv}&masse=1"))->assertOk()
             ->assertSee('Convocation aux Examens')->assertSee('ALPHA X')->assertSee('15/01/2026')->assertSee('Amphi A')->assertSee('Microéconomie');
         $this->get($this->url("convocations?pv_id={$this->pv}&et_id=$a"))->assertOk()->assertSee('Convocation individuelle');
+        // Numéro enregistré une fois par étudiant et par PV, repris à la réimpression
+        $numero = DB::table('convocations_emises')->where(['etudiant_id' => $a, 'pv_id' => $this->pv])->value('numero');
+        $this->assertMatchesRegularExpression('/^CV\d{2}-\d{6}$/', $numero);
+        $this->get($this->url("convocations?pv_id={$this->pv}&et_id=$a"))->assertSee("N° $numero");
+        $this->assertSame(1, DB::table('convocations_emises')->where('etudiant_id', $a)->count());
         $this->get($this->url("convocations?pv_id={$this->pv}&et_id=$hors"))->assertRedirect($this->url('convocations'));
 
         $facA = $this->insererMinimal('facultes', ['code' => 'FA', 'libelle' => 'A']);

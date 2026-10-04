@@ -419,6 +419,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Ministère et ANAB : lecture des bases des universités avec le compte MySQL principal (droits d'écriture) | compte dédié facultatif `ESPACES_DB_USERNAME` / `ESPACES_DB_PASSWORD` (lecture seule + journal), à créer au moment de la bascule (`BASCULE.md`) | défense en profondeur (décidé après les essais) |
 | Paiements : suppression définitive (seule trace : une ligne du journal) | annulation avec motif obligatoire ; la ligne complète est archivée dans `paiements_annules` (agent, date) et listée sur la fiche paiements de l'étudiant | un encaissement ne doit pas pouvoir disparaître (table à créer : `gesnotes:completer-schema --appliquer`) |
 | Réclamations (application mobile) : délai de 72 h compté depuis la dernière modification du PV (toute correction le relançait) | compté depuis la publication, enregistrée dans `pv_publications` ; PV publiés par l'ancienne application : dernière modification, comme avant | délai prévisible pour les étudiants (table à créer : `gesnotes:completer-schema --appliquer`) |
+| Attestations de réussite et convocations : numéro = rang dans la liste imprimée (même numéro pour des étudiants différents, numéro qui change à la réimpression) | numéro enregistré une fois par étudiant et par PV (`attestations_emises` type `reussite_<pv>`, préfixe `AR` ; `convocations_emises`, préfixe `CV`) ; l'attestation est vérifiable sur la page publique | traçabilité (table à créer : `gesnotes:completer-schema --appliquer`) |
 
 ## Décisions prises (université)
 
