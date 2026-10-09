@@ -32,14 +32,16 @@ final class Classeur
      * @param  list<array{height?: int, merges?: list<array{0:int,1:int}>, cells: list<array{v?: mixed, f?: string, style?: int}>}>  $lignes
      * @param  list<int|float>  $largeurs
      */
-    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = []): void
+    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = [], ?string $filtre = null): void
     {
         $nom = mb_substr(trim(preg_replace('/[\/\\\\?*\[\]:]/', '_', $nom)) ?: 'Feuille', 0, 31);
         $pris = array_map('mb_strtolower', array_column($this->feuilles, 'nom'));
         for ($n = 2, $base = $nom; in_array(mb_strtolower($nom), $pris, true); $n++) {
             $nom = mb_substr($base, 0, 31 - strlen(" ($n)"))." ($n)";
         }
-        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions];
+        // $filtre : plage « A4:U30 » dont la première ligne porte les boutons de filtre d'Excel
+        $filtre = $filtre !== null && preg_match('/^[A-Z]{1,3}\d+:[A-Z]{1,3}\d+$/', $filtre) ? $filtre : null;
+        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions, 'filtre' => $filtre];
     }
 
     /** Écrit le classeur dans un fichier temporaire et retourne son chemin. */
@@ -50,8 +52,13 @@ final class Classeur
         }
         $xmlFeuilles = array_map(fn ($f) => $this->xmlFeuille($f), $this->feuilles);
 
-        $rels = $elements = $types = '';
+        $rels = $elements = $types = $noms = '';
         foreach ($this->feuilles as $i => $f) {
+            if ($f['filtre']) {
+                // Nom réservé qu'Excel associe au filtre automatique de la feuille
+                $plage = preg_replace('/([A-Z]+)(\d+)/', '\$$1\$$2', $f['filtre']);
+                $noms .= '<definedName name="_xlnm._FilterDatabase" localSheetId="'.$i.'" hidden="1">\''.self::xml(str_replace("'", "''", $f['nom'])).'\'!'.$plage.'</definedName>';
+            }
             $id = $i + 1;
             $rels .= '<Relationship Id="rId'.$id.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'.$id.'.xml"/>';
             $elements .= '<sheet name="'.self::xml($f['nom']).'" sheetId="'.$id.'" r:id="rId'.$id.'"/>';
@@ -77,7 +84,7 @@ final class Classeur
             .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
         // Classeur avec formules : recalcul complet à l'ouverture
         $calcul = $this->formules ? '<calcPr calcId="0" fullCalcOnLoad="1"/>' : '';
-        $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'.$elements.'</sheets>'.$calcul.'</workbook>');
+        $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'.$elements.'</sheets>'.($noms ? '<definedNames>'.$noms.'</definedNames>' : '').$calcul.'</workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', $entete.'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             .'<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
             .'<Relationship Id="rId101" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'.$rels.'</Relationships>');
@@ -117,12 +124,12 @@ final class Classeur
                     // Formule (syntaxe anglaise du format de fichier : IF, ROUND, virgules) et sa valeur déjà calculée,
                     // affichée telle quelle et relue par les imports
                     $this->formules = true;
-                    $f = '<f>'.self::xml((string) $cellule['f']).'</f>';
+                    $formule = '<f>'.self::xml((string) $cellule['f']).'</f>';
                     $x .= match (true) {
-                        $v === '' || $v === null => '<c r="'.$ref.'" s="'.$style.'">'.$f.'</c>',
-                        is_bool($v) => '<c r="'.$ref.'" s="'.$style.'" t="b">'.$f.'<v>'.($v ? 1 : 0).'</v></c>',
-                        is_int($v) || is_float($v) => '<c r="'.$ref.'" s="'.$style.'">'.$f.'<v>'.$v.'</v></c>',
-                        default => '<c r="'.$ref.'" s="'.$style.'" t="str">'.$f.'<v>'.self::xml((string) $v).'</v></c>',
+                        $v === '' || $v === null => '<c r="'.$ref.'" s="'.$style.'">'.$formule.'</c>',
+                        is_bool($v) => '<c r="'.$ref.'" s="'.$style.'" t="b">'.$formule.'<v>'.($v ? 1 : 0).'</v></c>',
+                        is_int($v) || is_float($v) => '<c r="'.$ref.'" s="'.$style.'">'.$formule.'<v>'.$v.'</v></c>',
+                        default => '<c r="'.$ref.'" s="'.$style.'" t="str">'.$formule.'<v>'.self::xml((string) $v).'</v></c>',
                     };
                 } elseif ($v === '' || $v === null) {
                     $x .= '<c r="'.$ref.'" s="'.$style.'"/>';
@@ -140,6 +147,9 @@ final class Classeur
             }
         }
         $x .= '</sheetData>';
+        if ($f['filtre']) {
+            $x .= '<autoFilter ref="'.$f['filtre'].'"/>';
+        }
         if ($fusions) {
             $x .= '<mergeCells count="'.count($fusions).'">'.implode('', array_map(fn ($m) => '<mergeCell ref="'.$m.'"/>', $fusions)).'</mergeCells>';
         }

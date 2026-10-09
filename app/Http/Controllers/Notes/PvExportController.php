@@ -27,6 +27,9 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * l'université ni de son blocage par année) : l'Excel pouvait contredire le PV.
  * Les matricules restent du texte (zéros conservés).
  *
+ * Filtres d'Excel sur chaque colonne (ligne 4), dans les deux variantes : les
+ * en-têtes de la ligne 4 ne sont plus fusionnés avec la ligne 3.
+ *
  * Variante « avec formules » (?formules=1, en plus de l'export en valeurs) :
  * les résultats deviennent des formules Excel qui reproduisent les règles du
  * moteur et se recalculent si l'on modifie une note dans le fichier, avec une
@@ -97,9 +100,15 @@ class PvExportController extends Controller
                 'exam' => $m->libelle, 'sem_cr' => 'Crédits ('.$creditsTotal.')', 'sem_moy' => 'Moy. Gén.',
                 'sem_dec' => 'Décision', 'sem_men' => 'Mention', 'sem_rang' => 'Rang', default => '',
             }, $i <= 2 ? 4 : 3);
-            $l4[] = $c($i <= 2 ? '' : match ($t) {
+            // Ligne 4 = ligne des filtres : un libellé par colonne. Aucun résumé ne commence par « Exam. », « TD/ »
+            // ou « Obs. », que l'import du PV complet lit pour repérer les matières.
+            $l4[] = $c(match ($t) {
+                'num' => 'N°', 'numero' => 'Matricule', 'nom' => 'Nom & Prénoms',
                 'exam' => 'Exam./'.(float) $m->note_max_examen, 'td' => 'TD/'.(float) $m->note_max_cc,
-                'note' => 'Note/'.(float) $m->note_max_totale, 'cr_mat' => 'Crédits('.$m->credits.')', 'obs_mat' => 'Obs.', default => '',
+                'note' => 'Note/'.(float) $m->note_max_totale, 'cr_mat' => 'Crédits('.$m->credits.')', 'obs_mat' => 'Obs.',
+                'ue_tot' => 'Total', 'ue_moy' => 'Moyenne', 'ue_cr' => 'Crédits', 'ue_val' => 'Validée', 'ue_obs' => 'Résultat UE',
+                'sem_cr' => 'Crédits', 'sem_moy' => 'Moyenne', 'sem_dec' => 'Décision', 'sem_men' => 'Mention', 'sem_rang' => 'Rang',
+                default => '',
             }, 4);
         }
         $lignes[] = ['height' => 40, 'cells' => $l2];
@@ -166,7 +175,7 @@ class PvExportController extends Controller
         }
 
         // Fusions : titre, colonnes fixes, UE (ligne 2), matières (ligne 3), résumés (lignes 3-4)
-        $fusions = ['A1:'.Classeur::ref($nb, 1), 'A2:A4', 'B2:B4', 'C2:C4'];
+        $fusions = ['A1:'.Classeur::ref($nb, 1), 'A2:A3', 'B2:B3', 'C2:C3'];
         $debut = null;
         foreach ($cols as $i => $col) {
             [$t, $ue, $m] = $col + [null, null, null];
@@ -178,9 +187,6 @@ class PvExportController extends Controller
                 }
                 $fusions[] = Classeur::ref($i + 1, 2).':'.Classeur::ref($finUe + 1, 2);
                 $fusions[] = Classeur::ref($i + 1, 3).':'.Classeur::ref($finMat + 1, 3);
-            }
-            if (str_starts_with($t, 'ue_') || str_starts_with($t, 'sem_')) {
-                $fusions[] = Classeur::ref($i + 1, 3).':'.Classeur::ref($i + 1, 4);
             }
             $debut ??= $t === 'sem_cr' ? $i : null;
         }
@@ -202,7 +208,8 @@ class PvExportController extends Controller
             };
         }
         $classeur = new Classeur(self::STYLES);
-        $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions);
+        // Filtres d'Excel sur la ligne 4 (une flèche par colonne), étudiants en dessous
+        $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions, 'A4:'.Classeur::ref($nb, 4 + max(1, $etudiants->count())));
         if ($excel) {
             [$lignesCalculs, $largeursCalculs] = $excel->feuilleCalculs();
             $classeur->feuille('Calculs', $lignesCalculs, $largeursCalculs, 4);

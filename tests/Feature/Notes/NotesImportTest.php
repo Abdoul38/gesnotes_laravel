@@ -128,6 +128,12 @@ class NotesImportTest extends TestCase
         $zip = new \ZipArchive;
         $zip->open($chemin);
         $this->assertStringContainsString('<pane ySplit="4"', $zip->getFromName('xl/worksheets/sheet1.xml'));   // en-têtes figés
+        // Filtres d'Excel sur chaque colonne (ligne 4) ; la ligne 4 n'est plus fusionnée avec la ligne 3
+        $this->assertStringContainsString('<autoFilter ref="A4:U6"/>', $zip->getFromName('xl/worksheets/sheet1.xml'));
+        $this->assertStringContainsString('<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'PV\'!$A$4:$U$6</definedName>', $zip->getFromName('xl/workbook.xml'));
+        $this->assertStringNotContainsString('S3:S4', $zip->getFromName('xl/worksheets/sheet1.xml'));
+        $this->assertSame(['N°', 'Matricule', 'Nom & Prénoms'], array_slice($lignes[4], 0, 3));
+        $this->assertSame(['Total', 'Moyenne', 'Crédits', 'Validée', 'Résultat UE', 'Crédits', 'Moyenne', 'Décision', 'Mention', 'Rang'], array_slice($lignes[4], 11, 10));
         $zip->close();
 
         // On complète BRAVO dans le fichier et on le réimporte
