@@ -21,9 +21,8 @@ use Illuminate\View\View;
  * répartition des décisions par étudiant inscrit, total = inscrits (avant :
  * « Admis » tiré des passages de niveau, ajournés et défaillants comptés par
  * résultat de semestre de session normale — les chiffres ne correspondaient
- * pas aux compteurs) : admis / redoublants selon la décision de passage,
- * sinon défaillants / ajournés selon le résultat final des semestres
- * (rattrapage s'il a eu lieu), sinon en attente ; mentions des semestres
+ * pas aux compteurs) : admis (passage ou licence validée) / redoublants
+ * (tous les autres) ; mentions des semestres
  * validés après rattrapage, regroupées quelle que soit la casse. Compteurs,
  * répartition, tableau par filière et évolution reposent sur ce même
  * classement (une décision par étudiant et par année : les doublons de
@@ -54,9 +53,7 @@ class StatistiquesController extends Controller
         // répartition, au tableau par filière et à l'évolution : tous concordent
         $classes = $this->classer($filiereId, $fac);
         $annee = $classes->where('annee_id', $anneeId);
-        $compter = fn ($lignes) => ['admis' => $lignes->where('categorie', 'admis')->count(), 'redoublants' => $lignes->where('categorie', 'redoublants')->count(),
-            'ajournes' => $lignes->where('categorie', 'ajournes')->count(), 'defaillants' => $lignes->where('categorie', 'defaillants')->count(),
-            'en_attente' => $lignes->where('categorie', 'en_attente')->count()];
+        $compter = fn ($lignes) => ['admis' => $lignes->where('categorie', 'admis')->count(), 'redoublants' => $lignes->where('categorie', 'redoublants')->count()];
         $tauxPassage = fn (array $c) => $c['admis'] + $c['redoublants'] > 0 ? round($c['admis'] / ($c['admis'] + $c['redoublants']) * 100, 1) : 0;
         $repartition = $compter($annee);
         $inscrits = $annee->count();
@@ -98,10 +95,10 @@ class StatistiquesController extends Controller
 
     /**
      * Étudiants inscrits, un par année (dernière inscription s'il en a deux), avec
-     * leur catégorie : admis / redoublants selon la décision de passage de l'année
-     * (la dernière non vide : les bases contiennent des doublons, que l'ancien
-     * calcul additionnait) ; sans décision, défaillants / ajournés selon le
-     * résultat final des semestres (rattrapage s'il a eu lieu) ; sinon en attente.
+     * leur catégorie (décision de l'université) : admis s'ils passent au niveau
+     * suivant ou valident la licence (dernière décision non vide de l'année : les
+     * bases contiennent des doublons, que l'ancien calcul additionnait) ;
+     * redoublants tous les autres, y compris sans décision enregistrée.
      */
     private function classer(int $filiereId, int $fac): Collection
     {
@@ -113,28 +110,9 @@ class StatistiquesController extends Controller
             ->keyBy(fn ($l) => $l->annee_id.'-'.$l->etudiant_id);
         $decisions = DB::table('passages_niveau')->whereIn('decision', ['passage', 'licence_validee', 'redoublement'])->orderBy('id')
             ->get(['etudiant_id', 'annee_depart_id', 'decision'])->mapWithKeys(fn ($d) => [$d->annee_depart_id.'-'.$d->etudiant_id => $d->decision]);
-        // Résultat final de chaque semestre : rattrapage s'il existe pour l'étudiant (même promotion, même semestre), sinon session normale
-        $semestres = $perimetre(DB::table('resultats_semestre as rs')->join('pv_sessions as ps', 'ps.id', '=', 'rs.pv_id')
-            ->join('promotions as p', 'p.id', '=', 'ps.promotion_id')->join('filieres as f', 'f.id', '=', 'p.filiere_id'))
-            ->whereIn('ps.type_session', ['normale', 'rattrapage'])
-            ->where(fn ($q) => $q->where('ps.type_session', 'rattrapage')->orWhereNotExists(fn ($s) => $s->from('resultats_semestre as rr')
-                ->join('pv_sessions as pr', 'pr.id', '=', 'rr.pv_id')->where('pr.type_session', 'rattrapage')
-                ->whereColumn('rr.etudiant_id', 'rs.etudiant_id')->whereColumn('pr.promotion_id', 'ps.promotion_id')->whereColumn('pr.semestre_id', 'ps.semestre_id')))
-            ->groupBy('p.annee_id', 'rs.etudiant_id')
-            ->get(['p.annee_id', 'rs.etudiant_id', DB::raw("SUM(rs.valide = 0 AND (rs.defaillant = 1 OR rs.decision LIKE 'D%faillant%')) AS defaillants"),
-                DB::raw('SUM(rs.valide = 0) AS non_valides')])
-            ->keyBy(fn ($r) => $r->annee_id.'-'.$r->etudiant_id);
 
-        return $inscrits->map(function ($l, $cle) use ($decisions, $semestres) {
-            $decision = $decisions[$cle] ?? null;
-            $r = $semestres[$cle] ?? null;
-            $l->categorie = match (true) {
-                in_array($decision, ['passage', 'licence_validee'], true) => 'admis',
-                $decision === 'redoublement' => 'redoublants',
-                $r && (int) $r->defaillants > 0 => 'defaillants',
-                $r && (int) $r->non_valides > 0 => 'ajournes',
-                default => 'en_attente',
-            };
+        return $inscrits->map(function ($l, $cle) use ($decisions) {
+            $l->categorie = in_array($decisions[$cle] ?? null, ['passage', 'licence_validee'], true) ? 'admis' : 'redoublants';
 
             return $l;
         })->values();

@@ -67,7 +67,7 @@ class RapportsSuiviTest extends TestCase
         return $this->creerUtilisateur('doyen', ['faculte_id' => $this->facA]);
     }
 
-    public function test_repartition_par_etudiant_concorde_avec_les_compteurs(): void
+    public function test_admis_et_redoublants_par_etudiant(): void
     {
         // ALPHA, BETA : passage (setUp) ; ALPHA a un doublon de passage (compté une fois)
         $pvA = DB::table('pv_sessions')->where('id', $this->pvA)->first();
@@ -102,13 +102,13 @@ class RapportsSuiviTest extends TestCase
 
         $page = $this->connecte($this->admin)->get($this->url('statistiques'))->assertOk()
             ->assertViewHas('inscrits', 7)->assertViewHas('admis', 2);
-        // Admis, redoublants, ajournés, défaillants, en attente : total = inscrits ; le rattrapé n'est plus ajourné
-        $page->assertViewHas('graphiques', fn ($g) => $g['decisions'] === [2, 1, 1, 1, 2]
+        // Admis (passage ou licence validée) et redoublants (tous les autres, même sans décision) : total = inscrits
+        $page->assertViewHas('graphiques', fn ($g) => $g['decisions'] === [2, 5]
             && $g['mentions']['libelles']->all() === ['Très bien', 'Bien', 'Assez bien', 'Passable']
             && $g['mentions']['valeurs']->all() === [0, 1, 2, 0]);
         // Tableau par filière et évolution : mêmes chiffres
-        $page->assertViewHas('lignes', fn ($l) => $l->sum('inscrits') === 7 && $l->sum('passages') === 2 && $l->sum('redoublants') === 1);
-        $page->assertViewHas('evolution', fn ($e) => $e->count() === 1 && $e[0]->inscrits === 7 && $e[0]->passages === 2 && (float) $e[0]->taux === 66.7);
+        $page->assertViewHas('lignes', fn ($l) => $l->sum('inscrits') === 7 && $l->sum('passages') === 2 && $l->sum('redoublants') === 5);
+        $page->assertViewHas('evolution', fn ($e) => $e->count() === 1 && $e[0]->inscrits === 7 && $e[0]->passages === 2 && $e[0]->redoublants === 5 && (float) $e[0]->taux === 28.6);
         $page->assertSee('class="stats-graphe"', false)->assertDontSee('height="220"', false);
     }
 

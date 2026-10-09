@@ -8,7 +8,7 @@
   var total = d.decisions.reduce(function (a, b) { return a + b; }, 0) || 1;
   if ($('chartDecisions')) new Chart($('chartDecisions'), {
     type: 'doughnut',
-    data: { labels: ['Admis', 'Redoublants', 'Ajournés', 'Défaillants', 'En attente de décision'], datasets: [{ data: d.decisions, backgroundColor: ['#1b5e20', '#f57f17', '#e65100', '#b71c1c', '#9e9e9e'], borderWidth: 2, borderColor: '#fff' }] },
+    data: { labels: ['Admis', 'Redoublants'], datasets: [{ data: d.decisions, backgroundColor: ['#1b5e20', '#e65100'], borderWidth: 2, borderColor: '#fff' }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' },
       tooltip: { callbacks: { label: function (c) { return c.label + ' : ' + c.raw + ' (' + Math.round(c.raw / total * 100) + '%)'; } } } } }
   });
