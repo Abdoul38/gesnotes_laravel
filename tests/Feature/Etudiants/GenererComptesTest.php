@@ -108,6 +108,35 @@ class GenererComptesTest extends TestCase
         $this->get($this->url('etudiants/comptes/imprimer?voir_promo=999999'))->assertNotFound();
     }
 
+    public function test_nettoyage_des_comptes_orphelins(): void
+    {
+        $a = $this->inscrire('SALEY', 'Amina', '00041');
+        $lie = $this->creerUtilisateur('etudiant', ['email' => 'lie@udh.ne', 'etudiant_id' => $a]);
+        $sansFiche = $this->creerUtilisateur('etudiant', ['email' => 'orphelin1@udh.ne', 'etudiant_id' => null]);
+        $ficheSupprimee = $this->creerUtilisateur('etudiant', ['email' => 'orphelin2@udh.ne', 'etudiant_id' => 999999]);
+        DB::table('utilisateur_permissions')->insert(['utilisateur_id' => $sansFiche->id, 'permission_code' => 'notes_voir']);
+
+        // sc_centrale : voit la liste, ne supprime pas
+        $this->donnerPermissions('sc_centrale', ['utilisateurs_gerer']);
+        $sc = $this->creerUtilisateur('sc_centrale', ['email' => 'sc@test.local']);
+        $this->connecte($sc)->get($this->url('etudiants/comptes'))->assertOk()->assertSee('Comptes orphelins (2)')
+            ->assertSee('orphelin1@udh.ne')->assertDontSee('lie@udh.ne')->assertSee("Suppression réservée à l'administrateur.", false);
+        $this->post($this->url('etudiants/comptes/orphelins'), ['attendu' => 2])->assertSessionHas('erreur');
+        $this->assertSame(3, DB::table('utilisateurs')->where('role', 'etudiant')->count());
+
+        $this->connecte($this->admin)->get($this->url('etudiants/comptes'))->assertSee('Supprimer les 2 comptes orphelins');
+        // Nombre différent de celui affiché : rien n'est supprimé
+        $this->post($this->url('etudiants/comptes/orphelins'), ['attendu' => 5])->assertSessionHas('erreur');
+        $this->assertSame(3, DB::table('utilisateurs')->where('role', 'etudiant')->count());
+
+        $this->post($this->url('etudiants/comptes/orphelins'), ['attendu' => 2])->assertSessionHas('succes', '2 compte(s) orphelin(s) supprimé(s).');
+        $this->assertSame([$lie->id], DB::table('utilisateurs')->where('role', 'etudiant')->pluck('id')->map(fn ($i) => (int) $i)->all());
+        $this->assertSame(0, DB::table('utilisateur_permissions')->where('utilisateur_id', $sansFiche->id)->count());
+        $this->assertSame(1, DB::table('utilisateurs')->where('id', $this->admin->id)->count());
+        $this->assertDatabaseHas('audit_log', ['action' => 'supprimer', 'module' => 'utilisateur']);
+        $this->get($this->url('etudiants/comptes'))->assertDontSee('Comptes orphelins');
+    }
+
     public function test_reserve_admin_et_sc_centrale(): void
     {
         $this->donnerPermissions('secretaire', ['utilisateurs_gerer']);

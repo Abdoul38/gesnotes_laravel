@@ -68,6 +68,7 @@ Route::middleware(['page:generer_comptes_etudiants', 'roles:admin,sc_centrale'])
     Route::get('/etudiants/comptes', 'index')->name('generer_comptes_etudiants');
     Route::post('/etudiants/comptes', 'generer')->name('generer_comptes_etudiants.generer');
     Route::get('/etudiants/comptes/imprimer', 'imprimer')->name('generer_comptes_etudiants.imprimer');
+    Route::post('/etudiants/comptes/orphelins', 'nettoyer')->name('generer_comptes_etudiants.nettoyer');
 });
 
 // Cachet et signature : ne sont plus servis publiquement, seulement aux utilisateurs connectés

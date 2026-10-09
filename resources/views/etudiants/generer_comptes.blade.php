@@ -154,6 +154,34 @@
   </div>
 </div>
 @endif
+@if ($nbOrphelins > 0)
+<div class="card" style="margin-top:20px">
+  <div class="card-header"><span class="card-title">🧹 Comptes orphelins ({{ $nbOrphelins }})</span></div>
+  <div class="card-body">
+    <p style="font-size:13px;margin-bottom:12px">Comptes « étudiant » qui ne sont liés à aucune fiche étudiant (fiche supprimée ou jamais liée). Ils ne servent à rien mais restent des accès ouverts. @if ($nbOrphelins > $orphelins->count())Aperçu des {{ $orphelins->count() }} premiers.@endif</p>
+    <table class="table" style="font-size:12px">
+      <thead><tr><th>Identifiant</th><th>Nom</th><th>Créé le</th><th>Dernière connexion</th></tr></thead>
+      <tbody>
+      @foreach ($orphelins as $o)
+      <tr><td><code>{{ $o->email }}</code></td><td>{{ $o->nom }} {{ $o->prenoms }}</td>
+        <td>{{ $o->created_at ? date('d/m/Y', strtotime($o->created_at)) : '—' }}</td>
+        <td>{{ $o->derniere_connexion ? date('d/m/Y H:i', strtotime($o->derniere_connexion)) : 'jamais' }}</td></tr>
+      @endforeach
+      </tbody>
+    </table>
+    @if ($peutNettoyer)
+    <form method="post" action="{{ route('generer_comptes_etudiants.nettoyer') }}" style="margin-top:12px"
+          data-confirm="Supprimer définitivement les {{ $nbOrphelins }} comptes orphelins ? Les fiches étudiants ne sont pas touchées. Faites une sauvegarde avant.">
+      @csrf
+      <input type="hidden" name="attendu" value="{{ $nbOrphelins }}">
+      <button type="submit" class="btn btn-danger">🧹 Supprimer les {{ $nbOrphelins }} comptes orphelins</button>
+    </form>
+    @else
+    <p style="font-size:12px;color:var(--text-muted);margin-top:10px">Suppression réservée à l'administrateur.</p>
+    @endif
+  </div>
+</div>
+@endif
 @endsection
 
 @push('head')

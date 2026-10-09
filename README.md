@@ -421,6 +421,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Réclamations (application mobile) : délai de 72 h compté depuis la dernière modification du PV (toute correction le relançait) | compté depuis la publication, enregistrée dans `pv_publications` ; PV publiés par l'ancienne application : dernière modification, comme avant | délai prévisible pour les étudiants (table à créer : `gesnotes:completer-schema --appliquer`) |
 | Attestations de réussite et convocations : numéro = rang dans la liste imprimée (même numéro pour des étudiants différents, numéro qui change à la réimpression) | numéro enregistré une fois par étudiant et par PV (`attestations_emises` type `reussite_<pv>`, préfixe `AR` ; `convocations_emises`, préfixe `CV`) ; l'attestation est vérifiable sur la page publique | traçabilité (table à créer : `gesnotes:completer-schema --appliquer`) |
 | ANAB : mentions calculées avec des seuils fixes 16 / 14 / 12 pour toutes les universités | seuils de l'université consultée (`mention_tres_bien`, `mention_bien`, `mention_assez_bien`), ceux de ses attestations ; 16 / 14 / 12 par défaut. Le seuil d'éligibilité aux bourses (12/20) reste celui de l'ANAB | même mention sur l'attestation et à l'ANAB |
+| Comptes « étudiant » orphelins (sans fiche étudiant liée ; environ 825 dans les bases actuelles) : aucun moyen de les voir ni de les retirer | section « Comptes orphelins » de la page Comptes étudiants : liste (admin, sc_centrale), suppression par l'administrateur seul, après confirmation, si le nombre n'a pas changé depuis l'affichage ; fiches étudiants, journaux et messages non touchés | accès ouverts inutiles (faire une sauvegarde avant) |
 
 ## Décisions prises (université)
 
@@ -482,8 +483,6 @@ Plan en 13 étapes (section 11 de l'inventaire).
   à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
 - **« Défaillant »** désigne à la fois une absence et une note sous la note éliminatoire (repris tel quel) :
   deux libellés distincts ?
-- **Comptes « étudiant » orphelins** : environ 825 comptes pour 4 étudiants dans les bases actuelles (aucune fiche liée).
-  Écran de nettoyage, ou suppression ?
 - **Session partagée** : se déconnecter du personnel ferme aussi l'Espace Parents ouvert dans le même navigateur.
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 

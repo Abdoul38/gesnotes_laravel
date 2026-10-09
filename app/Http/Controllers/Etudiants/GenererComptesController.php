@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Etudiants;
 use App\Http\Controllers\Controller;
 use App\Services\Journal;
 use App\Universites\UniversiteCourante;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -30,7 +31,9 @@ use Throwable;
  *  - identifiant déjà pris : suffixe placé avant le « @ » (l'ancien
  *    « …@udh.ne_00012 » n'était pas une adresse valide) ;
  *  - la promotion doit appartenir à l'année choisie ; message technique
- *    d'erreur non affiché ; génération journalisée.
+ *    d'erreur non affiché ; génération journalisée ;
+ *  - nouveau : liste et suppression (admin) des comptes « étudiant »
+ *    orphelins, sans fiche étudiant liée (inutilisables, mais ouverts).
  */
 class GenererComptesController extends Controller
 {
@@ -125,7 +128,48 @@ class GenererComptesController extends Controller
             'comptes' => $voir ? $this->comptes($voir->id) : collect(),
             'rapport' => $rapport,
             'domaine' => $this->domaine(),
+            'nbOrphelins' => $this->orphelins()->count(),
+            'orphelins' => $this->orphelins()->orderBy('u.id')->limit(50)
+                ->get(['u.id', 'u.email', 'u.nom', 'u.prenoms', 'u.created_at', 'u.derniere_connexion']),
+            'peutNettoyer' => $request->user()->role === 'admin',
         ]);
+    }
+
+    /**
+     * Suppression des comptes orphelins (admin). Le nombre affiché est renvoyé
+     * par le formulaire : si des comptes ont changé entre-temps, rien n'est fait.
+     * Les journaux et messages gardent l'identifiant (historique).
+     */
+    public function nettoyer(Request $request): RedirectResponse
+    {
+        $retour = redirect()->route('generer_comptes_etudiants');
+        if ($request->user()->role !== 'admin') {
+            return $retour->with('erreur', "Réservé à l'administrateur.");
+        }
+        $ids = $this->orphelins()->pluck('u.id')->map(fn ($id) => (int) $id)->all();
+        if (! $ids) {
+            return $retour->with('succes', 'Aucun compte orphelin.');
+        }
+        if ((int) $request->input('attendu') !== count($ids)) {
+            return $retour->with('erreur', "La liste a changé depuis l'affichage : vérifiez-la puis recommencez.");
+        }
+        DB::transaction(function () use ($ids) {
+            foreach (array_chunk($ids, 500) as $lot) {
+                DB::table('utilisateur_permissions')->whereIn('utilisateur_id', $lot)->delete();
+                DB::table('password_resets')->whereIn('user_id', $lot)->delete();
+                DB::table('utilisateurs')->whereIn('id', $lot)->where('role', 'etudiant')->delete();
+            }
+        });
+        $this->journal->action('supprimer', 'utilisateur', count($ids).' compte(s) étudiant orphelin(s) supprimé(s) (sans fiche étudiant) — id '.min($ids).' à '.max($ids));
+
+        return $retour->with('succes', count($ids).' compte(s) orphelin(s) supprimé(s).');
+    }
+
+    /** Comptes « étudiant » sans fiche étudiant (etudiant_id vide ou fiche supprimée). */
+    private function orphelins()
+    {
+        return DB::table('utilisateurs as u')->where('u.role', 'etudiant')
+            ->where(fn ($q) => $q->whereNull('u.etudiant_id')->orWhereNotExists(fn ($s) => $s->from('etudiants as e')->whereColumn('e.id', 'u.etudiant_id')));
     }
 
     /** Année demandée, sinon l'année active, sinon la plus récente. */
