@@ -433,6 +433,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Nom de l'utilisateur connecté (bas du menu) : simple texte ; aucun moyen de changer son mot de passe (sauf au rectorat) | lien vers « Mon compte » (`/mon-compte`) : profil et changement du mot de passe pour tous les rôles — mot de passe actuel exigé, 5 essais par quart d'heure, 8 caractères avec lettres et chiffres, différent de l'actuel et du matricule, session renouvelée, journalisé | demande de l'université |
 | Service worker (PWA) : scripts et styles servis depuis le cache sans jamais revérifier, réponses d'erreur comprises (QR codes absents, corrections invisibles sans Ctrl+F5) | réseau d'abord, cache seulement hors ligne et pour les réponses valides ; cache renommé `edufile-static-v2` (l'ancien est vidé) | |
 | QR codes des documents : image de taille fixe qui débordait de son cadre | ajustée au cadre prévu par chaque document | |
+| Export Excel du PV : valeurs seulement | deux exports : « Exporter Excel » (valeurs, réimportable) et « Excel avec formules » (note = Exam. + TD, total et moyenne des UE, moyenne générale, mention, rang en formules, recalculées si l'on modifie une note ; validations, observations, crédits et décisions restent des valeurs, car elles dépendent des règles du moteur ; une formule n'est posée que si elle redonne le résultat enregistré) | demande de l'université |
 
 ## Décisions prises (université)
 

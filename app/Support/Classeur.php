@@ -23,11 +23,13 @@ final class Classeur
 
     private array $chaines = [];
 
+    private bool $formules = false;
+
     /** Feuille de styles propre au document (sinon les 12 styles ci-dessus). */
     public function __construct(private readonly ?string $styles = null) {}
 
     /**
-     * @param  list<array{height?: int, merges?: list<array{0:int,1:int}>, cells: list<array{v?: mixed, style?: int}>}>  $lignes
+     * @param  list<array{height?: int, merges?: list<array{0:int,1:int}>, cells: list<array{v?: mixed, f?: string, style?: int}>}>  $lignes
      * @param  list<int|float>  $largeurs
      */
     public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = []): void
@@ -73,7 +75,9 @@ final class Classeur
             .'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'.$types.'</Types>');
         $zip->addFromString('_rels/.rels', $entete.'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-        $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'.$elements.'</sheets></workbook>');
+        // Classeur avec formules : recalcul complet à l'ouverture
+        $calcul = $this->formules ? '<calcPr calcId="0" fullCalcOnLoad="1"/>' : '';
+        $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'.$elements.'</sheets>'.$calcul.'</workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', $entete.'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             .'<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
             .'<Relationship Id="rId101" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'.$rels.'</Relationships>');
@@ -109,7 +113,17 @@ final class Classeur
                 $ref = self::ref($ci + 1, $r);
                 $style = (int) ($cellule['style'] ?? 0);
                 $v = $cellule['v'] ?? '';
-                if ($v === '' || $v === null) {
+                if (isset($cellule['f'])) {
+                    // Formule (syntaxe anglaise du format de fichier : IF, ROUND, virgules) et sa valeur déjà calculée,
+                    // affichée telle quelle et relue par les imports
+                    $this->formules = true;
+                    $f = '<f>'.self::xml((string) $cellule['f']).'</f>';
+                    $x .= match (true) {
+                        $v === '' || $v === null => '<c r="'.$ref.'" s="'.$style.'">'.$f.'</c>',
+                        is_int($v) || is_float($v) => '<c r="'.$ref.'" s="'.$style.'">'.$f.'<v>'.$v.'</v></c>',
+                        default => '<c r="'.$ref.'" s="'.$style.'" t="str">'.$f.'<v>'.self::xml((string) $v).'</v></c>',
+                    };
+                } elseif ($v === '' || $v === null) {
                     $x .= '<c r="'.$ref.'" s="'.$style.'"/>';
                 } elseif (is_int($v) || is_float($v)) {
                     $x .= '<c r="'.$ref.'" s="'.$style.'"><v>'.$v.'</v></c>';

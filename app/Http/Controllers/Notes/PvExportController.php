@@ -25,6 +25,15 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * éliminatoire de 5/20 écrite en dur (sans tenir compte du paramètre de
  * l'université ni de son blocage par année) : l'Excel pouvait contredire le PV.
  * Les matricules restent du texte (zéros conservés).
+ *
+ * Variante « avec formules » (?formules=1, en plus de l'export en valeurs) :
+ * note de matière (Exam. + TD), total et moyenne des UE, moyenne générale,
+ * mention et rang deviennent des formules Excel, qui se recalculent si l'on
+ * modifie une note dans le fichier. Une cellule ne reçoit sa formule que si
+ * celle-ci redonne exactement le résultat enregistré (sinon, par exemple
+ * une note fixée lors d'une réclamation, la valeur reste). Validations,
+ * observations, crédits et décisions restent des valeurs : ils dépendent
+ * des règles du moteur (note éliminatoire, compensation, options…).
  */
 class PvExportController extends Controller
 {
@@ -74,7 +83,8 @@ class PvExportController extends Controller
         $c = fn ($v, int $s = 0) => ['v' => $v === null ? '' : $v, 'style' => $s];
         $n = fn ($v, int $s = 0) => ['v' => ($v === null || $v === '') ? '' : (float) $v, 'style' => $s];
 
-        $lignes = [['height' => 30, 'cells' => [$c('RÉSULTATS DES EXAMENS — '.$pv->sem_libelle.' — '.$pv->filiere.' '.$pv->niveau.' — Année '.$pv->annee, 1), ...array_fill(0, $nb - 1, $c('', 1))]]];
+        $titre = 'RÉSULTATS DES EXAMENS — '.$pv->sem_libelle.' — '.$pv->filiere.' '.$pv->niveau.' — Année '.$pv->annee.($request->boolean('formules') ? ' (avec formules)' : '');
+        $lignes = [['height' => 30, 'cells' => [$c($titre, 1), ...array_fill(0, $nb - 1, $c('', 1))]]];
         $l2 = $l3 = $l4 = [];
         foreach ($cols as $i => $col) {
             [$t, $ue, $m] = $col + [null, null, null];
@@ -100,6 +110,8 @@ class PvExportController extends Controller
         $lignes[] = ['height' => 30, 'cells' => $l4];
 
         $styleObs = fn (?string $o) => ['AV' => 5, 'AC' => 6, 'NV' => 7, 'Déf.' => 8][$o] ?? 0;
+        $formules = $request->boolean('formules');
+        $outilsFormules = $formules ? $this->outilsFormules($cols, $etudiants, $resSem, $resultats) : null;
         foreach ($etudiants as $k => $et) {
             $rs = $resSem[$et->id] ?? null;
             $cellules = [];
@@ -146,6 +158,9 @@ class PvExportController extends Controller
                     'sem_rang' => $c($rs?->valide ? (string) $rs->rang : '', 13),
                 };
             }
+            if ($formules) {
+                $cellules = $this->ajouterFormules($cellules, $cols, 5 + $k, $notes[$et->id] ?? collect(), $resUe[$et->id] ?? collect(), $resSem[$et->id] ?? null, $outilsFormules, $resultats);
+            }
             $lignes[] = ['height' => 18, 'cells' => $cellules];
         }
 
@@ -187,10 +202,89 @@ class PvExportController extends Controller
         }
         $classeur = new Classeur(self::STYLES);
         $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions);
-        $nom = 'PV_'.preg_replace('/[^a-zA-Z0-9_]/', '_', $pv->semestre.'_'.mb_substr($pv->filiere, 0, 15).'_'.$pv->annee).'.xlsx';
+        $nom = 'PV_'.preg_replace('/[^a-zA-Z0-9_]/', '_', $pv->semestre.'_'.mb_substr($pv->filiere, 0, 15).'_'.$pv->annee).($formules ? '_formules' : '').'.xlsx';
 
         return response()->download($classeur->enregistrer(), $nom, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'no-cache'])
             ->deleteFileAfterSend();
+    }
+
+    /** Lettres des colonnes, plages du semestre et seuils de mention, communs à toutes les lignes. */
+    private function outilsFormules(array $cols, $etudiants, $resSem, Resultats $resultats): array
+    {
+        $pos = [];
+        foreach ($cols as $i => $col) {
+            [$t, $ue, $m] = $col + [null, null, null];
+            $pos[$t.($ue ? '-'.$ue->id : '').($m ? '-'.$m->id : '')] = preg_replace('/\d+$/', '', Classeur::ref($i + 1, 1));
+        }
+        $derniere = 4 + max(1, $etudiants->count());
+        $plage = fn (string $cle) => '$'.$pos[$cle].'$5:$'.$pos[$cle].'$'.$derniere;
+        // Moyennes des admis (rang : nombre d'admis ayant une meilleure moyenne + 1)
+        $admis = $etudiants->map(fn ($et) => $resSem[$et->id] ?? null)->filter(fn ($rs) => $rs && $rs->decision === 'Admis')->pluck('moyenne_generale')->map(fn ($v) => (float) $v);
+
+        return ['pos' => $pos, 'dec' => $plage('sem_dec'), 'moy' => $plage('sem_moy'), 'admis' => $admis,
+            'seuils' => array_map(fn ($cle) => (float) $resultats->regle($cle, 0, ['mention_tres_bien' => '16', 'mention_bien' => '14', 'mention_assez_bien' => '12'][$cle]),
+                ['tb' => 'mention_tres_bien', 'b' => 'mention_bien', 'ab' => 'mention_assez_bien'])];
+    }
+
+    /** Remplace les cellules calculables par leur formule, si elle redonne la valeur enregistrée. */
+    private function ajouterFormules(array $cellules, array $cols, int $ligne, $notes, $resUe, ?object $rs, array $o, Resultats $resultats): array
+    {
+        $ref = fn (string $cle) => $o['pos'][$cle].$ligne;
+        $egal = fn ($a, $b) => $a !== '' && $b !== '' && $a !== null && $b !== null && abs((float) $a - (float) $b) < 0.005;
+        $formule = fn (int $i, string $f) => ['f' => $f, 'v' => $cellules[$i]['v'], 'style' => $cellules[$i]['style']];
+        $valeurs = [];
+        foreach ($cols as $i => $col) {
+            $valeurs[implode('-', array_filter([$col[0], isset($col[1]) ? $col[1]->id : null, isset($col[2]) ? $col[2]->id : null]))] = $cellules[$i]['v'];
+        }
+        $moyennesUe = [];
+        foreach ($cols as $i => $col) {
+            [$t, $ue, $m] = $col + [null, null, null];
+            $v = $cellules[$i]['v'];
+            if ($t === 'note' && $cellules[$i]['style'] !== 16) {
+                $note = $notes[$m->id] ?? null;
+                $somme = ($note && $note->note_examen !== null && $note->note_cc !== null) ? (float) $note->note_examen + (float) $note->note_cc : '';
+                if ($v === '' ? $somme === '' : $egal($somme, $v)) {
+                    $cellules[$i] = $formule($i, 'IF(AND(ISNUMBER('.$ref("exam-{$ue->id}-{$m->id}").'),ISNUMBER('.$ref("td-{$ue->id}-{$m->id}").')),'
+                        .$ref("exam-{$ue->id}-{$m->id}").'+'.$ref("td-{$ue->id}-{$m->id}").',"")');
+                }
+            } elseif ($t === 'ue_tot' && ($r = $resUe[$ue->id] ?? null)) {
+                $refs = $somme = [];
+                foreach ($ue->matieres as $mat) {
+                    $cle = ((float) $mat->note_max_cc > 0 ? 'note' : 'exam')."-{$ue->id}-{$mat->id}";
+                    $refs[] = $ref($cle);
+                    $somme[] = (float) ($valeurs[$cle] ?? 0);
+                }
+                if ($egal(array_sum($somme), $r->total_points)) {
+                    $cellules[$i] = $formule($i, 'SUM('.implode(',', $refs).')');
+                }
+            } elseif ($t === 'ue_moy' && ($r = $resUe[$ue->id] ?? null) && (float) $r->note_max > 0) {
+                $moyennesUe[] = $ref("ue_moy-{$ue->id}");
+                if ($egal(round((float) $r->total_points / (float) $r->note_max * 20, 2), $r->moyenne_20)) {
+                    $cellules[$i] = $formule($i, 'ROUND('.$ref("ue_tot-{$ue->id}").'/'.(float) $r->note_max.'*20,2)');
+                }
+            } elseif ($t === 'sem_moy' && $rs && $resUe->count() === count($moyennesUe)) {
+                $moy = round($resUe->avg(fn ($r) => (float) $r->moyenne_20), 2);
+                if ($egal($moy, $rs->moyenne_generale)) {
+                    $cellules[$i] = $formule($i, 'ROUND(AVERAGE('.implode(',', $moyennesUe).'),2)');
+                }
+            } elseif ($t === 'sem_men' && $rs) {
+                $attendu = $rs->decision === 'Admis' ? $resultats->mention((float) $rs->moyenne_generale) : '';
+                if ($attendu === (string) $v && ($rs->decision === 'Admis') === (bool) $rs->valide) {
+                    $moy = $ref('sem_moy');
+                    $s = $o['seuils'];
+                    $cellules[$i] = $formule($i, 'IF('.$ref('sem_dec').'="Admis",IF('.$moy.'>='.$s['tb'].',"Très bien",IF('.$moy.'>='.$s['b'].',"Bien",IF('
+                        .$moy.'>='.$s['ab'].',"Assez bien","Passable"))),"")');
+                }
+            } elseif ($t === 'sem_rang' && $rs) {
+                $calcule = $rs->decision === 'Admis' ? $o['admis']->filter(fn ($m) => $m > (float) $rs->moyenne_generale + 0.0001)->count() + 1 : null;
+                if ($rs->decision === 'Admis' ? (int) $rs->rang === $calcule && (bool) $rs->valide : ! $rs->valide) {
+                    $cellules[$i] = ['f' => 'IF('.$ref('sem_dec').'="Admis",COUNTIFS('.$o['dec'].',"Admis",'.$o['moy'].',">"&'.$ref('sem_moy').')+1,"")',
+                        'v' => $calcule ?? '', 'style' => $cellules[$i]['style']];
+                }
+            }
+        }
+
+        return $cellules;
     }
 
     /** Total maximum d'une UE (les options ne comptent que pour le nombre à choisir). */

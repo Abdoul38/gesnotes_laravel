@@ -62,7 +62,8 @@
         </form>
         @endif
         <a href="{{ $navigation->lien('pv_imprimer', ['id' => $pv->id]) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🖨️ Imprimer</a>
-        <a href="{{ $navigation->lien('pv_exporter', ['id' => $pv->id]) }}" class="btn btn-secondary btn-sm">📊 Exporter Excel</a>
+        <a href="{{ $navigation->lien('pv_exporter', ['id' => $pv->id]) }}" class="btn btn-secondary btn-sm" title="Valeurs du PV (fichier réimportable)">📊 Exporter Excel</a>
+        <a href="{{ $navigation->lien('pv_exporter', ['id' => $pv->id, 'formules' => 1]) }}" class="btn btn-secondary btn-sm" title="Notes, moyennes, mention et rang en formules : se recalculent si une note est modifiée dans le fichier">🧮 Excel avec formules</a>
         <a href="{{ $navigation->lien('liste_valides', ['pv_id' => $pv->id]) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">✅ Liste validés</a>
         <a href="{{ $navigation->lien('attestation', ['pv_id' => $pv->id, 'masse' => 1]) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🏆 Attestations</a>
         <a href="{{ $navigation->lien('deliberation', ['pv_id' => $pv->id]) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">⚖️ Délibération</a>

@@ -143,6 +143,54 @@ class NotesImportTest extends TestCase
         $this->assertSame('30.00', DB::table('notes')->where(['etudiant_id' => $a, 'matiere_id' => $this->m1])->value('note_examen'));
     }
 
+    public function test_export_avec_formules_memes_valeurs_que_le_pv(): void
+    {
+        $a = $this->etudiant('00012', 'ALPHA');
+        $b = $this->etudiant('00013', 'BRAVO');
+        DB::table('notes')->insert([
+            ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m1, 'note_examen' => 30, 'note_cc' => 15, 'note_finale' => 45],
+            ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m2, 'note_examen' => 14, 'note_cc' => null, 'note_finale' => 14],
+            ['pv_id' => $this->pv, 'etudiant_id' => $b, 'matiere_id' => $this->m1, 'note_examen' => 20, 'note_cc' => 10, 'note_finale' => 30],
+            ['pv_id' => $this->pv, 'etudiant_id' => $b, 'matiere_id' => $this->m2, 'note_examen' => 9, 'note_cc' => null, 'note_finale' => 9],
+        ]);
+        foreach ([$a, $b] as $et) {
+            app(\App\Services\Resultats::class)->recalculer($this->pv, $et);
+        }
+        app(\App\Services\Resultats::class)->recalculerRangs($this->pv);
+        $this->connecte($this->admin);
+        $lire = fn ($reponse) => $reponse->assertOk()->assertDownload()->baseResponse->getFile()->getPathname();
+        $valeurs = Tableur::xlsx($lire($this->get($this->url("pv/export?id={$this->pv}"))));
+        $chemin = $lire($this->get($this->url("pv/export?id={$this->pv}&formules=1")));
+        $avecFormules = Tableur::xlsx($chemin);
+
+        // Mêmes chiffres que l'export en valeurs (titre mis à part) : l'ouverture et la réimportation voient le PV enregistré
+        $this->assertStringContainsString('(avec formules)', $avecFormules[1][0]);
+        $this->assertEquals(array_slice($valeurs, 1, null, true), array_slice($avecFormules, 1, null, true));
+
+        $zip = new \ZipArchive;
+        $zip->open($chemin);
+        $feuille = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $classeur = (string) $zip->getFromName('xl/workbook.xml');
+        $zip->close();
+        $this->assertNotFalse((new \DOMDocument)->loadXML($feuille));
+        $this->assertStringContainsString('fullCalcOnLoad="1"', $classeur);
+        // Ligne 5 (ALPHA) : note = Exam. + TD, total et moyenne de l'UE, moyenne générale, mention, rang
+        foreach (['<c r="F5" s="0"><f>IF(AND(ISNUMBER(D5),ISNUMBER(E5)),D5+E5,&quot;&quot;)</f><v>45</v>',
+            '<f>SUM(F5,I5)</f><v>59</v>', '<f>ROUND(L5/80*20,2)</f><v>14.75</v>', '<f>ROUND(AVERAGE(M5),2)</f><v>14.75</v>',
+            '<f>IF(S5=&quot;Admis&quot;,IF(R5&gt;=16,&quot;Très bien&quot;,IF(R5&gt;=14,&quot;Bien&quot;', '<f>IF(S5=&quot;Admis&quot;,COUNTIFS($S$5:$S$6,&quot;Admis&quot;,$R$5:$R$6,&quot;&gt;&quot;&amp;R5)+1,&quot;&quot;)</f><v>1</v>'] as $attendu) {
+            $this->assertStringContainsString($attendu, $feuille);
+        }
+        // Validations, observations, crédits et décisions restent des valeurs
+        $this->assertStringNotContainsString('<c r="S5" s="14"><f>', $feuille);
+
+        // Une note fixée à la main (réclamation : note finale ≠ Exam. + TD) garde sa valeur, sans formule
+        DB::table('notes')->where(['etudiant_id' => $a, 'matiere_id' => $this->m1])->update(['note_finale' => 50]);
+        app(\App\Services\Resultats::class)->recalculer($this->pv, $a);
+        $zip->open($lire($this->get($this->url("pv/export?id={$this->pv}&formules=1"))));
+        $this->assertStringContainsString('<c r="F5" s="0"><v>50</v></c>', (string) $zip->getFromName('xl/worksheets/sheet1.xml'));
+        $zip->close();
+    }
+
     public function test_droits(): void
     {
         $this->etudiant('00012', 'ALPHA');
