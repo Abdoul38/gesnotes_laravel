@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -38,9 +39,9 @@ class ComptesEspaceController extends Controller
     public function creer(Request $request): RedirectResponse
     {
         $config = $this->config($request);
-        $table = (new $config['modele'])->getTable();
         $v = Validator::make($request->all(), [
-            'login' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', "unique:$table,login"],
+            // Classe du modèle : l'unicité est vérifiée dans la base des comptes (base propre aux espaces le cas échéant)
+            'login' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique($config['modele'], 'login')],
             'nom' => ['required', 'string', 'max:100'],
             'role' => ['required', 'in:'.implode(',', array_keys($config['roles']))],
             'mdp' => ['required', 'string', 'max:255', Password::min(8)->letters()->numbers()],

@@ -459,6 +459,9 @@ Plan en 13 étapes (section 11 de l'inventaire).
 - **Paramètres** (décidé le 09/10/2026) : réservés à l'administrateur et au secrétariat.
 - **Signature de l'autorité** (décidé le 09/10/2026) : servie aux seuls utilisateurs connectés, comme le cachet ; plus
   jamais par l'adresse publique des logos.
+- **Comptes Ministère / ANAB dans une base propre** (décidé le 09/10/2026) : `ESPACES_BASE`, mise en place par
+  `gesnotes:separer-espaces` ; une restauration de la base UDH ne les ramène plus en arrière.
+- **Anciennes sauvegardes** (décidé le 09/10/2026) : rangées par université avec les fichiers (`gesnotes:copier-fichiers`).
 
 ## Décisions à prendre (université)
 
@@ -482,12 +485,6 @@ Plan en 13 étapes (section 11 de l'inventaire).
 - **Matières déjà notées non finalisées** : l'ancien portail enseignant marquait finalisée, une fois par session,
   toute matière ayant au moins une note (rattrapage de données). Ce n'est pas repris : sur les données migrées,
   les matières déjà finalisées le restent ; les autres attendent des notes complètes ou une finalisation manuelle.
-- **Anciennes sauvegardes** : celles faites par l'ancienne application sont dans `pages/backups/` (dossier commun à
-  toutes les universités). Elles restent visibles dans l'historique mais marquées « Fichier absent » : les déplacer
-  dans le dossier de leur université (`DOSSIER_SAUVEGARDES/<code>/`) pour les retélécharger, ou les archiver hors
-  du serveur.
-- **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
-  à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier

@@ -88,6 +88,30 @@ return [
             'options' => extension_loaded('pdo_mysql') ? [PDO::ATTR_EMULATE_PREPARES => false] : [],
         ],
 
+        // Base propre aux espaces Ministère et ANAB (comptes, journal) : ESPACES_BASE.
+        // Vide : comptes dans la base de l'université ESPACES_UNIVERSITE_COMPTES (ancien fonctionnement).
+        'espaces' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('ESPACES_BASE'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            // Mode strict SANS ONLY_FULL_GROUP_BY (qui casserait des requêtes
+            // existantes) : une valeur refusée par une colonne provoque une
+            // erreur au lieu d'être enregistrée vide ou tronquée sans rien dire
+            // (ex. « licence_validee » devenue vide dans passages_niveau).
+            'strict' => null,
+            'modes' => ['STRICT_TRANS_TABLES', 'NO_ZERO_IN_DATE', 'NO_ZERO_DATE', 'ERROR_FOR_DIVISION_BY_ZERO', 'NO_ENGINE_SUBSTITUTION'],
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? [PDO::ATTR_EMULATE_PREPARES => false] : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

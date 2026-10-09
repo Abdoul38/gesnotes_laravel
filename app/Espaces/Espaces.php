@@ -37,6 +37,19 @@ final class Espaces
         return isset(self::LISTE[$code]) ? $code : null;
     }
 
+    /**
+     * Connexion des comptes et du journal des espaces : « espaces » (base
+     * propre, ESPACES_BASE) si elle est configurée, sinon la connexion de
+     * l'université courante (base des comptes, ancien fonctionnement).
+     */
+    public static function connexion(): ?string
+    {
+        return filled(config('gesnotes.espaces_base')) ? 'espaces' : null;
+    }
+
+    /** Tables propres aux espaces, déplacées dans leur base. */
+    public const TABLES = ['mesr_comptes', 'anab_comptes', 'mesr_logs_consultation'];
+
     public static function config(string $code): array
     {
         return self::LISTE[$code] + ['code' => $code];

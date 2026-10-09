@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Espaces;
 
+use App\Espaces\Espaces;
 use App\Http\Controllers\Controller;
 use App\Services\IndicateursNationaux;
 use App\Support\Classeur;
@@ -56,7 +57,7 @@ class MinistereController extends Controller
             return view('espaces.ministere', $donnees + $this->ongletPv($request, $annees, $annee));
         }
         if ($onglet === 'journal') {
-            return view('espaces.ministere', $donnees + ['journal' => DB::table('mesr_logs_consultation')->orderByDesc('created_at')->orderByDesc('id')->limit(200)->get()]);
+            return view('espaces.ministere', $donnees + ['journal' => DB::connection(Espaces::connexion())->table('mesr_logs_consultation')->orderByDesc('created_at')->orderByDesc('id')->limit(200)->get()]);
         }
         $stats = $this->national->parUniversite($annee);
 
@@ -177,7 +178,7 @@ class MinistereController extends Controller
     private function tracer(Request $request, string $action, ?string $cible = null, ?string $details = null): void
     {
         $c = Auth::guard('mesr')->user();
-        DB::table('mesr_logs_consultation')->insert(['login' => $c->login, 'nom_complet' => $c->nom_complet, 'action' => $action,
+        DB::connection(Espaces::connexion())->table('mesr_logs_consultation')->insert(['login' => $c->login, 'nom_complet' => $c->nom_complet, 'action' => $action,
             'cible' => $cible !== null ? mb_substr($cible, 0, 255) : null, 'details' => $details !== null ? mb_substr($details, 0, 255) : null,
             'ip' => $request->ip(), 'created_at' => now()]);
     }

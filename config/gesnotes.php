@@ -19,9 +19,13 @@ return [
     'dossier_images_portail' => env('DOSSIER_IMAGES_PORTAIL', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/assets/img' : null),
 
     // Espaces Ministère (MESR) et ANAB : leurs comptes (mesr_comptes,
-    // anab_comptes) et leur journal sont dans la base de cette université,
-    // comme dans l'ancienne application (base UDH).
+    // anab_comptes) et le journal du ministère. Avec ESPACES_BASE : dans
+    // cette base propre (connexion « espaces », gesnotes:separer-espaces) ;
+    // sinon, comme l'ancienne application, dans la base de l'université
+    // ESPACES_UNIVERSITE_COMPTES (UDH) — une restauration de celle-ci les
+    // ramènerait alors à leur état d'alors.
     'espaces_comptes' => env('ESPACES_UNIVERSITE_COMPTES', 'udh'),
+    'espaces_base' => env('ESPACES_BASE'),
 
     // Compte MySQL avec lequel le Ministère et l'ANAB lisent les bases des
     // universités (SELECT partout + INSERT sur audit_log). Vide : compte principal.

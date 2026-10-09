@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Espaces\Espaces;
 use App\Services\Communication\Courriel;
 use App\Services\Licence;
 use App\Support\SchemaReference;
@@ -93,6 +94,17 @@ class VerifierBascule extends Command
         $comptes = $registre->trouver((string) config('gesnotes.espaces_comptes'));
         $this->newLine();
         $this->ligne($comptes !== null && $comptes->actif, 'Base des comptes Ministère / ANAB (ESPACES_UNIVERSITE_COMPTES) : université active');
+        if (filled(config('gesnotes.espaces_base'))) {
+            try {
+                $schema = DB::connection('espaces')->getSchemaBuilder();
+                $manquantes = array_values(array_filter(Espaces::TABLES, fn ($t) => ! $schema->hasTable($t)));
+                $this->ligne(! $manquantes, 'Base propre aux espaces (ESPACES_BASE)'.($manquantes ? ' — tables manquantes : '.implode(', ', $manquantes).' → php artisan gesnotes:separer-espaces --appliquer' : ''));
+            } catch (Throwable $e) {
+                $this->ligne(false, 'Base propre aux espaces (ESPACES_BASE) injoignable → php artisan gesnotes:separer-espaces --appliquer');
+            }
+        } else {
+            $this->ligne(false, 'Comptes Ministère / ANAB dans la base d\'une université (une restauration de celle-ci les ramènerait en arrière) → ESPACES_BASE + gesnotes:separer-espaces', bloquant: false);
+        }
 
         $this->newLine();
         $this->line("Résultat : {$this->erreurs} erreur(s), {$this->alertes} alerte(s).");

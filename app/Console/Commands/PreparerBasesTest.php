@@ -11,7 +11,7 @@ use PDO;
  */
 class PreparerBasesTest extends Command
 {
-    protected $signature = 'gesnotes:preparer-bases-test {bases=gesnotes_test_udh,gesnotes_test_uam : bases à recréer, séparées par des virgules}';
+    protected $signature = 'gesnotes:preparer-bases-test {bases=gesnotes_test_udh,gesnotes_test_uam,gesnotes_test_espaces : bases à recréer, séparées par des virgules}';
 
     protected $description = 'Recrée les bases de test vides depuis database/schema/universite-schema.sql';
 

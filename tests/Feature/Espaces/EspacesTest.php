@@ -108,7 +108,7 @@ class EspacesTest extends TestCase
         $this->assertSame(5, $page->viewData('totaux')['passages']);
         $this->assertSame(100.0, (float) $page->viewData('totaux')['taux_passage']);
         $this->assertSame(2, $page->viewData('totaux')['femmes']);
-        $this->assertSame(1, DB::table('mesr_logs_consultation')->where('action', 'consultation_dashboard')->count());
+        $this->assertSame(1, DB::connection('espaces')->table('mesr_logs_consultation')->where('action', 'consultation_dashboard')->count());
 
         foreach (['evolution', 'comparaison', 'detail', 'journal'] as $onglet) {
             $this->get($this->url("ministere?onglet=$onglet", 'ministere'))->assertOk();
@@ -132,7 +132,7 @@ class EspacesTest extends TestCase
         $page = $this->mesr($this->compteMesr())->get($this->url('ministere', 'ministere'))->assertOk()->assertSee('Hors ligne');
         $this->assertTrue(collect($page->viewData('stats'))->every(fn ($s) => $s['erreur']));
         // …et que le compte principal est rendu ensuite (journal du ministère écrit, requêtes normales)
-        $this->assertSame(1, DB::table('mesr_logs_consultation')->count());
+        $this->assertSame(1, DB::connection('espaces')->table('mesr_logs_consultation')->count());
         $this->assertNotSame('compte_inexistant_lecture', config('database.connections.universite.username'));
         config(['gesnotes.espaces_db' => ['username' => null, 'password' => null]]);
         $this->get($this->url('ministere', 'ministere'))->assertOk()->assertViewHas('totaux', fn ($t) => $t['inscrits'] === 5);
@@ -158,7 +158,7 @@ class EspacesTest extends TestCase
         $uam = $this->ids['uam'];
         $this->get($this->url('ministere?onglet=pv', 'ministere'))->assertOk()->assertSee('Mathématiques')->assertViewHas('pvs', fn ($l) => count($l) === 2);
         $this->get($this->url("ministere?onglet=pv&pv_code=uam&pv_id={$uam['pub']}", 'ministere'))->assertOk()->assertSee('UAM-ETU1')->assertSee('Algèbre');
-        $this->assertSame(1, DB::table('mesr_logs_consultation')->where('action', 'consultation_pv')->count());
+        $this->assertSame(1, DB::connection('espaces')->table('mesr_logs_consultation')->where('action', 'consultation_pv')->count());
         // PV brouillon : ni détail ni impression
         $this->get($this->url("ministere?onglet=pv&pv_code=uam&pv_id={$uam['brouillon']}", 'ministere'))->assertOk()->assertViewHas('detail', null);
         $this->get($this->url("ministere/pv/uam/{$uam['brouillon']}/imprimer", 'ministere'))->assertRedirect();
@@ -167,7 +167,7 @@ class EspacesTest extends TestCase
 
         $this->get($this->url('ministere/export?annee=2026-2027', 'ministere'))->assertOk()->assertDownload();
         $this->get($this->url('ministere/rapport', 'ministere'))->assertOk()->assertSee('RAPPORT NATIONAL');
-        $this->assertSame(3, DB::table('mesr_logs_consultation')->whereIn('action', ['export_pdf_admis', 'export_excel', 'export_pdf_rapport_global'])->count());
+        $this->assertSame(3, DB::connection('espaces')->table('mesr_logs_consultation')->whereIn('action', ['export_pdf_admis', 'export_excel', 'export_pdf_rapport_global'])->count());
     }
 
     public function test_comptes_du_ministere(): void

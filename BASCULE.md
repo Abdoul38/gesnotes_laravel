@@ -21,16 +21,16 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
      licences déjà émises ; en changer (recommandé, voir « À vérifier » du README) impose de réémettre une licence
      par université ;
    - `KOMIPAY_*` (paiement en ligne) : identifiants **neufs** si les anciens ont circulé dans le dépôt (voir README) ;
-   - `ESPACES_UNIVERSITE_COMPTES` (base des comptes Ministère / ANAB, `udh` par défaut).
+   - `ESPACES_BASE` (ex. `gesnotes_espaces`) : base propre aux comptes et au journal du Ministère et de l'ANAB, pour
+     qu'une restauration de la base UDH ne les ramène plus en arrière. `php artisan gesnotes:separer-espaces` constate,
+     `--appliquer` crée la base et y copie comptes et journal depuis la base `ESPACES_UNIVERSITE_COMPTES` (`udh`), sans
+     rien y retirer (relançable). Sans `ESPACES_BASE`, ancien fonctionnement : comptes dans la base UDH ;
    - `ESPACES_DB_USERNAME` / `ESPACES_DB_PASSWORD` : compte MySQL des espaces Ministère et ANAB, qui ne peut que lire
-     les bases des universités (et écrire le journal `audit_log` des consultations de l'ANAB). À créer une fois, par
-     exemple (une ligne `GRANT INSERT` par base d'université) :
-     ```sql
-     CREATE USER 'cursus_lecture'@'localhost' IDENTIFIED BY '<mot de passe long>';
-     GRANT SELECT ON `gesnotes%`.* TO 'cursus_lecture'@'localhost';
-     GRANT INSERT ON `gesnotes`.`audit_log` TO 'cursus_lecture'@'localhost';
-     GRANT INSERT ON `gesnotes_uam`.`audit_log` TO 'cursus_lecture'@'localhost';
-     ```
+     les bases des universités (et écrire le journal `audit_log` des consultations de l'ANAB).
+     `php artisan gesnotes:compte-lecture-espaces` liste les droits ; `--appliquer` (avec un compte MySQL autorisé à
+     créer des comptes, root en général) crée le compte `gesnotes_lecture`, lui donne `SELECT` sur chaque base
+     d'université active et `INSERT` sur leur seul `audit_log`, vérifie qu'il ne peut pas écrire ailleurs, puis écrit
+     ces deux variables dans le `.env` (mot de passe aléatoire, jamais affiché). À relancer si une université s'ajoute.
    - `VERIFICATION_SECRET` : longue valeur aléatoire, fixée **avant** d'imprimer le moindre document et **jamais changée
      ensuite** (elle signe les QR codes ; la changer ramène les documents déjà imprimés à la vérification réduite).
 4. **Dossiers de fichiers**, hors du dossier web, accessibles en écriture par le serveur :
@@ -42,6 +42,10 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
    | `DOSSIER_SAUVEGARDES` | rien d'obligatoire ; les anciennes sauvegardes (`pages/backups/`) vont dans `<dossier>/<code>/` si on veut pouvoir les retélécharger |
    Tant que `ANCIENNE_APP_CHEMIN` est renseignée et ces variables vides, les fichiers sont lus dans l'ancienne
    application : pratique pour essayer, **à ne pas garder** puisque l'ancienne application sera retirée.
+   `php artisan gesnotes:copier-fichiers` fait tout ce tableau : constat, puis `--appliquer` copie (par défaut dans
+   `storage/app/private/fichiers`, ou `--destination=…`), range les anciennes sauvegardes par université et met les
+   trois variables à jour dans le `.env`. Copie seulement (l'ancienne application garde ses fichiers) ; un fichier
+   déjà copié n'est pas recopié : la relancer **le jour J**, juste avant d'arrêter l'ancienne application.
 5. **Bases et licences** :
    - `php artisan gesnotes:completer-schema` liste les tables du schéma absentes d'une base (l'ancienne application en
      créait certaines seulement à la première utilisation d'une page, ex. `mobile_reset_codes`) ; après une sauvegarde,
@@ -58,8 +62,12 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
 6. **Vérification** : `php artisan gesnotes:verifier-bascule`. Elle contrôle la configuration, les dossiers, puis
    pour chaque université active : tables du schéma de référence, licence, administrateur actif, messagerie. Elle ne
    modifie rien et n'affiche aucun secret. Corriger toutes les erreurs (✘) ; lire les alertes (!).
-7. **Répétition** : faire une fois toute la procédure sur une copie des bases (nom de base en `UNI_<CODE>_DB`) et
-   dérouler les essais du §3.
+7. **Répétition** : `php artisan gesnotes:repetition-bascule` copie chaque base (et celle des espaces) sur le serveur
+   MySQL sous le nom `<base>_repetition`, branche l'application sur ces copies le temps de la commande, y déroule
+   completer-schema, reparer-passages, separer-espaces (appliqués aux copies), copier-fichiers (constat) et
+   verifier-bascule, contrôle les chiffres de l'année active (admis + redoublants = inscrits), puis supprime les
+   copies (`--garder` pour les conserver et dérouler à la main les essais du §3 avec `UNI_<CODE>_DB=<base>_repetition`).
+   Les bases d'origine sont seulement lues.
 
 ## 2. Le jour J
 

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Espaces\Espaces;
 use App\Services\IndicateursRectorat;
 use App\Services\Inscriptions;
 use App\Services\Matricules;
@@ -208,8 +209,9 @@ class PeuplerUniversite extends Command
         }
         if ($u->code === config('gesnotes.espaces_comptes')) {
             foreach (['mesr' => 'mesr_comptes', 'anab' => 'anab_comptes'] as $cle => $table) {
-                if (! DB::table($table)->where('login', "essai_$cle")->exists()) {
-                    $this->manifeste[$cle][] = DB::table($table)->insertGetId(['login' => "essai_$cle", 'mot_de_passe' => $mdp, 'nom_complet' => 'Compte d\'essai', 'role' => 'admin', 'actif' => 1]);
+                $comptes = DB::connection(Espaces::connexion())->table($table);
+                if (! (clone $comptes)->where('login', "essai_$cle")->exists()) {
+                    $this->manifeste[$cle][] = $comptes->insertGetId(['login' => "essai_$cle", 'mot_de_passe' => $mdp, 'nom_complet' => 'Compte d\'essai', 'role' => 'admin', 'actif' => 1]);
                 }
             }
         }
@@ -404,8 +406,8 @@ class PeuplerUniversite extends Command
             DB::table('utilisateurs')->whereIn('id', $m['utilisateurs'] ?? [])->delete();
             DB::table('parents_etudiants')->whereIn('parent_id', $m['parents'] ?? [])->delete();
             DB::table('parents')->whereIn('id', $m['parents'] ?? [])->delete();
-            DB::table('mesr_comptes')->whereIn('id', $m['mesr'] ?? [])->delete();
-            DB::table('anab_comptes')->whereIn('id', $m['anab'] ?? [])->delete();
+            DB::connection(Espaces::connexion())->table('mesr_comptes')->whereIn('id', $m['mesr'] ?? [])->delete();
+            DB::connection(Espaces::connexion())->table('anab_comptes')->whereIn('id', $m['anab'] ?? [])->delete();
             // PV créés : seulement s'ils ne contiennent plus rien d'autre
             foreach ($m['pv_crees'] ?? [] as $pv) {
                 if (! DB::table('notes')->where('pv_id', $pv)->exists() && ! DB::table('resultats_semestre')->where('pv_id', $pv)->exists()) {

@@ -2,11 +2,13 @@
 
 namespace App\Models\Espaces;
 
+use App\Espaces\Espaces;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
  * Compte d'un espace national (Ministère, ANAB) : tables existantes
- * mesr_comptes / anab_comptes, dans la base désignée par
+ * mesr_comptes / anab_comptes, dans la base propre aux espaces si elle est
+ * configurée (Espaces::connexion()), sinon dans celle de l'université
  * gesnotes.espaces_comptes. Connexion par identifiant (login).
  *
  * @property int $id
@@ -25,6 +27,11 @@ abstract class CompteEspace extends Authenticatable
     protected $rememberTokenName = '';
 
     public $timestamps = false;
+
+    public function getConnectionName(): ?string
+    {
+        return Espaces::connexion() ?? parent::getConnectionName();
+    }
 
     protected function casts(): array
     {

@@ -6,6 +6,7 @@ use App\Models\Utilisateur;
 use App\Services\Licence;
 use App\Universites\RegistreUniversites;
 use App\Universites\UniversiteCourante;
+use Illuminate\Database\Connection;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -24,6 +25,10 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        // Base propre aux espaces Ministère / ANAB (ESPACES_BASE de phpunit.xml)
+        if (config('gesnotes.espaces_base')) {
+            $this->viderBase(DB::connection('espaces'));
+        }
         foreach (['uam', 'udh'] as $code) {
             $this->universite($code);
             $this->viderBase();
@@ -36,26 +41,27 @@ abstract class TestCase extends BaseTestCase
      * les trouver, puis DELETE) : plus rapide que TRUNCATE partout, et
      * aucune liste à tenir à jour quand un module ajoute des tables.
      */
-    private function viderBase(): void
+    private function viderBase(?Connection $connexion = null): void
     {
-        $base = (string) DB::connection()->getDatabaseName();
+        $connexion ??= DB::connection();
+        $base = (string) $connexion->getDatabaseName();
         if (! str_contains($base, '_test')) {
             throw new RuntimeException("Les tests refusent de tourner sur « $base » (base non test).");
         }
-        self::$tables[$base] ??= DB::table('information_schema.tables')
+        self::$tables[$base] ??= $connexion->table('information_schema.tables')
             ->where('table_schema', $base)->where('table_type', 'BASE TABLE')
             ->pluck('table_name')->all();
 
         $sql = implode(' UNION ALL ', array_map(fn ($t) => "(SELECT '$t' AS t FROM `$t` LIMIT 1)", self::$tables[$base]));
-        $remplies = array_column(DB::select($sql), 't');
+        $remplies = array_column($connexion->select($sql), 't');
         if (! $remplies) {
             return;
         }
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $connexion->statement('SET FOREIGN_KEY_CHECKS=0');
         foreach ($remplies as $table) {
-            DB::table($table)->delete();
+            $connexion->table($table)->delete();
         }
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        $connexion->statement('SET FOREIGN_KEY_CHECKS=1');
     }
 
     /** Bascule la connexion vers la base de test de l'université $code. */
