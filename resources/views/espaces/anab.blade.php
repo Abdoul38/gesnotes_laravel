@@ -62,7 +62,7 @@
     @endforeach
     <td style="text-align:center;font-weight:800;background:#fef3c7">{{ $dossier['moy4'] !== null ? $note($dossier['moy4']).'/20' : '—' }}</td>
     <td style="text-align:center;font-weight:800;background:#dbeafe">{{ $dossier['moy6'] !== null ? $note($dossier['moy6']).'/20' : '—' }}</td>
-    <td style="text-align:center"><span class="badge {{ $m === null ? '' : ($m >= 14 ? 'badge-green' : ($m >= 12 ? 'badge-blue' : 'badge-gray')) }}">{{ AC::mention($m) }}</span></td>
+    <td style="text-align:center"><span class="badge {{ $m === null ? '' : ($m >= $seuils['bien'] ? 'badge-green' : ($m >= $seuils['assez_bien'] ? 'badge-blue' : 'badge-gray')) }}">{{ AC::mention($m, $seuils) }}</span></td>
   </tr></tbody>
 </table></div></div>
 
@@ -73,7 +73,7 @@
     <div style="font-size:28px">{{ $eligible ? $ic : '⏳' }}</div>
     <div style="font-weight:700;font-size:13px;color:{{ $eligible ? '#166534' : '#6b7280' }}">{{ $eligible ? $oui : $non }}</div>
     <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
-      @if ($moy !== null){{ $titre }} — {{ $note($moy) }}/20 — {{ AC::mention($moy) }}@unless ($eligible)<br><span style="color:#dc2626">Sous le seuil de 12/20</span>@endunless
+      @if ($moy !== null){{ $titre }} — {{ $note($moy) }}/20 — {{ AC::mention($moy, $seuils) }}@unless ($eligible)<br><span style="color:#dc2626">Sous le seuil de 12/20</span>@endunless
       @else{{ $titre }} non disponible
       @endif
     </div>
@@ -168,8 +168,8 @@
       <td style="text-align:center;font-weight:700;background:#fef3c7">{{ $r->moy4 !== null ? $note($r->moy4).'/20' : '—' }}@if ($r->annee_s4)<div style="font-size:9px;color:var(--text-muted)">{{ $r->annee_s4 }}</div>@endif</td>
       <td style="text-align:center;font-weight:700;background:#dbeafe">{{ $r->moy6 !== null ? $note($r->moy6).'/20' : '—' }}@if ($r->annee_s6)<div style="font-size:9px;color:var(--text-muted)">{{ $r->annee_s6 }}</div>@endif</td>
       <td style="text-align:center">
-        @if ($r->moy4 !== null)<span class="badge badge-amber">📋 L2 · {{ AC::mention($r->moy4) }}</span>@endif
-        @if ($r->moy6 !== null)<span class="badge badge-green">🎓 Licence · {{ AC::mention($r->moy6) }}</span>@endif
+        @if ($r->moy4 !== null)<span class="badge badge-amber">📋 L2 · {{ AC::mention($r->moy4, $seuils) }}</span>@endif
+        @if ($r->moy6 !== null)<span class="badge badge-green">🎓 Licence · {{ AC::mention($r->moy6, $seuils) }}</span>@endif
       </td>
     </tr>
     @endforeach

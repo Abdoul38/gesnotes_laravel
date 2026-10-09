@@ -215,6 +215,10 @@ class EspacesTest extends TestCase
         $this->get($this->url('anab', 'anab'))->assertOk()->assertSee("Sélectionner l'université");
         $liste = $this->get($this->url('anab?univ=udh', 'anab'))->assertOk();
         $liste->assertViewHas('eligibles', fn ($l) => count($l) === 1 && $l[0]->id === $et1 && $l[0]->moy4 === 13.5);
+        $liste->assertSee('L2 · Assez Bien');
+        // Mention selon les seuils de l'université (comme sur ses attestations), plus 16/14/12 fixes
+        DB::table('parametres')->updateOrInsert(['cle' => 'mention_bien'], ['valeur' => '13.5']);
+        $this->get($this->url('anab?univ=udh', 'anab'))->assertSee('L2 · Bien')->assertViewHas('seuils', ['tres_bien' => 16.0, 'bien' => 13.5, 'assez_bien' => 12.0]);
         $this->get($this->url('anab?univ=udh&q=inconnu', 'anab'))->assertViewHas('eligibles', []);
         $this->get($this->url('anab?univ=pirate', 'anab'))->assertOk()->assertViewHas('uni', null);
 

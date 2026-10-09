@@ -13,7 +13,8 @@ use Illuminate\View\View;
 /**
  * Portail de l'Agence Nationale des Bourses — portage de pages/anab.php :
  * étudiants ayant validé S1 à S4 d'une licence ou d'un DUT (meilleure
- * moyenne validée par semestre), moyennes sur 4 et 6 semestres, mention,
+ * moyenne validée par semestre), moyennes sur 4 et 6 semestres, mention
+ * (seuils de l'université consultée, plus 16 / 14 / 12 fixes),
  * éligibilité à partir de 12/20 ; dossier d'un étudiant.
  *
  * Différences voulues :
@@ -29,12 +30,29 @@ class AnabController extends Controller
 
     private const SEMESTRES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 
-    /** Seuils fixes 16 / 14 / 12, comme l'ancienne page (point A4 de l'inventaire). */
-    public static function mention(?float $m): string
+    /** Seuils par défaut (ceux de l'ancienne page, fixes pour toutes les universités). */
+    public const SEUILS_DEFAUT = ['tres_bien' => 16.0, 'bien' => 14.0, 'assez_bien' => 12.0];
+
+    /**
+     * Mention selon les seuils de l'université consultée (paramètres
+     * mention_tres_bien / mention_bien / mention_assez_bien, ceux de ses
+     * documents) : l'ANAB voit la même mention que sur l'attestation.
+     */
+    public static function mention(?float $m, array $seuils = self::SEUILS_DEFAUT): string
     {
         return match (true) {
-            $m === null => '—', $m >= 16 => 'Très Bien', $m >= 14 => 'Bien', $m >= 12 => 'Assez Bien', default => 'Passable',
+            $m === null => '—', $m >= $seuils['tres_bien'] => 'Très Bien', $m >= $seuils['bien'] => 'Bien',
+            $m >= $seuils['assez_bien'] => 'Assez Bien', default => 'Passable',
         };
+    }
+
+    /** Seuils de mention de l'université courante (lus en base : le cache de Parametres vaut pour une seule université). */
+    private function seuils(): array
+    {
+        $p = DB::table('parametres')->whereIn('cle', ['mention_tres_bien', 'mention_bien', 'mention_assez_bien'])->pluck('valeur', 'cle');
+        $lire = fn (string $cle, float $defaut) => is_numeric($p[$cle] ?? null) ? (float) $p[$cle] : $defaut;
+
+        return ['tres_bien' => $lire('mention_tres_bien', 16.0), 'bien' => $lire('mention_bien', 14.0), 'assez_bien' => $lire('mention_assez_bien', 12.0)];
     }
 
     public function __construct(private readonly IndicateursNationaux $national) {}
@@ -47,7 +65,7 @@ class AnabController extends Controller
             'niveau_code' => in_array($request->query('niveau_code'), self::NIVEAUX, true) ? (string) $request->query('niveau_code') : '',
             'q' => mb_substr(trim((string) $request->query('q')), 0, 100),
         ];
-        $donnees = ['universites' => $this->national->universites(), 'uni' => $u, 'filtres' => $filtres, 'eligibles' => [], 'dossier' => null, 'erreur' => false,
+        $donnees = ['universites' => $this->national->universites(), 'uni' => $u, 'filtres' => $filtres, 'eligibles' => [], 'dossier' => null, 'erreur' => false, 'seuils' => self::SEUILS_DEFAUT,
             'filieres' => collect(), 'annees' => collect(), 'niveaux' => collect()];
         if (! $u) {
             return view('espaces.anab', $donnees);
@@ -61,7 +79,7 @@ class AnabController extends Controller
                 'niveaux' => DB::table('niveaux')->whereIn('code', self::NIVEAUX)->orderBy('code')->get(['id', 'code', 'libelle']),
             ];
 
-            return $listes + ($etudiantId > 0 ? ['dossier' => $this->dossier($u, $etudiantId)] : ['eligibles' => $this->eligibles($filtres)]);
+            return $listes + ['seuils' => $this->seuils()] + ($etudiantId > 0 ? ['dossier' => $this->dossier($u, $etudiantId)] : ['eligibles' => $this->eligibles($filtres)]);
         });
 
         return view('espaces.anab', $lu === null ? ['erreur' => true] + $donnees : $lu + $donnees);
