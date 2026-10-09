@@ -54,6 +54,27 @@ class PaiementsTest extends TestCase
         return $this->creerUtilisateur('sc_entite', ['faculte_id' => $this->facA]);
     }
 
+    public function test_annee_active_par_defaut_et_colonnes_annee_niveau(): void
+    {
+        $ancienne = DB::table('annees_academiques')->insertGetId(['libelle' => '2024-2025', 'active' => 0]);
+        $niveau = DB::table('promotions')->join('niveaux as n', 'n.id', '=', 'promotions.niveau_id')->value('n.code');
+        $this->paiement($this->etA, ['reference' => 'REF-ACTIVE']);
+        // Paiement d'une autre année, sans inscription cette année-là : niveau de la dernière inscription
+        $this->paiement($this->etA, ['reference' => 'REF-ANCIENNE', 'annee_id' => $ancienne]);
+
+        $page = $this->connecte($this->admin)->get($this->url('paiements'))->assertOk()
+            ->assertSee('REF-ACTIVE', false)->assertDontSee('REF-ANCIENNE', false)->assertDontSee('✕ Effacer')
+            ->assertSee('<th>Année</th><th>Niveau</th>', false)->assertSee('2025-2026')->assertSee('badge badge-blue">'.$niveau.'</span>', false);
+        $this->assertSame($this->annee, $page->viewData('filtres')['annee_id']);
+        // « Toutes » reste possible ; une autre année affiche « Effacer »
+        $this->get($this->url('paiements?annee_id=0'))->assertSee('REF-ACTIVE', false)->assertSee('REF-ANCIENNE', false);
+        $this->get($this->url("paiements?annee_id=$ancienne"))->assertSee('REF-ANCIENNE', false)->assertDontSee('REF-ACTIVE', false)->assertSee('✕ Effacer');
+
+        $csv = $this->get($this->url('paiements?annee_id=0&export=csv'))->streamedContent();
+        $this->assertStringContainsString('"Année académique";Niveau;Type', $csv);
+        $this->assertStringContainsString(";2024-2025;$niveau;", $csv);
+    }
+
     public function test_liste_totaux_et_filtres(): void
     {
         $this->paiement($this->etA);

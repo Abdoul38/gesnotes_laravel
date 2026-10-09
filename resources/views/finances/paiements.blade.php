@@ -8,7 +8,7 @@
     $icones = ['especes' => '💵', 'virement' => '🏦', 'mobile_money' => '📱', 'cheque' => '📝'];
     $fcfa = fn ($v) => number_format((float) $v, 0, '.', ' ');
     $reste = $totalDu - $totalPaye;
-    $actifs = $filtres['annee_id'] || $filtres['type_paiement'] || $filtres['statut'] || $filtres['q'] !== '' || $filtres['date_debut'] || $filtres['date_fin'];
+    $actifs = $filtres['annee_id'] !== $anneeActive || $filtres['type_paiement'] || $filtres['statut'] || $filtres['q'] !== '' || $filtres['date_debut'] || $filtres['date_fin'];
 @endphp
 
 @if ($etudiant)
@@ -98,7 +98,7 @@
       <thead>
         <tr>
           @unless ($filtres['et_id'])<th>Étudiant</th>@endunless
-          <th>Type</th><th style="text-align:right">Dû</th><th style="text-align:right">Payé</th>
+          <th>Année</th><th>Niveau</th><th>Type</th><th style="text-align:right">Dû</th><th style="text-align:right">Payé</th>
           <th>Date</th><th>Mode</th><th style="text-align:center">Statut</th><th style="text-align:center">Reçu</th>
           @if ($peutGerer)<th>Action</th>@endif
         </tr>
@@ -109,6 +109,8 @@
         @unless ($filtres['et_id'])
         <td><a href="{{ route('paiements', ['et_id' => $p->etudiant_id]) }}" style="font-weight:600;text-decoration:none;color:var(--blue-700)">{{ $p->nom }} {{ $p->prenoms }}</a><div style="font-size:10px;color:var(--text-muted)">{{ $p->numero }}</div></td>
         @endunless
+        <td style="white-space:nowrap">{{ $p->annee ?? '—' }}</td>
+        <td>@if ($p->niveau)<span class="badge badge-blue">{{ $p->niveau }}</span>@else—@endif</td>
         <td style="font-weight:600">{{ $p->type_paiement }}</td>
         <td style="text-align:right">{{ $fcfa($p->montant_du) }}</td>
         <td style="text-align:right;color:var(--green-700);font-weight:700">{{ $fcfa($p->montant_paye) }}</td>

@@ -45,7 +45,7 @@ class PaiementsController extends Controller
         $requete = $this->filtrer($this->paiements->requete($u), $f);
 
         if ($request->query('export') === 'csv') {
-            return $this->csv((clone $requete)->orderByDesc('p.date_paiement')->orderByDesc('p.id')->get(['p.*', 'e.nom', 'e.prenoms', 'e.numero']));
+            return $this->csv($this->avecAnneeEtNiveau(clone $requete)->orderByDesc('p.date_paiement')->orderByDesc('p.id')->get());
         }
 
         $total = (clone $requete)->count();
@@ -56,8 +56,8 @@ class PaiementsController extends Controller
         $peutGerer = $u->autorise('paiements_gerer');
 
         return view('finances.paiements', [
-            'paiements' => $requete->orderByDesc('p.date_paiement')->orderByDesc('p.id')->offset($pagination['offset'])->limit(self::PAR_PAGE)
-                ->get(['p.*', 'e.nom', 'e.prenoms', 'e.numero']),
+            'paiements' => $this->avecAnneeEtNiveau($requete)->orderByDesc('p.date_paiement')->orderByDesc('p.id')->offset($pagination['offset'])->limit(self::PAR_PAGE)
+                ->get(),
             'total' => $total,
             'pagination' => $pagination,
             'totalDu' => (float) $totaux->du,
@@ -67,7 +67,8 @@ class PaiementsController extends Controller
             'filtres' => $f,
             'etudiant' => $f['et_id'] && $this->paiements->etudiantAutorise($u, $f['et_id']) ? $etudiant : null,
             'annees' => $annees,
-            'anneeDefaut' => $annees->first()->id ?? null,
+            'anneeDefaut' => $this->anneeActive() ?: ($annees->first()->id ?? null),
+            'anneeActive' => $this->anneeActive(),
             'peutGerer' => $peutGerer,
             'etudiants' => $peutGerer && ! $f['et_id'] ? $this->etudiantsPourSaisie($request) : collect(),
             'grille' => $peutGerer ? DB::table('grille_tarifaire')->get(['filiere_id', 'niveau_id', 'type_paiement', 'montant'])
@@ -177,7 +178,8 @@ class PaiementsController extends Controller
 
         return [
             'et_id' => (int) $request->query('et_id'),
-            'annee_id' => (int) $request->query('annee_id'),
+            // Année active par défaut ; « Toutes » (0) reste possible en le choisissant
+            'annee_id' => $request->has('annee_id') ? (int) $request->query('annee_id') : $this->anneeActive(),
             'type_paiement' => isset(Paiements::TYPES[$type]) ? $type : '',
             'statut' => isset(Paiements::STATUTS[$statut]) ? $statut : '',
             'q' => trim((string) $request->query('q', '')),
@@ -197,6 +199,26 @@ class PaiementsController extends Controller
             ->when($f['date_fin'], fn ($r, $v) => $r->where('p.date_paiement', '<=', $v))
             ->when($f['q'] !== '', fn ($r) => $r->where(fn ($w) => $w->where('e.nom', 'like', "%{$f['q']}%")->orWhere('e.prenoms', 'like', "%{$f['q']}%")
                 ->orWhere('e.numero', 'like', "%{$f['q']}%")->orWhere('p.reference', 'like', "%{$f['q']}%")));
+    }
+
+    private function anneeActive(): int
+    {
+        return (int) DB::table('annees_academiques')->where('active', 1)->value('id');
+    }
+
+    /**
+     * Colonnes de la liste et de l'export : paiement, étudiant, année académique
+     * du paiement et niveau de l'étudiant cette année-là (inscription de l'année
+     * du paiement, à défaut sa dernière inscription).
+     */
+    private function avecAnneeEtNiveau($requete)
+    {
+        $niveau = fn (bool $memeAnnee) => "SELECT n.code FROM inscriptions i JOIN promotions pr ON pr.id = i.promotion_id JOIN niveaux n ON n.id = pr.niveau_id
+            WHERE i.etudiant_id = p.etudiant_id".($memeAnnee ? ' AND pr.annee_id = p.annee_id' : '').' ORDER BY i.id DESC LIMIT 1';
+
+        return $requete->leftJoin('annees_academiques as an', 'an.id', '=', 'p.annee_id')
+            ->select(['p.*', 'e.nom', 'e.prenoms', 'e.numero', 'an.libelle as annee',
+                DB::raw('COALESCE(('.$niveau(true).'), ('.$niveau(false).')) AS niveau')]);
     }
 
     /** Étudiants proposés à la saisie, avec la filière / le niveau de leur dernière inscription (suggestion du montant). */
@@ -227,10 +249,10 @@ class PaiementsController extends Controller
         return response()->streamDownload(function () use ($lignes, $cellule) {
             echo "\xEF\xBB\xBF";
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Étudiant', 'Matricule', 'Type', 'Montant dû', 'Montant payé', 'Reste', 'Date', 'Mode', 'Référence', 'Statut'], ';');
+            fputcsv($out, ['Étudiant', 'Matricule', 'Année académique', 'Niveau', 'Type', 'Montant dû', 'Montant payé', 'Reste', 'Date', 'Mode', 'Référence', 'Statut'], ';');
             foreach ($lignes as $r) {
                 fputcsv($out, array_map($cellule, [
-                    $r->nom.' '.$r->prenoms, $r->numero, $r->type_paiement, $r->montant_du, $r->montant_paye,
+                    $r->nom.' '.$r->prenoms, $r->numero, $r->annee, $r->niveau, $r->type_paiement, $r->montant_du, $r->montant_paye,
                     (float) $r->montant_du - (float) $r->montant_paye, $r->date_paiement, $r->mode_paiement, $r->reference, $r->statut,
                 ]), ';');
             }
