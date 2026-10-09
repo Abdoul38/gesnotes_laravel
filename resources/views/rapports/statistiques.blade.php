@@ -20,7 +20,7 @@
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:20px">
   <div class="card"><div class="card-header"><span class="card-title">📊 Répartition des décisions</span></div><div class="card-body">
     <div class="stats-graphe"><canvas id="chartDecisions" aria-label="Répartition des décisions"></canvas></div>
-    <p class="stats-note">Résultats de semestre, après rattrapage ({{ array_sum($graphiques['decisions']) }} au total).</p></div></div>
+    <p class="stats-note">Par étudiant inscrit ({{ array_sum($graphiques['decisions']) }}) : décision de passage ; à défaut, résultats des semestres après rattrapage.</p></div></div>
   <div class="card"><div class="card-header"><span class="card-title">🏅 Répartition des mentions</span></div><div class="card-body">
     <div class="stats-graphe"><canvas id="chartMentions" aria-label="Répartition des mentions"></canvas></div>
     <p class="stats-note">Semestres validés, après rattrapage.</p></div></div>

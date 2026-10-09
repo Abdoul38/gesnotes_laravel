@@ -67,26 +67,48 @@ class RapportsSuiviTest extends TestCase
         return $this->creerUtilisateur('doyen', ['faculte_id' => $this->facA]);
     }
 
-    public function test_decisions_et_mentions_apres_rattrapage(): void
+    public function test_repartition_par_etudiant_concorde_avec_les_compteurs(): void
     {
-        // ALPHA et BETA : admis en normale (« Assez bien » / « Assez Bien ») ; DELTA : ajourné puis admis au rattrapage ; GAMMA : défaillant
-        $promo = DB::table('pv_sessions')->where('id', $this->pvA)->first();
-        DB::table('resultats_semestre')->where('etudiant_id', $this->etA)->update(['mention' => 'Assez bien']);
-        $gamma = DB::table('etudiants')->insertGetId(['numero' => '00003', 'nom' => 'GAMMA', 'prenoms' => 'X']);
-        DB::table('resultats_semestre')->insert([
-            ['pv_id' => $this->pvA, 'etudiant_id' => $gamma, 'moyenne_generale' => 2, 'valide' => 0, 'defaillant' => 1, 'decision' => 'Défaillant', 'mention' => 'Défaillant'],
-        ]);
-        $delta = DB::table('etudiants')->insertGetId(['numero' => '00004', 'nom' => 'DELTA', 'prenoms' => 'X']);
-        DB::table('resultats_semestre')->insert(['pv_id' => $this->pvA, 'etudiant_id' => $delta, 'moyenne_generale' => 8, 'valide' => 0, 'decision' => 'Ajourné', 'mention' => 'Ajourné']);
-        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $promo->promotion_id, 'semestre_id' => $promo->semestre_id, 'type_session' => 'rattrapage',
-            'pv_normale_id' => $this->pvA, 'libelle' => 'PV A ratt', 'statut' => 'publie']);
-        DB::table('resultats_semestre')->insert(['pv_id' => $ratt, 'etudiant_id' => $delta, 'moyenne_generale' => 14.5, 'valide' => 1, 'decision' => 'Admis', 'mention' => 'Bien']);
+        // ALPHA, BETA : passage (setUp) ; ALPHA a un doublon de passage (compté une fois)
+        $pvA = DB::table('pv_sessions')->where('id', $this->pvA)->first();
+        $niveau = DB::table('niveaux')->value('id');
+        $filA = DB::table('promotions')->where('id', $pvA->promotion_id)->value('filiere_id');
+        $doublon = (array) DB::table('passages_niveau')->where('etudiant_id', $this->etA)->first(['etudiant_id', 'niveau_actuel_id', 'niveau_suivant_id',
+            'annee_depart_id', 'annee_arrivee_id', 'decision', 'date_decision']);
+        DB::table('passages_niveau')->insert($doublon + ['filiere_id' => DB::table('filieres')->where('code', 'FB')->value('id')]);
+        $inscrire = function (string $nom) use ($pvA, $niveau) {
+            $id = DB::table('etudiants')->insertGetId(['numero' => 'N'.$nom, 'nom' => $nom, 'prenoms' => 'X']);
+            DB::table('inscriptions')->insert(['etudiant_id' => $id, 'promotion_id' => $pvA->promotion_id, 'niveau_id' => $niveau, 'annee_id' => $this->annee,
+                'date_inscription' => '2026-10-01', 'statut' => 'inscrit', 'montant_paye' => 10000, 'mode_paiement' => 'especes']);
 
-        $page = $this->connecte($this->admin)->get($this->url('statistiques'))->assertOk();
-        // 3 admis (dont DELTA au rattrapage, compté une seule fois), 0 ajourné, 1 défaillant
-        $page->assertViewHas('graphiques', fn ($g) => $g['decisions'] === [3, 0, 1]
+            return $id;
+        };
+        $redoublant = $inscrire('REDOUBLANT');
+        DB::table('passages_niveau')->insert(['etudiant_id' => $redoublant, 'filiere_id' => $filA, 'niveau_actuel_id' => $niveau, 'niveau_suivant_id' => $niveau,
+            'annee_depart_id' => $this->annee, 'annee_arrivee_id' => $this->annee, 'decision' => 'redoublement', 'date_decision' => '2027-07-01']);
+        $defaillant = $inscrire('DEFAILLANT');
+        $ajourne = $inscrire('AJOURNE');
+        $rattrape = $inscrire('RATTRAPE');
+        $inscrire('SANSRESULTAT');
+        DB::table('resultats_semestre')->insert([
+            ['pv_id' => $this->pvA, 'etudiant_id' => $defaillant, 'moyenne_generale' => 2, 'valide' => 0, 'defaillant' => 1, 'decision' => 'Défaillant', 'mention' => 'Défaillant'],
+            ['pv_id' => $this->pvA, 'etudiant_id' => $ajourne, 'moyenne_generale' => 8, 'valide' => 0, 'defaillant' => 0, 'decision' => 'Ajourné', 'mention' => 'Ajourné'],
+            ['pv_id' => $this->pvA, 'etudiant_id' => $rattrape, 'moyenne_generale' => 7, 'valide' => 0, 'defaillant' => 0, 'decision' => 'Ajourné', 'mention' => 'Ajourné'],
+        ]);
+        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $pvA->promotion_id, 'semestre_id' => $pvA->semestre_id, 'type_session' => 'rattrapage',
+            'pv_normale_id' => $this->pvA, 'libelle' => 'PV A ratt', 'statut' => 'publie']);
+        DB::table('resultats_semestre')->insert(['pv_id' => $ratt, 'etudiant_id' => $rattrape, 'moyenne_generale' => 14.5, 'valide' => 1, 'decision' => 'Admis', 'mention' => 'Bien']);
+        DB::table('resultats_semestre')->where('etudiant_id', $this->etA)->update(['mention' => 'Assez bien']);
+
+        $page = $this->connecte($this->admin)->get($this->url('statistiques'))->assertOk()
+            ->assertViewHas('inscrits', 7)->assertViewHas('admis', 2);
+        // Admis, redoublants, ajournés, défaillants, en attente : total = inscrits ; le rattrapé n'est plus ajourné
+        $page->assertViewHas('graphiques', fn ($g) => $g['decisions'] === [2, 1, 1, 1, 2]
             && $g['mentions']['libelles']->all() === ['Très bien', 'Bien', 'Assez bien', 'Passable']
             && $g['mentions']['valeurs']->all() === [0, 1, 2, 0]);
+        // Tableau par filière et évolution : mêmes chiffres
+        $page->assertViewHas('lignes', fn ($l) => $l->sum('inscrits') === 7 && $l->sum('passages') === 2 && $l->sum('redoublants') === 1);
+        $page->assertViewHas('evolution', fn ($e) => $e->count() === 1 && $e[0]->inscrits === 7 && $e[0]->passages === 2 && (float) $e[0]->taux === 66.7);
         $page->assertSee('class="stats-graphe"', false)->assertDontSee('height="220"', false);
     }
 
