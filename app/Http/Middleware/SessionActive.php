@@ -81,9 +81,9 @@ class SessionActive
             return $request->routeIs('mot_de_passe_initial', 'mot_de_passe_initial.*', 'logout') ? $next($request) : redirect()->route('mot_de_passe_initial');
         }
 
-        // Étudiant et recteur : leur portail (et ses actions), la déconnexion et la vérification publique.
+        // Étudiant et recteur : leur portail (et ses actions), leur compte, la déconnexion et la vérification publique.
         $portail = ['etudiant' => 'portail_etudiant', 'recteur' => 'rectorat'][$utilisateur->role] ?? null;
-        if ($portail && ! $request->routeIs($portail, $portail.'.*', 'logout', 'verifier_diplome')) {
+        if ($portail && ! $request->routeIs($portail, $portail.'.*', 'mon_compte', 'mon_compte.*', 'logout', 'verifier_diplome')) {
             return redirect()->route($portail);
         }
 

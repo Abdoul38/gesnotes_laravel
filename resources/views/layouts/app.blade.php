@@ -55,7 +55,7 @@
     @endforeach
   </nav>
   <div class="sidebar-footer">
-    <div class="sidebar-user">
+    <a href="{{ route('mon_compte') }}" class="sidebar-user" title="Mon compte : profil et mot de passe" @if (request()->routeIs('mon_compte')) aria-current="page" @endif>
       <div class="avatar-sm">{{ $utilisateur->initiales() }}</div>
       <div class="sidebar-user-info">
         <div class="sidebar-user-name">{{ $utilisateur->nomComplet() }}</div>
@@ -65,7 +65,7 @@
           <div style="font-size:10px;margin-top:2px;padding:2px 6px;border-radius:4px;background:{{ $cf }}20;color:{{ $cf }}">{{ $faculte->code }} — {{ $faculte->libelle }}</div>
         @endif
       </div>
-    </div>
+    </a>
     <form method="post" action="{{ route('logout') }}" style="margin:0">
       @csrf
       <button type="submit" class="nav-item" style="margin-top:0;width:100%;background:none;border:none;cursor:pointer;text-align:left;font:inherit">

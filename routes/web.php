@@ -4,6 +4,7 @@ use App\Http\Controllers\AccueilController;
 use App\Http\Controllers\Administration\LicenceController;
 use App\Http\Controllers\AnciennesAdressesController;
 use App\Http\Controllers\Auth\ConnexionController;
+use App\Http\Controllers\Auth\MonCompteController;
 use App\Http\Controllers\Auth\MotDePasseInitialController;
 use App\Http\Controllers\Auth\MotDePasseOublieController;
 use App\Http\Controllers\Documents\VerifierDocumentController;
@@ -55,6 +56,10 @@ Route::middleware('auth')->group(function () {
     // Premier mot de passe d'un étudiant (provisoire ou égal au matricule)
     Route::get('/mot-de-passe-initial', [MotDePasseInitialController::class, 'formulaire'])->name('mot_de_passe_initial');
     Route::post('/mot-de-passe-initial', [MotDePasseInitialController::class, 'enregistrer'])->name('mot_de_passe_initial.envoyer');
+
+    // Mon compte (clic sur son nom dans le menu) : profil et mot de passe, pour tous les rôles
+    Route::get('/mon-compte', [MonCompteController::class, 'afficher'])->name('mon_compte');
+    Route::post('/mon-compte/mot-de-passe', [MonCompteController::class, 'changerMotDePasse'])->name('mon_compte.mot_de_passe');
 
     // Licence : hors du contrôle de licence, puisque c'est là qu'on la corrige.
     Route::middleware('roles:admin')->group(function () {

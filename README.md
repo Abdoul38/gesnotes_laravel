@@ -430,6 +430,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Décision « licence validée » enregistrée VIDE (colonne `decision` sans cette valeur dans 8 bases sur 9, MySQL non strict) | connexion en mode strict (une valeur refusée provoque une erreur) ; réparation par `gesnotes:reparer-passages` | les licences validées comptaient comme redoublants |
 | Décision de passage reprise vers une autre filière (spécialisation) : nouvelle ligne, l'ancienne restait | la décision de l'année est remplacée, quelle que soit la filière | étudiants comptés deux fois dans les statistiques |
 | Statistiques, rectorat et ministère : lignes de passage additionnées (doublons comptés deux fois), inscrits sans décision ignorés, sources différentes selon les graphiques | une catégorie par étudiant inscrit et par année (`ClassementPassages`) : admis (passage ou licence validée), redoublants (tous les autres, même sans décision) ; taux de passage = admis / inscrits ; compteurs, répartitions, facultés, filières et évolution concordent partout | décision de l'université |
+| Nom de l'utilisateur connecté (bas du menu) : simple texte ; aucun moyen de changer son mot de passe (sauf au rectorat) | lien vers « Mon compte » (`/mon-compte`) : profil et changement du mot de passe pour tous les rôles — mot de passe actuel exigé, 5 essais par quart d'heure, 8 caractères avec lettres et chiffres, différent de l'actuel et du matricule, session renouvelée, journalisé | demande de l'université |
 
 ## Décisions prises (université)
 
