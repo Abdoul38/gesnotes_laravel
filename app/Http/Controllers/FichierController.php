@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Identite;
+use App\Services\Parametres;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -20,9 +21,17 @@ class FichierController extends Controller
         'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
 
-    /** Logos (université, facultés) : publics, affichés dès la page de connexion. */
-    public function logo(string $fichier): BinaryFileResponse
+    /**
+     * Logos (université, facultés) : publics, affichés dès la page de connexion.
+     * Sauf la signature de l'autorité, rangée dans le même dossier : elle n'est
+     * servie qu'aux utilisateurs connectés, par fichiers.officiel (décision de
+     * l'université ; avant, publique comme les logos).
+     */
+    public function logo(string $fichier, Parametres $parametres): BinaryFileResponse
     {
+        $signature = basename(trim($parametres->brut('signature_autorite')));
+        abort_if($signature !== '' && strcasecmp($signature, $fichier) === 0, 404);
+
         return $this->servir(config('gesnotes.dossier_uploads'), 'logos', $fichier, ['png', 'jpg', 'jpeg']);
     }
 

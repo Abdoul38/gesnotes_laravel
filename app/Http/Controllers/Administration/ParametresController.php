@@ -88,7 +88,8 @@ class ParametresController extends Controller
         if ($onglet === 'general') {
             $donnees += [
                 'logo' => $identite->imageParametre('logo_universite'),
-                'signature' => $identite->imageParametre('signature_autorite'),
+                // Aperçu par l'adresse protégée (la signature n'est plus servie avec les logos publics)
+                'signature' => $identite->imageParametre('signature_autorite') ? $identite->urlImageOfficielle('signature') : null,
                 'couleurDefaut' => $universite->get()->couleur,
             ];
         } elseif ($onglet === 'regles_pv') {

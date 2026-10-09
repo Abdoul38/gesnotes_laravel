@@ -117,11 +117,18 @@ class InscriptionEnLigne
                 'n.code as niveau_code', 'n.libelle as niveau_lib', 'a.libelle as annee_lib']);
     }
 
-    /** Paiement en attente au-delà du délai (compté depuis l'ouverture de l'inscription, comme avant). */
+    /**
+     * Paiement en attente au-delà du délai, compté depuis le lancement du
+     * paiement (dernière écriture de la ligne : celle qui a enregistré la
+     * transaction). Différence voulue (décision de l'université) : avant,
+     * depuis l'identification — un étudiant lent à choisir son moyen de
+     * paiement voyait le sien expirer plus tôt. Sans transaction lancée,
+     * rien n'expire.
+     */
     public function expire(object $ins): bool
     {
-        return in_array($ins->statut_paiement, ['en_attente', 'en_cours'], true)
-            && strtotime((string) $ins->created_at) + (int) config('komipay.expiration_minutes') * 60 < time();
+        return in_array($ins->statut_paiement, ['en_attente', 'en_cours'], true) && $ins->reference_paiement
+            && strtotime((string) $ins->updated_at) + (int) config('komipay.expiration_minutes') * 60 < time();
     }
 
     /**

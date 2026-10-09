@@ -182,6 +182,16 @@ class AdministrationTest extends TestCase
         $this->post($this->url('parametres/signature'), ['signature_autorite' => $png('sig.png')])->assertSessionHas('succes');
         $sig = DB::table('parametres')->where('cle', 'signature_autorite')->value('valeur');
         $this->assertFileExists($this->temp."/uploads/logos/$sig");
+        // Signature : jamais servie avec les logos publics ; aperçu par l'adresse protégée
+        $logo = DB::table('parametres')->where('cle', 'logo_universite')->value('valeur');
+        $this->get($this->url("fichiers/logos/$sig"))->assertNotFound();
+        $this->get($this->url('parametres'))->assertSee('fichiers/officiels/signature', false)->assertDontSee("fichiers/logos/$sig", false);
+        $this->get($this->url('fichiers/officiels/signature'))->assertOk();
+        $this->post($this->url('deconnexion'));
+        $this->get($this->url("fichiers/logos/$sig"))->assertNotFound();
+        $this->get($this->url("fichiers/logos/$logo"))->assertOk();
+        $this->get($this->url('fichiers/officiels/signature'))->assertRedirect();
+        $this->connecte($this->admin);
         $this->post($this->url('parametres/signature/supprimer'))->assertSessionHas('succes');
         $this->assertFileDoesNotExist($this->temp."/uploads/logos/$sig");
 

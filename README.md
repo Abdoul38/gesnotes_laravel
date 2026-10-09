@@ -425,6 +425,8 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Déconnexion du personnel : toute la session du navigateur effacée | seule la partie « personnel » est fermée ; Espace Parents et portail candidats restent connectés | un parent et un agent sur le même poste |
 | Réclamation fondée sur un PV verrouillé : note corrigée quand même | refusée tant que le PV n'est pas déverrouillé | même règle que les autres modifications de notes |
 | Portail enseignant et traitement des réclamations : pas de 0,25 | 0,01 (2 décimales), comme la saisie du PV | une note comme 12,10 était refusée par le navigateur |
+| Inscription en ligne : délai de paiement de 15 min compté depuis l'identification | compté depuis le lancement du paiement ; sans paiement lancé, rien n'expire | un étudiant lent à choisir son moyen de paiement voyait le sien expirer plus tôt |
+| Signature de l'autorité servie avec les logos, sans connexion | adresse des logos refusée pour ce fichier ; servie par `fichiers/officiels/signature` aux seuls connectés | image de signature récupérable par n'importe qui |
 
 ## Décisions prises (université)
 
@@ -444,6 +446,13 @@ Plan en 13 étapes (section 11 de l'inventaire).
   acceptent 2 décimales (pas de 0,01), comme la saisie du PV ; avant, le pas de 0,25 refusait une note comme 12,10.
 - **« Défaillant »** (décidé le 09/10/2026) : un seul libellé, partout, pour une absence comme pour une note sous la
   note éliminatoire (comme avant) ; pas de libellés distincts.
+- **Délai de paiement en ligne (15 min)** (décidé le 09/10/2026) : compté depuis le lancement du paiement, et non plus
+  depuis l'identification.
+- **Relevé et attestation depuis le portail étudiant** (décidé le 09/10/2026) : non, comme avant ; documents délivrés
+  par la scolarité seulement.
+- **Paramètres** (décidé le 09/10/2026) : réservés à l'administrateur et au secrétariat.
+- **Signature de l'autorité** (décidé le 09/10/2026) : servie aux seuls utilisateurs connectés, comme le cachet ; plus
+  jamais par l'adresse publique des logos.
 
 ## Décisions à prendre (université)
 
@@ -461,27 +470,16 @@ Plan en 13 étapes (section 11 de l'inventaire).
   PCI-DSS correspondantes ; préférer une page de paiement hébergée par KomiPay si elle existe.
 - **Ancien `portail_admin`** (tables `portail_dossiers`, `portail_paiements` d'un portail antérieur) : non repris, hors
   menu. Vérifier si ces tables contiennent encore des dossiers à traiter ; sinon les archiver.
-- **Délai de paiement de 15 minutes** compté depuis l'identification (repris tel quel) et non depuis le paiement :
-  un étudiant lent à choisir son moyen de paiement voit son paiement expirer plus tôt. Le compter depuis le paiement ?
 - **Application mobile** : la version publiée de l'application (ancienne réinitialisation par date de naissance)
   recevra « mettez à jour l'application » pour le mot de passe oublié. Publier la version du dépôt (`MOBILE/`) avant la
   bascule de l'API, et y remplacer l'adresse du serveur.
-- **Relevé et attestation depuis le portail étudiant** : comme avant, l'étudiant consulte ses résultats publiés mais
-  ne peut pas imprimer lui-même son relevé de notes ni son attestation (documents délivrés par la scolarité, numérotés
-  au registre). Les ouvrir aux étudiants (version « non officielle » sans numéro, ou numérotée) ?
 - **Matières déjà notées non finalisées** : l'ancien portail enseignant marquait finalisée, une fois par session,
   toute matière ayant au moins une note (rattrapage de données). Ce n'est pas repris : sur les données migrées,
   les matières déjà finalisées le restent ; les autres attendent des notes complètes ou une finalisation manuelle.
-- **Paramètres réservés à l'administrateur et au secrétariat** : l'ancienne page était ouverte à tout compte ayant
-  `inscription_ped` (agents de faculté, doyens…), alors que ses réglages (règles de calcul des PV, logo, nom de
-  l'institution, visas des diplômes) valent pour toute l'université. Si d'autres rôles doivent y accéder, préciser
-  lesquels et pour quels onglets.
 - **Anciennes sauvegardes** : celles faites par l'ancienne application sont dans `pages/backups/` (dossier commun à
   toutes les universités). Elles restent visibles dans l'historique mais marquées « Fichier absent » : les déplacer
   dans le dossier de leur université (`DOSSIER_SAUVEGARDES/<code>/`) pour les retélécharger, ou les archiver hors
   du serveur.
-- **Signature de l'autorité** (cartes étudiantes) : comme avant, l'image est rangée avec les logos, servis sans
-  connexion (pour la page de connexion). La servir aux seuls utilisateurs connectés, comme le cachet ?
 - **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
   à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).

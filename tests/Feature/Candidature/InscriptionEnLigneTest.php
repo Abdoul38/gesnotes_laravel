@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Candidature;
 
+use App\Services\InscriptionEnLigne;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -121,7 +122,12 @@ class InscriptionEnLigneTest extends TestCase
         $this->assertSame('echec', DB::table('inscriptions_en_ligne')->where('id', $id)->value('statut_paiement'));
         $this->assertSame(0, DB::table('inscriptions')->count());
 
-        DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'en_attente', 'created_at' => now()->subMinutes(20)]);
+        // Délai compté depuis le lancement du paiement, pas depuis l'identification
+        DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'en_attente', 'created_at' => now()->subMinutes(40), 'updated_at' => now()->subMinutes(5)]);
+        $this->assertFalse(app(InscriptionEnLigne::class)->expire(DB::table('inscriptions_en_ligne')->find($id)));
+        $this->assertTrue(app(InscriptionEnLigne::class)->expire((object) ['statut_paiement' => 'en_attente', 'reference_paiement' => 'X', 'updated_at' => now()->subMinutes(20)]));
+        $this->assertFalse(app(InscriptionEnLigne::class)->expire((object) ['statut_paiement' => 'en_attente', 'reference_paiement' => null, 'updated_at' => now()->subHours(3)]));
+        DB::table('inscriptions_en_ligne')->where('id', $id)->update(['updated_at' => now()->subMinutes(20)]);
         $this->post($this->url("candidature/inscription/$id/confirmation"))->assertRedirect($this->url("candidature/inscription/$id/etape/3"));
         $this->getJson($this->url("candidature/inscription/$id/statut"))->assertJson(['statut' => 'echec']);
 

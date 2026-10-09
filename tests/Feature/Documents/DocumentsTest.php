@@ -90,7 +90,7 @@ class DocumentsTest extends TestCase
         $this->assertMatchesRegularExpression('/^AR\d{2}-000001$/', $numero);
         $this->assertSame(1, DB::table('attestations_emises')->count());
         $this->get($this->url("attestations/reussite?pv_id=$pvS3&et_id={$this->alpha}"))->assertSee("N° $numero")->assertDontSee('ANM/DepD');
-        $this->post('/logout');
+        $this->post($this->url('deconnexion'));
         $this->get($this->url('verification?num='.$numero))->assertOk()->assertSee('Attestation de réussite (semestre)');
 
         $this->connecte($this->agentAutreFaculte())->get($this->url("attestations/reussite?pv_id=$pvS3&masse=1"))->assertRedirect($this->url('attestations/reussite'));
