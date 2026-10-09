@@ -19,6 +19,22 @@ class ScriptsStatiquesTest extends TestCase
         $this->assertStringNotContainsString('if (reponseEnCache) return reponseEnCache;', $sw);
     }
 
+    public function test_chaque_graphique_dans_un_cadre_de_hauteur_fixe(): void
+    {
+        // Un canevas Chart.js posé directement dans une grille s'agrandit sans fin (statistiques, ministère, rectorat…)
+        $vues = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(resource_path('views'), \FilesystemIterator::SKIP_DOTS));
+        foreach ($vues as $vue) {
+            $vue = $vue->getPathname();
+            preg_match_all('/(.{0,200})<canvas\b/s', (string) file_get_contents($vue), $m);
+            foreach ($m[1] as $avant) {
+                $this->assertMatchesRegularExpression('/class="(graphe|stats-graphe)"[^\n]*>\s*$/', $avant, basename($vue).' : graphique sans cadre');
+            }
+        }
+        foreach (['accueil', 'candidatures-admin', 'finances', 'ministere', 'rectorat'] as $js) {
+            $this->assertStringContainsString('Chart.defaults.maintainAspectRatio = false', (string) file_get_contents(public_path("assets/js/$js.js")), $js);
+        }
+    }
+
     public function test_qr_code_ajuste_a_son_cadre(): void
     {
         $js = (string) file_get_contents(public_path('assets/js/impression.js'));

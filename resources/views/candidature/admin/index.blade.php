@@ -34,11 +34,11 @@
   @endforeach
 </div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">📚 Top Filières (1er choix)</h3><canvas id="c_fil" height="220" aria-label="Top filières"></canvas></div>
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🎓 Par Type de Bac</h3><canvas id="c_bac" height="220" aria-label="Par type de bac"></canvas></div>
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">👥 Genre</h3><canvas id="c_gen" height="200" aria-label="Genre" data-hommes="{{ $t['hommes'] }}" data-femmes="{{ $t['femmes'] }}"></canvas></div>
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🏛️ Par Faculté (tous choix)</h3><canvas id="c_fac" height="200" aria-label="Par faculté"></canvas></div>
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">📅 Évolution des dépôts</h3><canvas id="c_evo" height="180" aria-label="Évolution des dépôts"></canvas></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">📚 Top Filières (1er choix)</h3><div class="graphe" style="height:280px"><canvas id="c_fil" aria-label="Top filières"></canvas></div></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🎓 Par Type de Bac</h3><div class="graphe" style="height:280px"><canvas id="c_bac" aria-label="Par type de bac"></canvas></div></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">👥 Genre</h3><div class="graphe" style="height:260px"><canvas id="c_gen" aria-label="Genre" data-hommes="{{ $t['hommes'] }}" data-femmes="{{ $t['femmes'] }}"></canvas></div></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🏛️ Par Faculté (tous choix)</h3><div class="graphe" style="height:260px"><canvas id="c_fac" aria-label="Par faculté"></canvas></div></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">📅 Évolution des dépôts</h3><div class="graphe" style="height:240px"><canvas id="c_evo" aria-label="Évolution des dépôts"></canvas></div></div>
   <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">📋 Répartition par statut</h3>
     @foreach ([['Soumis', $t['soumis'], '#854d0e', '#fef9c3'], ['En cours', $t['en_cours'], '#1e40af', '#dbeafe'], ['Accepté', $t['accepte'], '#166534', '#dcfce7'], ['Refusé', $t['refuse'], '#991b1b', '#fee2e2']] as [$s, $n, $fg, $bg])
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:{{ $bg }};border-radius:8px;margin-bottom:8px"><span style="font-weight:600;color:{{ $fg }};font-size:12px">{{ $s }}</span><span style="font-weight:800;color:{{ $fg }};font-size:20px">{{ $n }}</span></div>
@@ -49,9 +49,9 @@
 @elseif ($onglet === 'avancees')
 @php $tauxAppro = $t['total'] > 0 ? round($t['accepte'] / $t['total'] * 100, 1) : 0; $pctF = $t['total'] > 0 ? round($t['femmes'] / $t['total'] * 100, 1) : 0; @endphp
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">👥 × 🎓 Genre × Type de Bac</h3><canvas id="c_gb" height="250" aria-label="Genre par type de bac"></canvas></div>
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🏆 Mentions par Filière</h3><canvas id="c_mpf" height="250" aria-label="Mentions par filière"></canvas></div>
-  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🌍 Répartition Géographique</h3><canvas id="c_reg" height="280" aria-label="Répartition géographique"></canvas></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">👥 × 🎓 Genre × Type de Bac</h3><div class="graphe" style="height:310px"><canvas id="c_gb" aria-label="Genre par type de bac"></canvas></div></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🏆 Mentions par Filière</h3><div class="graphe" style="height:310px"><canvas id="c_mpf" aria-label="Mentions par filière"></canvas></div></div>
+  <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">🌍 Répartition Géographique</h3><div class="graphe" style="height:340px"><canvas id="c_reg" aria-label="Répartition géographique"></canvas></div></div>
   <div class="card" style="padding:14px"><h3 style="font-size:13px;margin-bottom:8px">📈 Indices de Performance</h3>
     @foreach ([["Taux d'approbation", $tauxAppro.'%'], ['Part des femmes', $pctF.'%'], ['Mention la plus fréquente', $graphiques['mention']->first()->libelle ?? '—'], ['Filière la plus demandée', $graphiques['filieres']->first()->libelle ?? '—']] as [$lb, $val])
     <div style="display:flex;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px"><span>{{ $lb }}</span><strong>{{ $val }}</strong></div>

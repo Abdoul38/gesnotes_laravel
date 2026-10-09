@@ -63,9 +63,9 @@
   @if ($t['matieres']['sans_volume'] > 0)<div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">+ {{ $t['matieres']['sans_volume'] }} matière(s) sans volume horaire prévu — hors périmètre de ce calcul tant qu'il n'est pas fixé.</div>@endif
 </div></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px">
-  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">📋 Inscrits par université</div><canvas id="cInscrits" height="200" aria-label="Inscrits par université"></canvas></div>
-  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">🏆 Taux de passage (%)</div><canvas id="cPassage" height="200" aria-label="Taux de passage par université"></canvas></div>
-  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">⚧ Répartition H/F</div><canvas id="cGenre" height="200" aria-label="Répartition hommes femmes par université"></canvas></div>
+  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">📋 Inscrits par université</div><div class="graphe" style="height:260px"><canvas id="cInscrits" aria-label="Inscrits par université"></canvas></div></div>
+  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">🏆 Taux de passage (%)</div><div class="graphe" style="height:260px"><canvas id="cPassage" aria-label="Taux de passage par université"></canvas></div></div>
+  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">⚧ Répartition H/F</div><div class="graphe" style="height:260px"><canvas id="cGenre" aria-label="Répartition hommes femmes par université"></canvas></div></div>
 </div>
 <div class="card">
   <div class="card-header"><span class="card-title">🏛️ Tableau national — {{ $annee }}</span></div>
@@ -102,8 +102,8 @@
     <p style="color:var(--text-muted);font-size:13px">Aucune donnée historique disponible.</p>
     @else
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:12px">
-      <canvas id="ev_inscrits_{{ $code }}" height="160" data-evolution="{{ $code }}" data-serie="inscrits" aria-label="Évolution des inscrits — {{ $s['uni']->sigle }}"></canvas>
-      <canvas id="ev_taux_{{ $code }}" height="160" data-evolution="{{ $code }}" data-serie="taux" aria-label="Évolution du taux de passage — {{ $s['uni']->sigle }}"></canvas>
+      <div class="graphe" style="height:240px"><canvas id="ev_inscrits_{{ $code }}" data-evolution="{{ $code }}" data-serie="inscrits" aria-label="Évolution des inscrits — {{ $s['uni']->sigle }}"></canvas></div>
+      <div class="graphe" style="height:240px"><canvas id="ev_taux_{{ $code }}" data-evolution="{{ $code }}" data-serie="taux" aria-label="Évolution du taux de passage — {{ $s['uni']->sigle }}"></canvas></div>
     </div>
     <div style="overflow-x:auto"><table class="table">
       <thead><tr><th>Année</th><th>Inscrits</th><th>Passages</th><th>Redoublants</th><th>Taux passage</th></tr></thead>
@@ -120,7 +120,7 @@
 
 @elseif ($onglet === 'comparaison')
 @php $ok = array_filter($stats, fn ($s) => ! $s['erreur']); @endphp
-<div class="card mb-16" style="padding:14px;max-width:760px"><div class="card-title" style="margin-bottom:8px">📋 Inscrits vs passage</div><canvas id="cCompare" height="220" aria-label="Inscrits et passages par université"></canvas></div>
+<div class="card mb-16" style="padding:14px;max-width:760px"><div class="card-title" style="margin-bottom:8px">📋 Inscrits vs passage</div><div class="graphe" style="height:280px"><canvas id="cCompare" aria-label="Inscrits et passages par université"></canvas></div></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px">
   @foreach ($ok as $s)
   <div class="card">

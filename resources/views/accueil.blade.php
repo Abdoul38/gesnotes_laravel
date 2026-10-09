@@ -41,7 +41,7 @@
 
 <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;margin-bottom:16px">
   <div class="card"><div class="card-header"><span class="card-title">👥 Genre</span></div>
-    <div class="card-body"><canvas id="chartGenre" height="200"></canvas>
+    <div class="card-body"><div class="graphe" style="height:260px"><canvas id="chartGenre"></canvas></div>
       <div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:12px">
         <span>👨 <strong style="color:var(--blue-600)">{{ $s['nbH'] }}</strong></span>
         <span>👩 <strong style="color:#e91e8c">{{ $s['nbF'] }}</strong></span>
@@ -49,17 +49,17 @@
     </div>
   </div>
   <div class="card"><div class="card-header"><span class="card-title">🏛️ Par faculté</span></div>
-    <div class="card-body"><canvas id="chartFaculte" height="160"></canvas></div>
+    <div class="card-body"><div class="graphe" style="height:220px"><canvas id="chartFaculte"></canvas></div></div>
   </div>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:28px">
   <div class="card"><div class="card-header"><span class="card-title">📚 Par filière</span></div>
-    <div class="card-body"><canvas id="chartFiliere" height="{{ max(140, count($s['parFiliere']) * 30) }}"></canvas></div>
+    <div class="card-body"><div class="graphe" style="height:{{ max(140, count($s['parFiliere']) * 30) + 60 }}px"><canvas id="chartFiliere"></canvas></div></div>
   </div>
   <div class="card"><div class="card-header"><span class="card-title">🎓 Par niveau</span></div>
     <div class="card-body" style="padding:0">
-      <canvas id="chartNiveau" height="180" style="padding:16px"></canvas>
+      <div class="graphe" style="height:240px;padding:16px"><canvas id="chartNiveau"></canvas></div>
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:var(--gray-50)">
           <th style="padding:4px 12px;text-align:left">Niveau</th><th style="padding:4px 12px;text-align:right">Nb</th><th style="padding:4px 12px;text-align:right">%</th>
@@ -128,7 +128,7 @@
       @if (empty($s[$cle]))
         <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">—</div>
       @else
-        <canvas id="{{ $canvas }}" height="180" style="padding:12px"></canvas>
+        <div class="graphe" style="height:240px;padding:12px"><canvas id="{{ $canvas }}"></canvas></div>
         <table style="width:100%;font-size:12px;border-collapse:collapse">
           <thead><tr style="background:var(--gray-50)">
             <th style="padding:4px 12px;text-align:left">{{ $colonne }}</th><th style="padding:4px 12px;text-align:right">Nb</th><th style="padding:4px 12px;text-align:right">%</th>

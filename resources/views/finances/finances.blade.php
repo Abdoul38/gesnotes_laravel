@@ -50,7 +50,7 @@
 
 <div class="card mb-16">
   <div class="card-header"><span class="card-title">📈 Évolution sur 12 mois</span></div>
-  <div class="card-body"><canvas id="chartEvolution" height="90" aria-label="Évolution des recettes et dépenses sur 12 mois"></canvas></div>
+  <div class="card-body"><div class="graphe" style="height:280px"><canvas id="chartEvolution" aria-label="Évolution des recettes et dépenses sur 12 mois"></canvas></div></div>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -60,7 +60,7 @@
       @if ($depensesParCategorie->isEmpty())
       <div class="empty-state" style="padding:24px"><p>Aucune dépense enregistrée.</p></div>
       @else
-      <canvas id="chartCategories" height="220" aria-label="Dépenses par catégorie"></canvas>
+      <div class="graphe" style="height:280px"><canvas id="chartCategories" aria-label="Dépenses par catégorie"></canvas></div>
       <table class="table" style="margin-top:12px;font-size:13px">
         <thead><tr><th>Catégorie</th><th style="text-align:right">Montant</th></tr></thead>
         <tbody>
@@ -78,7 +78,7 @@
       @if ($recettesParFiliere->isEmpty())
       <div class="empty-state" style="padding:24px"><p>Aucune donnée disponible.</p></div>
       @else
-      <canvas id="chartFilieres" height="220" aria-label="Recettes par filière"></canvas>
+      <div class="graphe" style="height:280px"><canvas id="chartFilieres" aria-label="Recettes par filière"></canvas></div>
       @endif
     </div>
   </div>

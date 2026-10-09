@@ -1,3 +1,5 @@
+// Hauteur donnée par le cadre .graphe (sinon Chart.js agrandit le graphique sans fin dans une grille)
+if (window.Chart) { Chart.defaults.maintainAspectRatio = false; }
 // Finances — repris du script en ligne de l'ancien finances.php :
 // graphiques de l'aperçu, fenêtres des tarifs et des dépenses.
 (function () {

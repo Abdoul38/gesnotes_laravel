@@ -62,9 +62,9 @@
   @endforeach
 </div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px">
-  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">📋 Inscrits par faculté</div><canvas id="cInscrits" height="200" aria-label="Inscrits par faculté"></canvas></div>
-  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">🏆 Taux de passage (%)</div><canvas id="cPassage" height="200" aria-label="Taux de passage par faculté"></canvas></div>
-  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">⚧ Répartition H/F</div><canvas id="cGenre" height="200" aria-label="Répartition hommes femmes par faculté"></canvas></div>
+  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">📋 Inscrits par faculté</div><div class="graphe" style="height:260px"><canvas id="cInscrits" aria-label="Inscrits par faculté"></canvas></div></div>
+  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">🏆 Taux de passage (%)</div><div class="graphe" style="height:260px"><canvas id="cPassage" aria-label="Taux de passage par faculté"></canvas></div></div>
+  <div class="card" style="padding:14px"><div class="card-title" style="margin-bottom:8px">⚧ Répartition H/F</div><div class="graphe" style="height:260px"><canvas id="cGenre" aria-label="Répartition hommes femmes par faculté"></canvas></div></div>
 </div>
 @if ($s['facultes'])
 <div class="card">
@@ -95,7 +95,7 @@
 <div class="card"><div class="empty-state" style="padding:24px"><p>Aucune donnée historique disponible.</p></div></div>
 @else
 <div class="card mb-16"><div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px">
-  <canvas id="evChartIns" height="180" aria-label="Évolution des inscrits"></canvas><canvas id="evChartTaux" height="180" aria-label="Évolution du taux de passage"></canvas>
+  <div class="graphe" style="height:240px"><canvas id="evChartIns" aria-label="Évolution des inscrits"></canvas></div><div class="graphe" style="height:240px"><canvas id="evChartTaux" aria-label="Évolution du taux de passage"></canvas></div>
 </div></div>
 <div class="card"><div style="overflow-x:auto"><table class="table">
   <thead><tr><th>Année</th><th style="text-align:center">Inscrits</th><th style="text-align:center">Passages</th><th style="text-align:center">Redoublants</th><th style="text-align:center">Taux de passage</th></tr></thead>

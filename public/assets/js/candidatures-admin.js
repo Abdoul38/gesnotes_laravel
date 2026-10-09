@@ -1,3 +1,5 @@
+// Hauteur donnée par le cadre .graphe (sinon Chart.js agrandit le graphique sans fin dans une grille)
+if (window.Chart) { Chart.defaults.maintainAspectRatio = false; }
 // Administration des candidatures — graphiques des onglets Statistiques et
 // Analyses avancées (repris du script en ligne de portail_candidats_admin.php).
 (function () {

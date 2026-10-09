@@ -1,3 +1,5 @@
+// Hauteur donnée par le cadre .graphe (sinon Chart.js agrandit le graphique sans fin dans une grille)
+if (window.Chart) { Chart.defaults.maintainAspectRatio = false; }
 // Graphiques du tableau de bord — repris du script en ligne de l'ancien
 // pages/accueil.php ; les données viennent du bloc JSON #donnees-accueil.
 (function () {

@@ -1,3 +1,5 @@
+// Hauteur donnée par le cadre .graphe (sinon Chart.js agrandit le graphique sans fin dans une grille)
+if (window.Chart) { Chart.defaults.maintainAspectRatio = false; }
 // Tableau de bord national du Ministère — graphiques et filtre du détail
 // (repris du script en ligne de l'ancien ministere.php).
 (function () {

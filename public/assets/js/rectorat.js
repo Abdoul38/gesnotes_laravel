@@ -1,3 +1,5 @@
+// Hauteur donnée par le cadre .graphe (sinon Chart.js agrandit le graphique sans fin dans une grille)
+if (window.Chart) { Chart.defaults.maintainAspectRatio = false; }
 // Tableau de bord du rectorat — repris du script en ligne de l'ancien
 // rectorat.php : graphiques (accueil, évolution) et filtre des facultés.
 (function () {
