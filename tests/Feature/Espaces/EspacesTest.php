@@ -197,6 +197,30 @@ class EspacesTest extends TestCase
         $this->post($this->url('ministere/deconnexion', 'ministere'))->assertRedirect($this->url('ministere/connexion', 'ministere'));
     }
 
+    public function test_anab_s5_s6_des_etudiants_de_l_iut(): void
+    {
+        // Étudiant de l'IUT : S1-S2 en DUT1, S3-S4 en DUT2, S5-S6 en licence professionnelle (LP)
+        $u = $this->ids['udh'];
+        $iut = DB::table('filieres')->insertGetId(['code' => 'GEA', 'libelle' => 'Gestion (IUT)', 'departement' => '', 'actif' => 1]);
+        $et = DB::table('etudiants')->insertGetId(['numero' => '90001', 'nom' => 'IUT-ETU', 'prenoms' => 'P', 'sexe' => 'M', 'filiere_id' => $iut]);
+        foreach (['DUT1' => ['S1', 'S2'], 'DUT2' => ['S3', 'S4'], 'LP' => ['S5', 'S6']] as $niveau => $semestres) {
+            $promo = $this->creerPromotion($u['annee'], ['filiere_id' => $iut, 'niveau_id' => DB::table('niveaux')->insertGetId(['code' => $niveau, 'libelle' => $niveau])]);
+            foreach ($semestres as $code) {
+                $sem = DB::table('semestres')->where('code', $code)->value('id') ?? DB::table('semestres')->insertGetId(['code' => $code, 'libelle' => "Semestre $code"]);
+                $pv = DB::table('pv_sessions')->insertGetId(['promotion_id' => $promo, 'semestre_id' => $sem, 'type_session' => 'normale', 'libelle' => "PV $code", 'statut' => 'publie']);
+                DB::table('resultats_semestre')->insert(['pv_id' => $pv, 'etudiant_id' => $et, 'moyenne_generale' => $code === 'S6' ? 16 : 13, 'valide' => 1]);
+            }
+        }
+        CompteAnab::create(['login' => 'agent1', 'nom_complet' => 'Agent Bourses', 'role' => 'agent', 'mot_de_passe' => 'Bourses2026', 'actif' => 1]);
+        $this->post($this->url('anab/connexion', 'anab'), ['user' => 'agent1', 'pass' => 'Bourses2026']);
+
+        // Moyenne sur 6 semestres : S5 et S6 (LP) comptent ; (13 × 5 + 16) / 6 = 13,5
+        $this->get($this->url('anab?univ=udh', 'anab'))->assertOk()
+            ->assertViewHas('eligibles', fn ($l) => collect($l)->firstWhere('id', $et)?->moy6 === 13.5)->assertSee('🎓 Licence ·', false);
+        $this->get($this->url('anab?univ=udh&niveau_code=LP', 'anab'))->assertViewHas('eligibles', fn ($l) => collect($l)->pluck('id')->all() === [$et]);
+        $this->get($this->url("anab?univ=udh&etudiant=$et", 'anab'))->assertOk()->assertSee('16.00')->assertSee('Éligible bourse Licence');
+    }
+
     public function test_anab_eligibilite_et_dossier(): void
     {
         // UDH : l'étudiant 1 valide S1 à S4 dans des PV publiés ; l'étudiant 2 a son S4 dans un PV en brouillon

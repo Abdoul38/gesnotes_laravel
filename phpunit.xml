@@ -28,6 +28,9 @@
         <env name="UNI_UDH_DB" value="gesnotes_test_udh"/>
         <env name="UNI_UAM_DB" value="gesnotes_test_uam"/>
         <env name="ESPACES_BASE" value="gesnotes_test_espaces"/>
+        <!-- Compte principal : le compte en lecture seule du .env n'a pas de droits sur les bases de test -->
+        <env name="ESPACES_DB_USERNAME" value=""/>
+        <env name="ESPACES_DB_PASSWORD" value=""/>
         <!-- Les autres universités sont désactivées : les tableaux de bord nationaux
              (Ministère, ANAB) ne lisent ainsi que les bases de test. -->
         <env name="UNI_UDO_ACTIF" value="false"/>

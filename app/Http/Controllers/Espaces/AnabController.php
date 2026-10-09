@@ -22,11 +22,15 @@ use Illuminate\View\View;
  *    encore en brouillon étaient montrés à l'agence) ;
  *  - chaque consultation d'un dossier est inscrite au journal d'activité
  *    de l'université concernée (aucune trace avant) ;
- *  - filtres passés en paramètres liés (la filière était insérée dans la requête).
+ *  - filtres passés en paramètres liés (la filière était insérée dans la requête) ;
+ *  - niveau LP pris en compte : S5 et S6 des étudiants de l'IUT (DUT puis
+ *    licence professionnelle) n'apparaissaient pas, ni leur moyenne sur 6
+ *    semestres.
  */
 class AnabController extends Controller
 {
-    public const NIVEAUX = ['L1', 'L2', 'L3', 'DUT1', 'DUT2'];
+    /** Premier cycle, comme App\Services\Parcours : Licence, DUT et licence professionnelle (S5, S6 des étudiants de l'IUT). */
+    public const NIVEAUX = ['L1', 'L2', 'L3', 'DUT1', 'DUT2', 'LP'];
 
     private const SEMESTRES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 
