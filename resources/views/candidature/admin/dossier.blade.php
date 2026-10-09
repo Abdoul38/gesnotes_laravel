@@ -32,31 +32,79 @@
   </div>
 </div>
 
-<form method="post" action="{{ route('dossier_candidat.modifier', ['id' => $d->id]) }}">
+@php
+  $edition = (bool) session('edition');
+  $nomsFilieres = $filieres->pluck('libelle', 'id');
+  $libelleFiliere = fn ($id) => $id ? ($nomsFilieres[$id] ?? '—') : '—';
+  $champ = fn ($v) => ($v === null || trim((string) $v) === '') ? '—' : $v;
+@endphp
+<div id="fiche-lecture" @style(['display:none' => $edition])>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+    <button type="button" class="btn btn-primary" data-toggle-display="fiche-edition" data-hide="fiche-lecture">✏️ Modifier</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-header"><span class="card-title">👤 Identité</span></div>
+      <div class="card-body"><dl class="fiche-dl">
+        <dt>Nom</dt><dd>{{ $champ($d->nom) }}</dd>
+        <dt>Prénom</dt><dd>{{ $champ($d->prenom) }}</dd>
+        <dt>Sexe</dt><dd>{{ ['M' => 'Masculin', 'F' => 'Féminin'][$d->sexe] ?? '—' }}</dd>
+        <dt>Date de naissance</dt><dd>{{ $d->date_naissance ? date('d/m/Y', strtotime($d->date_naissance)) : '—' }}</dd>
+        <dt>Lieu de naissance</dt><dd>{{ $champ($d->lieu_naissance) }}</dd>
+        <dt>Nationalité</dt><dd>{{ $champ($d->nationalite) }}</dd>
+        <dt>Email</dt><dd>{{ $champ($d->email) }}</dd>
+        <dt>Téléphone</dt><dd>{{ $champ($d->telephone) }}</dd>
+        <dt>Adresse</dt><dd>{{ $champ($d->adresse) }}</dd>
+      </dl>
+      @if ($d->cand_email && $d->cand_email !== $d->email)<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Compte du portail : {{ $d->cand_email }} · {{ $d->cand_tel }}</div>@endif
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">🎓 Baccalauréat</span></div>
+      <div class="card-body"><dl class="fiche-dl">
+        <dt>Type</dt><dd>{{ $champ($d->bac_type) }}</dd>
+        <dt>Mention</dt><dd>{{ $champ($d->bac_mention) }}</dd>
+        <dt>Lieu</dt><dd>{{ $champ($d->bac_lieu) }}</dd>
+        <dt>Année</dt><dd>{{ $champ($d->bac_annee) }}</dd>
+        <dt>Établissement</dt><dd>{{ $champ($d->bac_etablissement) }}</dd>
+      </dl></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">📚 Choix de filières</span></div>
+      <div class="card-body"><dl class="fiche-dl">
+        <dt>Priorité 1</dt><dd>{{ $libelleFiliere($d->choix1_id) }}</dd>
+        <dt>Priorité 2</dt><dd>{{ $libelleFiliere($d->choix2_id) }}</dd>
+        <dt>Priorité 3</dt><dd>{{ $libelleFiliere($d->choix3_id) }}</dd>
+      </dl></div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="{{ route('dossier_candidat.modifier', ['id' => $d->id]) }}" id="fiche-edition" @style(['display:none' => ! $edition])>
   @csrf
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
     <div class="card">
       <div class="card-header"><span class="card-title">👤 Identité</span></div>
       <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="form-group"><label class="form-label" for="nom">Nom</label><input type="text" name="nom" id="nom" class="form-control" value="{{ $d->nom }}" required maxlength="100"></div>
-        <div class="form-group"><label class="form-label" for="prenom">Prénom</label><input type="text" name="prenom" id="prenom" class="form-control" value="{{ $d->prenom }}" required maxlength="150"></div>
-        <div class="form-group"><label class="form-label" for="sexe">Sexe</label><select name="sexe" id="sexe" class="form-control"><option value="M" @selected($d->sexe === 'M')>Masculin</option><option value="F" @selected($d->sexe === 'F')>Féminin</option></select></div>
-        <div class="form-group"><label class="form-label" for="date_naissance">Date de naissance</label><input type="date" name="date_naissance" id="date_naissance" class="form-control" value="{{ $d->date_naissance }}"></div>
-        <div class="form-group"><label class="form-label" for="lieu_naissance">Lieu de naissance</label><input type="text" name="lieu_naissance" id="lieu_naissance" class="form-control" value="{{ $d->lieu_naissance }}" maxlength="200"></div>
-        <div class="form-group"><label class="form-label" for="nationalite">Nationalité</label><input type="text" name="nationalite" id="nationalite" class="form-control" value="{{ $d->nationalite }}" maxlength="100"></div>
-        <div class="form-group"><label class="form-label" for="email">Email</label><input type="email" name="email" id="email" class="form-control" value="{{ $d->email }}" maxlength="150"></div>
-        <div class="form-group"><label class="form-label" for="telephone">Téléphone</label><input type="text" name="telephone" id="telephone" class="form-control" value="{{ $d->telephone }}" maxlength="30"></div>
-        <div class="form-group" style="grid-column:1/-1"><label class="form-label" for="adresse">Adresse</label><input type="text" name="adresse" id="adresse" class="form-control" value="{{ $d->adresse }}" maxlength="1000"></div>
+        <div class="form-group"><label class="form-label" for="nom">Nom</label><input type="text" name="nom" id="nom" class="form-control" value="{{ old('nom', $d->nom) }}" required maxlength="100"></div>
+        <div class="form-group"><label class="form-label" for="prenom">Prénom</label><input type="text" name="prenom" id="prenom" class="form-control" value="{{ old('prenom', $d->prenom) }}" required maxlength="150"></div>
+        <div class="form-group"><label class="form-label" for="sexe">Sexe</label><select name="sexe" id="sexe" class="form-control"><option value="M" @selected(old('sexe', $d->sexe) === 'M')>Masculin</option><option value="F" @selected(old('sexe', $d->sexe) === 'F')>Féminin</option></select></div>
+        <div class="form-group"><label class="form-label" for="date_naissance">Date de naissance</label><input type="date" name="date_naissance" id="date_naissance" class="form-control" value="{{ old('date_naissance', $d->date_naissance) }}"></div>
+        <div class="form-group"><label class="form-label" for="lieu_naissance">Lieu de naissance</label><input type="text" name="lieu_naissance" id="lieu_naissance" class="form-control" value="{{ old('lieu_naissance', $d->lieu_naissance) }}" maxlength="200"></div>
+        <div class="form-group"><label class="form-label" for="nationalite">Nationalité</label><input type="text" name="nationalite" id="nationalite" class="form-control" value="{{ old('nationalite', $d->nationalite) }}" maxlength="100"></div>
+        <div class="form-group"><label class="form-label" for="email">Email</label><input type="email" name="email" id="email" class="form-control" value="{{ old('email', $d->email) }}" maxlength="150"></div>
+        <div class="form-group"><label class="form-label" for="telephone">Téléphone</label><input type="text" name="telephone" id="telephone" class="form-control" value="{{ old('telephone', $d->telephone) }}" maxlength="30"></div>
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label" for="adresse">Adresse</label><input type="text" name="adresse" id="adresse" class="form-control" value="{{ old('adresse', $d->adresse) }}" maxlength="1000"></div>
         @if ($d->cand_email && $d->cand_email !== $d->email)<div style="grid-column:1/-1;font-size:11px;color:var(--text-muted)">Compte du portail : {{ $d->cand_email }} · {{ $d->cand_tel }}</div>@endif
       </div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">🎓 Baccalauréat</span></div>
       <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="form-group"><label class="form-label" for="bac_type">Type</label><input type="text" name="bac_type" id="bac_type" class="form-control" value="{{ $d->bac_type }}" maxlength="20"></div>
-        <div class="form-group"><label class="form-label" for="bac_mention">Mention</label><input type="text" name="bac_mention" id="bac_mention" class="form-control" value="{{ $d->bac_mention }}" maxlength="50"></div>
-        <div class="form-group"><label class="form-label" for="bac_lieu">Lieu</label><input type="text" name="bac_lieu" id="bac_lieu" class="form-control" value="{{ $d->bac_lieu }}" maxlength="100"></div>
-        <div class="form-group"><label class="form-label" for="bac_annee">Année</label><input type="text" name="bac_annee" id="bac_annee" class="form-control" value="{{ $d->bac_annee }}" maxlength="20"></div>
+        <div class="form-group"><label class="form-label" for="bac_type">Type</label><input type="text" name="bac_type" id="bac_type" class="form-control" value="{{ old('bac_type', $d->bac_type) }}" maxlength="20"></div>
+        <div class="form-group"><label class="form-label" for="bac_mention">Mention</label><input type="text" name="bac_mention" id="bac_mention" class="form-control" value="{{ old('bac_mention', $d->bac_mention) }}" maxlength="50"></div>
+        <div class="form-group"><label class="form-label" for="bac_lieu">Lieu</label><input type="text" name="bac_lieu" id="bac_lieu" class="form-control" value="{{ old('bac_lieu', $d->bac_lieu) }}" maxlength="100"></div>
+        <div class="form-group"><label class="form-label" for="bac_annee">Année</label><input type="text" name="bac_annee" id="bac_annee" class="form-control" value="{{ old('bac_annee', $d->bac_annee) }}" maxlength="20"></div>
         <div style="grid-column:1/-1;font-size:12px;color:var(--text-muted)">Établissement : {{ $d->bac_etablissement ?: '—' }}</div>
       </div>
     </div>
@@ -66,13 +114,16 @@
         @foreach ([1 => 'Priorité 1', 2 => 'Priorité 2', 3 => 'Priorité 3'] as $n => $lbl)
         <div class="form-group"><label class="form-label" for="choix{{ $n }}_id">{{ $lbl }}</label>
           <select name="choix{{ $n }}_id" id="choix{{ $n }}_id" class="form-control"><option value="">—</option>
-            @foreach ($filieres as $f)<option value="{{ $f->id }}" @selected((int) $d->{'choix'.$n.'_id'} === (int) $f->id)>{{ $f->libelle }}{{ $f->actif ? '' : ' (inactive)' }}</option>@endforeach
+            @foreach ($filieres as $f)<option value="{{ $f->id }}" @selected((int) old('choix'.$n.'_id', $d->{'choix'.$n.'_id'}) === (int) $f->id)>{{ $f->libelle }}{{ $f->actif ? '' : ' (inactive)' }}</option>@endforeach
           </select></div>
         @endforeach
       </div>
     </div>
   </div>
-  <div style="margin:12px 0 16px"><button type="submit" class="btn btn-primary">💾 Enregistrer les modifications</button></div>
+  <div style="margin:12px 0 16px;display:flex;gap:8px">
+    <button type="submit" class="btn btn-primary">💾 Enregistrer les modifications</button>
+    <a href="{{ route('dossier_candidat', ['id' => $d->id]) }}" class="btn btn-secondary">✕ Annuler</a>
+  </div>
 </form>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
@@ -101,3 +152,7 @@
   </div>
 </div>
 @endsection
+
+@push('head')
+<style>.fiche-dl{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;margin:0;font-size:13px}.fiche-dl dt{color:var(--text-muted);font-weight:600}.fiche-dl dd{margin:0;word-break:break-word}@media (max-width:480px){.fiche-dl{grid-template-columns:1fr}.fiche-dl dd{margin-bottom:6px}}</style>
+@endpush

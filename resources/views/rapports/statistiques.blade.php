@@ -18,8 +18,12 @@
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:20px">
-  <div class="card"><div class="card-header"><span class="card-title">📊 Répartition des décisions</span></div><div class="card-body"><canvas id="chartDecisions" height="220" aria-label="Répartition des décisions"></canvas></div></div>
-  <div class="card"><div class="card-header"><span class="card-title">🏅 Répartition des mentions</span></div><div class="card-body"><canvas id="chartMentions" height="220" aria-label="Répartition des mentions"></canvas></div></div>
+  <div class="card"><div class="card-header"><span class="card-title">📊 Répartition des décisions</span></div><div class="card-body">
+    <div class="stats-graphe"><canvas id="chartDecisions" aria-label="Répartition des décisions"></canvas></div>
+    <p class="stats-note">Résultats de semestre, après rattrapage ({{ array_sum($graphiques['decisions']) }} au total).</p></div></div>
+  <div class="card"><div class="card-header"><span class="card-title">🏅 Répartition des mentions</span></div><div class="card-body">
+    <div class="stats-graphe"><canvas id="chartMentions" aria-label="Répartition des mentions"></canvas></div>
+    <p class="stats-note">Semestres validés, après rattrapage.</p></div></div>
 </div>
 
 <div class="card mb-20">
@@ -29,7 +33,8 @@
     <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px 0">Aucune donnée historique disponible.</p>
     @else
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:16px">
-      <canvas id="chartEvolInscrits" height="180" aria-label="Évolution des inscrits"></canvas><canvas id="chartEvolTaux" height="180" aria-label="Évolution du taux de passage"></canvas>
+      <div class="stats-graphe"><canvas id="chartEvolInscrits" aria-label="Évolution des inscrits"></canvas></div>
+      <div class="stats-graphe"><canvas id="chartEvolTaux" aria-label="Évolution du taux de passage"></canvas></div>
     </div>
     <div style="overflow-x:auto"><table class="table">
       <thead><tr><th>Année</th><th style="text-align:center">Inscrits</th><th style="text-align:center">Passages</th><th style="text-align:center">Redoublants</th><th style="text-align:center">Taux passage</th></tr></thead>
@@ -63,6 +68,11 @@
 </div>
 <script type="application/json" id="donnees-stats">@json($graphiques)</script>
 @endsection
+
+@push('head')
+{{-- Hauteur fixe autour de chaque graphique : sans elle, Chart.js agrandit le canevas sans fin --}}
+<style>.stats-graphe{position:relative;height:260px;width:100%;min-width:0}.stats-note{font-size:11px;color:var(--text-muted);margin:8px 0 0;text-align:center}</style>
+@endpush
 
 @push('scripts')
 <script src="{{ asset('assets/js/chart.min.js') }}"></script>

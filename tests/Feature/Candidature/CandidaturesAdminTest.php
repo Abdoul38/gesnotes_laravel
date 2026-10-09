@@ -43,7 +43,14 @@ class CandidaturesAdminTest extends TestCase
             $this->get($this->url("candidatures?tab=$tab"))->assertOk();
         }
         $this->get($this->url('candidatures?tab=dossiers&q=D100001'))->assertSee('D100001')->assertDontSee('D100002');
-        $this->get($this->url("candidatures/$id"))->assertOk()->assertSee('ALPHA Awa');
+        // Fiche en lecture ; le formulaire n'apparaît qu'avec le bouton « Modifier »
+        $this->get($this->url("candidatures/$id"))->assertOk()->assertSee('ALPHA Awa')->assertSee('✏️ Modifier')
+            ->assertSee('<div id="fiche-lecture" style="">', false)->assertSee('id="fiche-edition" style="display:none;"', false);
+        // Erreur de saisie : formulaire rouvert avec la saisie
+        $this->post($this->url("candidatures/$id"), ['nom' => 'NOUVEAU', 'prenom' => 'Awa', 'sexe' => 'X'])->assertSessionHas('erreur');
+        $this->get($this->url("candidatures/$id"))->assertSee('id="fiche-edition" style=""', false)->assertSee('value="NOUVEAU"', false);
+        $this->post($this->url("candidatures/$id"), ['nom' => 'ALPHA', 'prenom' => 'Awa', 'sexe' => 'F', 'lieu_naissance' => 'Tahoua', 'bac_annee' => '2026'])->assertSessionHas('succes');
+        $this->get($this->url("candidatures/$id"))->assertSee('id="fiche-edition" style="display:none;"', false)->assertSee('<dd>Tahoua</dd>', false);
 
         $this->post($this->url('candidatures/statut'), ['dos_id' => $id, 'statut' => 'n_importe_quoi'])->assertSessionHas('erreur');
         $this->post($this->url('candidatures/statut'), ['dos_id' => $id, 'statut' => 'accepte'])->assertSessionHas('succes');

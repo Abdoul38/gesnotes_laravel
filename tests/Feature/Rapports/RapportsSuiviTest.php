@@ -67,6 +67,29 @@ class RapportsSuiviTest extends TestCase
         return $this->creerUtilisateur('doyen', ['faculte_id' => $this->facA]);
     }
 
+    public function test_decisions_et_mentions_apres_rattrapage(): void
+    {
+        // ALPHA et BETA : admis en normale (« Assez bien » / « Assez Bien ») ; DELTA : ajourné puis admis au rattrapage ; GAMMA : défaillant
+        $promo = DB::table('pv_sessions')->where('id', $this->pvA)->first();
+        DB::table('resultats_semestre')->where('etudiant_id', $this->etA)->update(['mention' => 'Assez bien']);
+        $gamma = DB::table('etudiants')->insertGetId(['numero' => '00003', 'nom' => 'GAMMA', 'prenoms' => 'X']);
+        DB::table('resultats_semestre')->insert([
+            ['pv_id' => $this->pvA, 'etudiant_id' => $gamma, 'moyenne_generale' => 2, 'valide' => 0, 'defaillant' => 1, 'decision' => 'Défaillant', 'mention' => 'Défaillant'],
+        ]);
+        $delta = DB::table('etudiants')->insertGetId(['numero' => '00004', 'nom' => 'DELTA', 'prenoms' => 'X']);
+        DB::table('resultats_semestre')->insert(['pv_id' => $this->pvA, 'etudiant_id' => $delta, 'moyenne_generale' => 8, 'valide' => 0, 'decision' => 'Ajourné', 'mention' => 'Ajourné']);
+        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $promo->promotion_id, 'semestre_id' => $promo->semestre_id, 'type_session' => 'rattrapage',
+            'pv_normale_id' => $this->pvA, 'libelle' => 'PV A ratt', 'statut' => 'publie']);
+        DB::table('resultats_semestre')->insert(['pv_id' => $ratt, 'etudiant_id' => $delta, 'moyenne_generale' => 14.5, 'valide' => 1, 'decision' => 'Admis', 'mention' => 'Bien']);
+
+        $page = $this->connecte($this->admin)->get($this->url('statistiques'))->assertOk();
+        // 3 admis (dont DELTA au rattrapage, compté une seule fois), 0 ajourné, 1 défaillant
+        $page->assertViewHas('graphiques', fn ($g) => $g['decisions'] === [3, 0, 1]
+            && $g['mentions']['libelles']->all() === ['Très bien', 'Bien', 'Assez bien', 'Passable']
+            && $g['mentions']['valeurs']->all() === [0, 1, 2, 0]);
+        $page->assertSee('class="stats-graphe"', false)->assertDontSee('height="220"', false);
+    }
+
     public function test_statistiques_et_historique(): void
     {
         $this->connecte($this->admin)->get($this->url('statistiques'))->assertOk()->assertSee('Filière A')->assertSee('Filière B')->assertSee('100%');

@@ -255,7 +255,8 @@ class CandidaturesAdminController extends Controller
             'choix1_id' => ['nullable', Rule::exists('filieres', 'id')], 'choix2_id' => ['nullable', Rule::exists('filieres', 'id')], 'choix3_id' => ['nullable', Rule::exists('filieres', 'id')],
         ], ['required' => 'Nom, prénom et genre sont obligatoires.']);
         if ($v->fails()) {
-            return $retour->with('erreur', $v->errors()->first());
+            // Formulaire rouvert avec la saisie (la fiche s'affiche en lecture par défaut)
+            return $retour->withInput()->with(['erreur' => $v->errors()->first(), 'edition' => true]);
         }
         $d = $v->validated();
         DB::table('candidatures')->where('id', $id)->update(array_map(fn ($x) => is_string($x) ? trim($x) : $x, [
