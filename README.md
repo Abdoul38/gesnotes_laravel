@@ -442,6 +442,8 @@ Plan en 13 étapes (section 11 de l'inventaire).
   l'Espace Parents ni le portail candidats ouverts dans le même navigateur (et inversement).
 - **Saisie des notes au centième** (décidé le 09/10/2026) : portail enseignant et traitement des réclamations
   acceptent 2 décimales (pas de 0,01), comme la saisie du PV ; avant, le pas de 0,25 refusait une note comme 12,10.
+- **« Défaillant »** (décidé le 09/10/2026) : un seul libellé, partout, pour une absence comme pour une note sous la
+  note éliminatoire (comme avant) ; pas de libellés distincts.
 
 ## Décisions à prendre (université)
 
@@ -482,8 +484,6 @@ Plan en 13 étapes (section 11 de l'inventaire).
   connexion (pour la page de connexion). La servir aux seuls utilisateurs connectés, comme le cachet ?
 - **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
   à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
-- **« Défaillant »** désigne à la fois une absence et une note sous la note éliminatoire (repris tel quel) :
-  deux libellés distincts ?
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
