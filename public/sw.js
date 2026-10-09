@@ -7,7 +7,9 @@
 // des données périmées ou d'un autre étudiant. Le cache sert uniquement
 // à accélérer le chargement et permettre un affichage minimal hors ligne.
 
-const CACHE_NOM = 'edufile-static-v1';
+// Changer de nom vide les anciens caches à l'activation (v1 : servait des
+// scripts périmés, voire une réponse d'erreur, indéfiniment).
+const CACHE_NOM = 'edufile-static-v2';
 
 const RESSOURCES_STATIQUES = [
   '/assets/css/app.css',
@@ -59,19 +61,20 @@ self.addEventListener('fetch', (event) => {
 
   if (!estStatique) return; // laisse passer normalement, sans interception
 
+  // Réseau d'abord : on obtient toujours la version à jour des scripts et
+  // styles (avant : cache d'abord, sans jamais revérifier — une correction ne
+  // parvenait pas aux navigateurs, et une réponse d'erreur mise en cache
+  // empêchait par exemple l'affichage des QR codes). Le cache ne sert que
+  // hors ligne, et seules les réponses valides y entrent.
   event.respondWith(
-    caches.match(event.request).then((reponseEnCache) => {
-      if (reponseEnCache) return reponseEnCache;
-      return fetch(event.request).then((reponseReseau) => {
-        // Met en cache la nouvelle ressource statique pour la prochaine fois
+    fetch(event.request).then((reponseReseau) => {
+      if (reponseReseau.ok && reponseReseau.type === 'basic') {
         const clone = reponseReseau.clone();
         caches.open(CACHE_NOM).then((cache) => cache.put(event.request, clone));
-        return reponseReseau;
-      }).catch(() => {
-        // Hors ligne et pas en cache : on ne peut rien faire de mieux
-        // pour une ressource statique manquante.
-        return new Response('', { status: 404 });
-      });
-    })
+      }
+      return reponseReseau;
+    }).catch(() =>
+      caches.match(event.request).then((reponseEnCache) => reponseEnCache || new Response('', { status: 404 }))
+    )
   );
 });

@@ -17,6 +17,13 @@ if (typeof qrcode === 'function') {
       qr.addData(el.getAttribute('data-qr'));
       qr.make();
       el.innerHTML = qr.createSvgTag({ cellSize: parseInt(el.getAttribute('data-qr-cellule'), 10) || 1, margin: 0 });
+      // Le SVG a une taille fixe en pixels : on l'ajuste au cadre prévu par la page (il débordait)
+      var svg = el.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.style.display = 'block';
+      }
     } catch (err) {}
   });
 }
