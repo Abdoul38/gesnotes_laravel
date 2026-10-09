@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Etudiants;
 use App\Http\Controllers\Controller;
 use App\Services\Fichiers;
 use App\Services\Journal;
+use App\Services\Parcours;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class DossierEtudiantController extends Controller
 
     public function __construct(private readonly Journal $journal) {}
 
-    public function afficher(Request $request, Fichiers $fichiers): View|RedirectResponse
+    public function afficher(Request $request, Fichiers $fichiers, Parcours $parcours): View|RedirectResponse
     {
         $id = (int) $request->query('id');
         if (! $id) {
@@ -52,7 +53,7 @@ class DossierEtudiantController extends Controller
                 ->get(['i.*', 'f.libelle as filiere', 'n.code as niveau', 'a.libelle as annee']),
             'notesGroupees' => $this->notesGroupees($id),
             'resultatsIdx' => $this->indexerResultats($resultats),
-            'attestation' => $this->attestationPossible($resultats),
+            'attestations' => $this->attestationsPossibles($parcours->semestres($id), $parcours),
             'paiements' => DB::table('paiements')->where('etudiant_id', $id)->orderByDesc('created_at')->limit(10)->get(),
             'candidature' => $this->candidature($et),
         ]);
@@ -214,27 +215,34 @@ class DossierEtudiantController extends Controller
     }
 
     /**
-     * Attestation proposée selon les semestres validés, par cycle (la clé
-     * inclut le niveau : un S1 de Master n'est pas un S1 de Licence).
-     * Priorité : Master complet > M1 > Licence > Validation L2.
+     * Attestations proposées : même règle que la page des attestations
+     * (App\Services\Parcours : premier cycle Licence, DUT et LP ensemble,
+     * Master à part). Différence voulue : avant, seuls les niveaux L1, L2, L3
+     * comptaient — un étudiant de l'IUT (DUT1, DUT2, LP) qui avait validé ses
+     * 4 ou 6 semestres n'avait aucun bouton. Licence complète d'un parcours
+     * IUT : attestation de licence professionnelle ET de DUT.
+     *
+     * @return list<array{0: string, 1: string, 2: string}> [type, libellé, couleurs]
      */
-    private function attestationPossible(array $resultats): ?array
+    private function attestationsPossibles(array $semestres, Parcours $parcours): array
     {
-        $valides = [];
-        foreach ($resultats as $r) {
-            if ((int) $r->valide === 1) {
-                $valides[$r->niveau.'-'.$r->sem_code] ??= $r;
-            }
+        $master = $parcours->bilan($semestres, 'master_complet');
+        if ($master || $parcours->bilan($semestres, 'master1')) {
+            return [$master ? ['master_complet', '🎓 Attestation Master', '#b45309,#92400e'] : ['master1', '🎓 Attestation M1', '#b45309,#92400e']];
         }
-        $compte = fn (array $niveaux) => count(array_filter($valides, fn ($r) => in_array($r->niveau, $niveaux, true)));
+        $liste = [];
+        if ($licence = $parcours->bilan($semestres, 'licence')) {
+            $liste[] = ['licence', $licence['professionnelle'] ? '🎓 Attestation Licence professionnelle' : '🎓 Attestation Licence', '#7c3aed,#5b21b6'];
+        }
+        $l2 = $parcours->bilan($semestres, 'validation_l2');
+        $dut = $l2 && $l2['cycle_dut'] && in_array($l2['dernier']->niveau, ['DUT1', 'DUT2'], true);
+        if ($dut) {
+            $liste[] = ['validation_l2', '🎓 Attestation DUT', '#0891b2,#0e7490'];
+        } elseif ($l2 && ! $licence) {
+            $liste[] = ['validation_l2', '✅ Attestation Validation L2', '#059669,#047857'];
+        }
 
-        return match (true) {
-            $compte(['M1', 'M2']) === 4 => ['master_complet', '🎓 Attestation Master', '#b45309,#92400e'],
-            $compte(['M1']) === 2 => ['master1', '🎓 Attestation M1', '#b45309,#92400e'],
-            $compte(['L1', 'L2', 'L3']) === 6 => ['licence', '🎓 Attestation Licence', '#7c3aed,#5b21b6'],
-            $compte(['L1', 'L2']) === 4 => ['validation_l2', '✅ Attestation Validation L2', '#059669,#047857'],
-            default => null,
-        };
+        return $liste;
     }
 
     /**

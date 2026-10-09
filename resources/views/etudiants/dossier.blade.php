@@ -39,9 +39,9 @@
       @endunless
       <a href="{{ $navigation->lien('carte_etudiant', ['id' => $et->id]) }}" target="_blank" rel="noopener" class="btn btn-sm" style="{{ $btnClair }}">🪪 Carte</a>
       <a href="{{ $navigation->lien('historique', ['et_id' => $et->id]) }}" class="btn btn-sm" style="{{ $btnClair }}">📋 Historique</a>
-      @if ($attestation)
-        <a href="{{ $navigation->lien('attestations', ['et_id' => $et->id, 'type' => $attestation[0]]) }}" target="_blank" rel="noopener" class="btn btn-sm" style="background:linear-gradient(135deg,{{ $attestation[2] }});color:#fff;border:none;font-weight:700">{{ $attestation[1] }}</a>
-      @endif
+      @foreach ($attestations as [$type, $libelle, $couleurs])
+        <a href="{{ $navigation->lien('attestations', ['et_id' => $et->id, 'type' => $type]) }}" target="_blank" rel="noopener" class="btn btn-sm" style="background:linear-gradient(135deg,{{ $couleurs }});color:#fff;border:none;font-weight:700">{{ $libelle }}</a>
+      @endforeach
     </div>
   </div>
 </div>

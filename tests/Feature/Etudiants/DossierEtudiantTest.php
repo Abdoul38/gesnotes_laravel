@@ -86,6 +86,34 @@ class DossierEtudiantTest extends TestCase
             ->assertSee('✅ Attestation Validation L2', false)->assertSee('type=validation_l2', false);
     }
 
+    public function test_attestations_dut_et_licence_pour_l_iut(): void
+    {
+        $annee = DB::table('annees_academiques')->insertGetId(['libelle' => '2025-2026']);
+        $filiere = DB::table('etudiants')->where('id', $this->et)->value('filiere_id');
+        $valider = function (string $niveauCode, array $codes) use ($annee, $filiere) {
+            $niveau = DB::table('niveaux')->insertGetId(['code' => $niveauCode, 'libelle' => $niveauCode]);
+            $promo = $this->creerPromotion($annee, ['filiere_id' => $filiere, 'niveau_id' => $niveau]);
+            DB::table('inscriptions')->insert(['etudiant_id' => $this->et, 'promotion_id' => $promo, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
+            foreach ($codes as $code) {
+                $sem = DB::table('semestres')->insertGetId(['code' => $code, 'libelle' => "Semestre $code"]);
+                $pv = $this->insererMinimal('pv_sessions', ['promotion_id' => $promo, 'semestre_id' => $sem, 'type_session' => 'normale']);
+                $this->insererMinimal('resultats_semestre', ['pv_id' => $pv, 'etudiant_id' => $this->et, 'valide' => 1, 'moyenne_generale' => 13]);
+            }
+        };
+        $valider('DUT1', ['S1', 'S2']);
+        $this->connecte($this->admin)->get($this->url_dossier())->assertOk()->assertDontSee('Attestation DUT');
+
+        // 4 semestres de DUT : attestation de DUT (avant : aucun bouton, seuls L1/L2/L3 comptaient)
+        $valider('DUT2', ['S3', 'S4']);
+        $this->get($this->url_dossier())->assertSee('🎓 Attestation DUT', false)->assertSee('type=validation_l2', false)
+            ->assertDontSee('Attestation Validation L2')->assertDontSee('Attestation Licence');
+        $this->get($this->url("attestations?et_id={$this->et}&type=validation_l2"))->assertOk()->assertSee('DE DIPLOME DE DUT');
+
+        // Licence professionnelle (S5, S6 en LP) : attestation de licence ET de DUT
+        $valider('LP', ['S5', 'S6']);
+        $this->get($this->url_dossier())->assertSee('🎓 Attestation Licence', false)->assertSee('type=licence', false)->assertSee('🎓 Attestation DUT', false);
+    }
+
     public function test_notes_masquees_sans_role_admin_ou_sc_entite(): void
     {
         // Règles de rôles d'origine : la secrétaire satisfait « sc_entite », pas sc_centrale
