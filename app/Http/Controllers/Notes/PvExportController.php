@@ -85,19 +85,24 @@ class PvExportController extends Controller
 
         $titre = 'RÉSULTATS DES EXAMENS — '.$pv->sem_libelle.' — '.$pv->filiere.' '.$pv->niveau.' — Année '.$pv->annee.($request->boolean('formules') ? ' (avec formules)' : '');
         $lignes = [['height' => 30, 'cells' => [$c($titre, 1), ...array_fill(0, $nb - 1, $c('', 1))]]];
+        // En-tête par UE : ligne 2 = nom de l'UE au-dessus de toutes ses colonnes (matières et résultats),
+        // ligne 3 = matières puis « Résultats de l'UE », ligne 4 = en-têtes de colonne (filtres)
         $l2 = $l3 = $l4 = [];
+        $ueVue = [];
         foreach ($cols as $i => $col) {
             [$t, $ue, $m] = $col + [null, null, null];
+            $premiereColonneUe = $ue && ! isset($ueVue[$ue->id]);
+            if ($ue) {
+                $ueVue[$ue->id] = true;
+            }
             $l2[] = $c(match (true) {
                 $i === 0 => 'N°', $i === 1 => 'N° Étudiant', $i === 2 => 'Nom & Prénoms',
-                $t === 'exam' => $ue->libelle,
-                $t === 'ue_tot' => 'Total/'.(int) $this->maxUe($ue),
-                $t === 'ue_moy' => 'Moy./20', $t === 'ue_cr' => 'Crédits ('.$ue->credits_total.')',
-                $t === 'ue_val' => 'Valid. UE', $t === 'ue_obs' => 'Obs. UE', $t === 'sem_cr' => 'RÉSULTAT SEMESTRE',
+                $premiereColonneUe => trim(($ue->code ? $ue->code.' — ' : '').$ue->libelle).' ('.$ue->credits_total.' crédits)',
+                $t === 'sem_cr' => 'RÉSULTAT SEMESTRE',
                 default => '',
             }, 2);
             $l3[] = $c($i <= 2 ? '' : match ($t) {
-                'exam' => $m->libelle, 'sem_cr' => 'Crédits ('.$creditsTotal.')', 'sem_moy' => 'Moy. Gén.',
+                'exam' => $m->libelle, 'ue_tot' => "Résultats de l'UE", 'sem_cr' => 'Crédits ('.$creditsTotal.')', 'sem_moy' => 'Moy. Gén.',
                 'sem_dec' => 'Décision', 'sem_men' => 'Mention', 'sem_rang' => 'Rang', default => '',
             }, $i <= 2 ? 4 : 3);
             // Ligne 4 = ligne des filtres : un libellé par colonne. Aucun résumé ne commence par « Exam. », « TD/ »
@@ -106,7 +111,8 @@ class PvExportController extends Controller
                 'num' => 'N°', 'numero' => 'Matricule', 'nom' => 'Nom & Prénoms',
                 'exam' => 'Exam./'.(float) $m->note_max_examen, 'td' => 'TD/'.(float) $m->note_max_cc,
                 'note' => 'Note/'.(float) $m->note_max_totale, 'cr_mat' => 'Crédits('.$m->credits.')', 'obs_mat' => 'Obs.',
-                'ue_tot' => 'Total', 'ue_moy' => 'Moyenne', 'ue_cr' => 'Crédits', 'ue_val' => 'Validée', 'ue_obs' => 'Résultat UE',
+                'ue_tot' => 'Total/'.(int) $this->maxUe($ue), 'ue_moy' => 'Moy./20', 'ue_cr' => 'Crédits ('.$ue->credits_total.')',
+                'ue_val' => 'Validée', 'ue_obs' => 'Résultat UE',
                 'sem_cr' => 'Crédits', 'sem_moy' => 'Moyenne', 'sem_dec' => 'Décision', 'sem_men' => 'Mention', 'sem_rang' => 'Rang',
                 default => '',
             }, 4);
@@ -174,21 +180,31 @@ class PvExportController extends Controller
             $lignes[] = ['height' => 18, 'cells' => $cellules];
         }
 
-        // Fusions : titre, colonnes fixes, UE (ligne 2), matières (ligne 3), résumés (lignes 3-4)
+        // Fusions : titre, colonnes fixes, bloc de chaque UE (ligne 2), matières et « Résultats de l'UE » (ligne 3) ;
+        // groupes : les colonnes des matières de chaque UE se replient (bouton −/+ d'Excel), ses résultats restent visibles
         $fusions = ['A1:'.Classeur::ref($nb, 1), 'A2:A3', 'B2:B3', 'C2:C3'];
+        $groupes = $blocs = $matieres = [];
         $debut = null;
         foreach ($cols as $i => $col) {
             [$t, $ue, $m] = $col + [null, null, null];
-            if ($t === 'exam') {
-                $finUe = $finMat = $i;
-                for ($j = $i + 1; $j < $nb && in_array($cols[$j][0], ['td', 'note', 'cr_mat', 'obs_mat'], true) && $cols[$j][1]->id === $ue->id; $j++) {
-                    $finUe = $j;
-                    $finMat = ($cols[$j][2]->id === $m->id) ? $j : $finMat;
+            if ($ue) {
+                $blocs[$ue->id] ??= ['debut' => $i, 'finMatieres' => $i];
+                $blocs[$ue->id]['fin'] = $i;
+                if ($m) {
+                    $blocs[$ue->id]['finMatieres'] = $i;
+                    $matieres[$m->id] ??= ['debut' => $i];
+                    $matieres[$m->id]['fin'] = $i;
                 }
-                $fusions[] = Classeur::ref($i + 1, 2).':'.Classeur::ref($finUe + 1, 2);
-                $fusions[] = Classeur::ref($i + 1, 3).':'.Classeur::ref($finMat + 1, 3);
             }
             $debut ??= $t === 'sem_cr' ? $i : null;
+        }
+        foreach ($matieres as $mat) {
+            $fusions[] = Classeur::ref($mat['debut'] + 1, 3).':'.Classeur::ref($mat['fin'] + 1, 3);
+        }
+        foreach ($blocs as $b) {
+            $fusions[] = Classeur::ref($b['debut'] + 1, 2).':'.Classeur::ref($b['fin'] + 1, 2);
+            $fusions[] = Classeur::ref($b['finMatieres'] + 2, 3).':'.Classeur::ref($b['fin'] + 1, 3);
+            $groupes[] = [$b['debut'] + 1, $b['finMatieres'] + 1];
         }
         $fusions[] = Classeur::ref($debut + 1, 2).':'.Classeur::ref($nb, 2);
         // Une « fusion » d'une seule cellule (A3:A3) rendrait le fichier invalide
@@ -209,7 +225,7 @@ class PvExportController extends Controller
         }
         $classeur = new Classeur(self::STYLES);
         // Filtres d'Excel sur la ligne 4 (une flèche par colonne), étudiants en dessous
-        $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions, 'A4:'.Classeur::ref($nb, 4 + max(1, $etudiants->count())));
+        $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions, 'A4:'.Classeur::ref($nb, 4 + max(1, $etudiants->count())), $groupes);
         if ($excel) {
             [$lignesCalculs, $largeursCalculs] = $excel->feuilleCalculs();
             $classeur->feuille('Calculs', $lignesCalculs, $largeursCalculs, 4);

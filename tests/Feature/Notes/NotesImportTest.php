@@ -133,7 +133,18 @@ class NotesImportTest extends TestCase
         $this->assertStringContainsString('<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'PV\'!$A$4:$U$6</definedName>', $zip->getFromName('xl/workbook.xml'));
         $this->assertStringNotContainsString('S3:S4', $zip->getFromName('xl/worksheets/sheet1.xml'));
         $this->assertSame(['N°', 'Matricule', 'Nom & Prénoms'], array_slice($lignes[4], 0, 3));
-        $this->assertSame(['Total', 'Moyenne', 'Crédits', 'Validée', 'Résultat UE', 'Crédits', 'Moyenne', 'Décision', 'Mention', 'Rang'], array_slice($lignes[4], 11, 10));
+        $this->assertSame(['Total/80', 'Moy./20', 'Crédits (6)', 'Validée', 'Résultat UE', 'Crédits', 'Moyenne', 'Décision', 'Mention', 'Rang'], array_slice($lignes[4], 11, 10));
+        // Matières regroupées par UE : nom de l'UE une fois au-dessus de ses colonnes (matières et résultats), matières repliables
+        $this->assertSame('UE1 — UE 1 (6 crédits)', $lignes[2][3]);
+        $this->assertSame(['', '', '', '', '', '', '', ''], array_slice($lignes[2], 4, 8));
+        $this->assertSame("Résultats de l'UE", $lignes[3][11]);
+        $feuille = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        foreach (['D2:P2', 'D3:H3', 'I3:K3', 'L3:P3'] as $zone) {
+            $this->assertStringContainsString('<mergeCell ref="'.$zone.'"/>', $feuille);
+        }
+        $this->assertStringContainsString('<sheetPr><outlinePr summaryRight="1"/></sheetPr>', $feuille);
+        $this->assertSame(8, substr_count($feuille, 'outlineLevel="1"/>'));                     // D à K : les 8 colonnes des matières
+        $this->assertStringContainsString('<col min="11" max="11" width="6" customWidth="1" outlineLevel="1"/><col min="12" max="12" width="7" customWidth="1"/>', $feuille);
         $zip->close();
 
         // On complète BRAVO dans le fichier et on le réimporte

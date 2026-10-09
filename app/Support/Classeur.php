@@ -32,7 +32,10 @@ final class Classeur
      * @param  list<array{height?: int, merges?: list<array{0:int,1:int}>, cells: list<array{v?: mixed, f?: string, style?: int}>}>  $lignes
      * @param  list<int|float>  $largeurs
      */
-    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = [], ?string $filtre = null): void
+    /**
+     * @param  list<array{0:int,1:int}>  $groupes  colonnes groupées (numéros de 1 à n, bornes comprises) : bouton −/+ d'Excel pour les replier
+     */
+    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = [], ?string $filtre = null, array $groupes = []): void
     {
         $nom = mb_substr(trim(preg_replace('/[\/\\\\?*\[\]:]/', '_', $nom)) ?: 'Feuille', 0, 31);
         $pris = array_map('mb_strtolower', array_column($this->feuilles, 'nom'));
@@ -41,7 +44,7 @@ final class Classeur
         }
         // $filtre : plage « A4:U30 » dont la première ligne porte les boutons de filtre d'Excel
         $filtre = $filtre !== null && preg_match('/^[A-Z]{1,3}\d+:[A-Z]{1,3}\d+$/', $filtre) ? $filtre : null;
-        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions, 'filtre' => $filtre];
+        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions, 'filtre' => $filtre, 'groupes' => $groupes];
     }
 
     /** Écrit le classeur dans un fichier temporaire et retourne son chemin. */
@@ -101,13 +104,26 @@ final class Classeur
     private function xmlFeuille(array $f): string
     {
         $x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+        // Colonnes groupées : boutons de repli au-dessus des colonnes, le bouton à droite du groupe (côté résumé)
+        $niveaux = [];
+        foreach ($f['groupes'] ?? [] as [$de, $a]) {
+            for ($c = $de; $c <= $a; $c++) {
+                $niveaux[$c] = 1;
+            }
+        }
+        if ($niveaux) {
+            $x .= '<sheetPr><outlinePr summaryRight="1"/></sheetPr>';
+        }
         if ($f['figees']) {
             $x .= '<sheetViews><sheetView workbookViewId="0"><pane ySplit="'.$f['figees'].'" topLeftCell="A'.($f['figees'] + 1).'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+        }
+        if ($niveaux) {
+            $x .= '<sheetFormatPr defaultRowHeight="15" outlineLevelCol="1"/>';
         }
         if ($f['largeurs']) {
             $x .= '<cols>';
             foreach ($f['largeurs'] as $i => $w) {
-                $x .= '<col min="'.($i + 1).'" max="'.($i + 1).'" width="'.$w.'" customWidth="1"/>';
+                $x .= '<col min="'.($i + 1).'" max="'.($i + 1).'" width="'.$w.'" customWidth="1"'.(isset($niveaux[$i + 1]) ? ' outlineLevel="1"' : '').'/>';
             }
             $x .= '</cols>';
         }
