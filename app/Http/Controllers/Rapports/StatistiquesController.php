@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Rapports;
 
 use App\Autorisations\Perimetre;
 use App\Http\Controllers\Controller;
+use App\Services\ClassementPassages;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -30,7 +30,7 @@ use Illuminate\View\View;
  */
 class StatistiquesController extends Controller
 {
-    public function __invoke(Request $request, Perimetre $perimetre): View
+    public function __invoke(Request $request, Perimetre $perimetre, ClassementPassages $classement): View
     {
         $fac = $perimetre->faculte($request->user());
         $annees = DB::table('annees_academiques')->orderByDesc('libelle')->get();
@@ -51,7 +51,7 @@ class StatistiquesController extends Controller
 
         // Un classement par étudiant inscrit et par année, commun aux compteurs, à la
         // répartition, au tableau par filière et à l'évolution : tous concordent
-        $classes = $this->classer($filiereId, $fac);
+        $classes = $classement->inscrits(null, $filiereId, $fac)->map(fn ($l) => tap($l, fn ($l) => $l->categorie = $l->admis ? 'admis' : 'redoublants'));
         $annee = $classes->where('annee_id', $anneeId);
         $compter = fn ($lignes) => ['admis' => $lignes->where('categorie', 'admis')->count(), 'redoublants' => $lignes->where('categorie', 'redoublants')->count()];
         $tauxPassage = fn (array $c) => $c['admis'] + $c['redoublants'] > 0 ? round($c['admis'] / ($c['admis'] + $c['redoublants']) * 100, 1) : 0;
@@ -91,34 +91,5 @@ class StatistiquesController extends Controller
                 'annees' => $evolution->pluck('annee'), 'evInscrits' => $evolution->pluck('inscrits')->map(fn ($v) => (int) $v),
                 'evTaux' => $evolution->pluck('taux')->map(fn ($v) => (float) $v)],
         ]);
-    }
-
-    /**
-     * Étudiants inscrits, un par année (dernière inscription s'il en a deux), avec
-     * leur catégorie (décision de l'université) : admis s'ils passent au niveau
-     * suivant ou valident la licence (dernière décision non vide de l'année : les
-     * bases contiennent des doublons, que l'ancien calcul additionnait ; une
-     * décision vide est une licence validée mal enregistrée) ;
-     * redoublants tous les autres, y compris sans décision enregistrée.
-     */
-    private function classer(int $filiereId, int $fac): Collection
-    {
-        $perimetre = fn ($q) => $q->when($filiereId, fn ($w) => $w->where('f.id', $filiereId))->when($fac, fn ($w) => $w->where('f.faculte_id', $fac));
-        $inscrits = $perimetre(DB::table('inscriptions as i')->join('promotions as p', 'p.id', '=', 'i.promotion_id')
-            ->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')->join('filieres as f', 'f.id', '=', 'p.filiere_id')->join('niveaux as n', 'n.id', '=', 'p.niveau_id')
-            ->where('i.statut', 'inscrit'))->orderBy('i.id')
-            ->get(['i.etudiant_id', 'p.annee_id', 'a.libelle as annee', 'f.id as filiere_id', 'f.libelle as filiere', 'n.id as niveau_id', 'n.code as niveau'])
-            ->keyBy(fn ($l) => $l->annee_id.'-'.$l->etudiant_id);
-        // Décision vide = « licence_validee » refusée par une colonne decision trop ancienne
-        // (MySQL non strict l'enregistrait vide) — réparé par gesnotes:reparer-passages
-        $decisions = DB::table('passages_niveau')->whereIn('decision', ['passage', 'licence_validee', 'redoublement', ''])->orderBy('id')
-            ->get(['etudiant_id', 'annee_depart_id', 'decision'])
-            ->mapWithKeys(fn ($d) => [$d->annee_depart_id.'-'.$d->etudiant_id => $d->decision === '' ? 'licence_validee' : $d->decision]);
-
-        return $inscrits->map(function ($l, $cle) use ($decisions) {
-            $l->categorie = in_array($decisions[$cle] ?? null, ['passage', 'licence_validee'], true) ? 'admis' : 'redoublants';
-
-            return $l;
-        })->values();
     }
 }

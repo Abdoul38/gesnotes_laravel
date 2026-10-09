@@ -3,14 +3,19 @@
 namespace App\Services;
 
 use App\Universites\UniversiteCourante;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Indicateurs d'une année pour le tableau de bord du rectorat — portage du
  * calcul de pages/rectorat.php (mêmes requêtes) :
- *  - inscrits, passages et redoublements (passages_niveau : une décision par
- *    étudiant et par an ; licence validée = réussite) ;
+ *  - inscrits, admis et redoublants (App\Services\ClassementPassages :
+ *    admis = passage ou licence validée, redoublants = tous les autres
+ *    inscrits ; une décision par étudiant et par an). Différence voulue
+ *    (décision de l'université, même règle que les statistiques) : avant,
+ *    les lignes de passages_niveau étaient additionnées (doublons comptés
+ *    deux fois) et les inscrits sans décision n'étaient pas comptés ;
  *  - détail par faculté puis par filière et niveau ;
  *  - exécution du programme par les heures (prévues / faites, plafonnées).
  *
@@ -20,7 +25,7 @@ use Illuminate\Support\Facades\DB;
  */
 class IndicateursRectorat
 {
-    public function __construct(private readonly UniversiteCourante $universite) {}
+    public function __construct(private readonly UniversiteCourante $universite, private readonly ClassementPassages $classement) {}
 
     public function pour(int $anneeId): array
     {
@@ -62,31 +67,20 @@ class IndicateursRectorat
                 COUNT(DISTINCT CASE WHEN e.sexe='F' THEN i.etudiant_id END) AS femmes
             FROM inscriptions i JOIN promotions p ON p.id = i.promotion_id JOIN etudiants e ON e.id = i.etudiant_id
             WHERE p.annee_id = ? AND i.statut = 'inscrit'", [$a]);
-        $passages = 0;
-        $redoublants = 0;
-        foreach (DB::select('SELECT decision, COUNT(DISTINCT etudiant_id) AS nb FROM passages_niveau WHERE annee_depart_id = ? GROUP BY decision', [$a]) as $d) {
-            if (in_array($d->decision, ['passage', 'licence_validee'], true)) {
-                $passages += (int) $d->nb;
-            } elseif ($d->decision === 'redoublement') {
-                $redoublants = (int) $d->nb;
-            }
-        }
+        $toutes = $this->classement->inscrits()->groupBy('annee_id');
+        $classes = $toutes[$a] ?? collect();
+        $passages = $classes->where('admis', true)->count();
+        $redoublants = $classes->count() - $passages;
         $pvPublies = (int) DB::scalar("SELECT COUNT(*) FROM pv_sessions ps JOIN promotions p ON p.id = ps.promotion_id
             WHERE p.annee_id = ? AND ps.statut IN ('finalise','publie')", [$a]);
 
-        $evolution = array_map(function ($r) {
-            $total = $r->passages + $r->redoublants;
+        $evolution = array_map(function ($r) use ($toutes) {
+            $lignes = $toutes[$r->id] ?? collect();
+            $admis = $lignes->where('admis', true)->count();
 
-            return ['annee' => $r->annee, 'inscrits' => (int) $r->inscrits, 'passages' => (int) $r->passages, 'redoublants' => (int) $r->redoublants,
-                'taux' => $total > 0 ? round($r->passages / $total * 100, 1) : null];
-        }, DB::select("SELECT a.libelle AS annee, COUNT(DISTINCT i.etudiant_id) AS inscrits,
-                COALESCE(SUM(CASE WHEN pn.decision IN ('passage','licence_validee') THEN 1 ELSE 0 END), 0) AS passages,
-                COALESCE(SUM(CASE WHEN pn.decision = 'redoublement' THEN 1 ELSE 0 END), 0) AS redoublants
-            FROM annees_academiques a
-            LEFT JOIN promotions p ON p.annee_id = a.id
-            LEFT JOIN inscriptions i ON i.promotion_id = p.id AND i.statut = 'inscrit'
-            LEFT JOIN passages_niveau pn ON pn.etudiant_id = i.etudiant_id AND pn.annee_depart_id = a.id
-            GROUP BY a.id, a.libelle ORDER BY a.libelle ASC LIMIT 6"));
+            return ['annee' => $r->libelle, 'inscrits' => $lignes->count(), 'passages' => $admis, 'redoublants' => $lignes->count() - $admis,
+                'taux' => $lignes->isNotEmpty() ? round($admis / $lignes->count() * 100, 1) : null];
+        }, DB::select('SELECT id, libelle FROM annees_academiques ORDER BY libelle ASC LIMIT 6'));
 
         $programme = DB::selectOne('SELECT COALESCE(SUM(m.volume_horaire_prevu), 0) AS prevues,
                 COALESCE(SUM(LEAST(m.heures_faites, m.volume_horaire_prevu)), 0) AS faites,
@@ -97,18 +91,16 @@ class IndicateursRectorat
             FROM matieres m JOIN unites_enseignement ue ON ue.id = m.ue_id JOIN promotions p ON p.id = ue.promotion_id
             WHERE p.annee_id = ? AND m.actif = 1', [$a]);
 
-        $decisions = $passages + $redoublants;
-
         return [
             'inscrits' => $totalInscrits,
             'hommes' => (int) $sexes->hommes,
             'femmes' => (int) $sexes->femmes,
             'passages' => $passages,
             'redoublants' => $redoublants,
-            'taux_passage' => $decisions > 0 ? round($passages / $decisions * 100, 1) : null, // null : aucune décision de passage encore
+            'taux_passage' => $classes->isNotEmpty() ? round($passages / $classes->count() * 100, 1) : null, // null : aucun inscrit
             'pv_publies' => $pvPublies,
             'evolution' => $evolution,
-            'facultes' => $this->facultes($a),
+            'facultes' => $this->facultes($a, $classes),
             'heures_prevues' => (float) $programme->prevues,
             'heures_faites' => (float) $programme->faites,
             'taux_programme' => $programme->prevues > 0 ? round($programme->faites / $programme->prevues * 100, 1) : 0,
@@ -118,14 +110,13 @@ class IndicateursRectorat
     }
 
     /** Facultés (libellé de la filière) avec leurs filières par niveau. */
-    private function facultes(int $a): array
+    private function facultes(int $a, Collection $classes): array
     {
         $parFac = fn (string $sql) => collect(DB::select($sql, [$a]))->keyBy('faculte');
-        $passages = $parFac("SELECT TRIM(f.faculte) AS faculte,
-                SUM(CASE WHEN pn.decision IN ('passage','licence_validee') THEN 1 ELSE 0 END) AS passages,
-                SUM(CASE WHEN pn.decision = 'redoublement' THEN 1 ELSE 0 END) AS redoublants
-            FROM passages_niveau pn JOIN filieres f ON f.id = pn.filiere_id
-            WHERE pn.annee_depart_id = ? AND f.faculte IS NOT NULL AND TRIM(f.faculte) != '' GROUP BY TRIM(f.faculte)");
+        // Admis par faculté et par filière / niveau (ceux de l'inscription de l'année) ; redoublants = les autres inscrits
+        $admis = $classes->where('admis', true);
+        $admisFac = $admis->countBy(fn ($l) => $this->cle((string) $l->faculte));
+        $admisFil = $admis->countBy(fn ($l) => $l->filiere_id.'-'.$l->niveau);
         $genre = $parFac("SELECT TRIM(f.faculte) AS faculte, SUM(e.sexe = 'M') AS hommes, SUM(e.sexe = 'F') AS femmes
             FROM inscriptions i JOIN promotions p ON p.id = i.promotion_id JOIN filieres f ON f.id = p.filiere_id JOIN etudiants e ON e.id = i.etudiant_id
             WHERE p.annee_id = ? AND i.statut = 'inscrit' AND f.faculte IS NOT NULL AND TRIM(f.faculte) != '' GROUP BY TRIM(f.faculte)");
@@ -145,11 +136,11 @@ class IndicateursRectorat
             LEFT JOIN resultats_semestre rs ON rs.pv_id = ps.id AND rs.etudiant_id = i.etudiant_id AND rs.valide = 1
             WHERE p.annee_id = ? AND i.statut = 'inscrit' AND f.faculte IS NOT NULL AND TRIM(f.faculte) != ''
             GROUP BY TRIM(f.faculte) ORDER BY TRIM(f.faculte)", [$a]) as $r) {
-            $p = $passages[$r->faculte] ?? null;
+            $nbAdmis = (int) ($admisFac[$this->cle((string) $r->faculte)] ?? 0);
             $pr = $programme[$r->faculte] ?? null;
             $facultes[$this->cle($r->faculte)] = $this->taux([
                 'faculte' => $r->faculte, 'inscrits' => (int) $r->inscrits, 'moyenne' => $r->moyenne,
-                'passages' => (int) ($p->passages ?? 0), 'redoublants' => (int) ($p->redoublants ?? 0),
+                'passages' => $nbAdmis, 'redoublants' => max(0, (int) $r->inscrits - $nbAdmis),
                 'hommes' => (int) ($genre[$r->faculte]->hommes ?? 0), 'femmes' => (int) ($genre[$r->faculte]->femmes ?? 0),
                 'heures_prevues' => (float) ($pr->prevues ?? 0), 'heures_faites' => (float) ($pr->faites ?? 0),
                 'pv_publies' => (int) ($pv[$r->faculte]->nb ?? 0), 'filieres' => [],
@@ -157,11 +148,6 @@ class IndicateursRectorat
         }
 
         // Filières par niveau, rattachées à leur faculté (libellé comparé sans casse ni espace insécable)
-        $passagesFil = collect(DB::select("SELECT pn.filiere_id, COALESCE(n.code, '?') AS niveau,
-                SUM(CASE WHEN pn.decision IN ('passage','licence_validee') THEN 1 ELSE 0 END) AS passages,
-                SUM(CASE WHEN pn.decision = 'redoublement' THEN 1 ELSE 0 END) AS redoublants
-            FROM passages_niveau pn LEFT JOIN niveaux n ON n.id = pn.niveau_actuel_id
-            WHERE pn.annee_depart_id = ? GROUP BY pn.filiere_id, COALESCE(n.code, '?')", [$a]))->keyBy(fn ($r) => $r->filiere_id.'-'.$r->niveau);
         $programmeFil = collect(DB::select('SELECT p.filiere_id, n.code AS niveau, COALESCE(SUM(m.volume_horaire_prevu), 0) AS prevues,
                 COALESCE(SUM(LEAST(m.heures_faites, m.volume_horaire_prevu)), 0) AS faites
             FROM matieres m JOIN unites_enseignement ue ON ue.id = m.ue_id JOIN promotions p ON p.id = ue.promotion_id JOIN niveaux n ON n.id = p.niveau_id
@@ -179,12 +165,12 @@ class IndicateursRectorat
             if (! isset($facultes[$cle])) {
                 continue;
             }
-            $p = $passagesFil[$r->filiere_id.'-'.$r->niveau] ?? null;
+            $nbAdmis = (int) ($admisFil[$r->filiere_id.'-'.$r->niveau] ?? 0);
             $pr = $programmeFil[$r->filiere_id.'-'.$r->niveau] ?? null;
             $facultes[$cle]['filieres'][] = $this->taux([
                 'filiere_id' => (int) $r->filiere_id, 'filiere' => $r->filiere, 'niveau' => $r->niveau, 'inscrits' => (int) $r->inscrits,
                 'femmes' => (int) $r->femmes, 'moyenne' => $r->moyenne,
-                'passages' => (int) ($p->passages ?? 0), 'redoublants' => (int) ($p->redoublants ?? 0),
+                'passages' => $nbAdmis, 'redoublants' => max(0, (int) $r->inscrits - $nbAdmis),
                 'heures_prevues' => (float) ($pr->prevues ?? 0), 'heures_faites' => (float) ($pr->faites ?? 0),
             ]);
         }
@@ -194,10 +180,8 @@ class IndicateursRectorat
 
     private function taux(array $l): array
     {
-        $decisions = $l['passages'] + $l['redoublants'];
-
         return $l + [
-            'taux' => $decisions > 0 ? round($l['passages'] / $decisions * 100, 1) : null,
+            'taux' => $l['inscrits'] > 0 ? round($l['passages'] / $l['inscrits'] * 100, 1) : null,
             'taux_programme' => $l['heures_prevues'] > 0 ? round($l['heures_faites'] / $l['heures_prevues'] * 100, 1) : 0,
         ];
     }

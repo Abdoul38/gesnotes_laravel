@@ -226,8 +226,9 @@ class RectoratController extends Controller
                 ->where('i.etudiant_id', $etudiant->id)->orderByDesc('a.libelle')->orderBy('i.id')
                 ->get(['i.statut as statut_inscription', 'p.id as promotion_id', 'a.id as annee_id', 'a.libelle as annee',
                     DB::raw("COALESCE(f.libelle, '—') AS filiere"), DB::raw("COALESCE(n.code, '?') AS niveau"), 'n.libelle as niv_label']);
+            // Dernière décision de chaque année (comme les indicateurs) ; vide = licence validée mal enregistrée
             $decisions = DB::table('passages_niveau')->where('etudiant_id', $etudiant->id)->orderBy('id')->get(['annee_depart_id', 'decision'])
-                ->unique('annee_depart_id')->pluck('decision', 'annee_depart_id');
+                ->mapWithKeys(fn ($d) => [$d->annee_depart_id => $d->decision === '' ? 'licence_validee' : $d->decision]);
             $avecResultat = $semestres->pluck('promotion_id')->flip();
             $bloc = fn ($l) => ['annee' => $l->annee, 'decision' => $decisions[$l->annee_id] ?? null, 'semestres' => [], 'sans_resultat' => []];
             foreach ($semestres as $l) {

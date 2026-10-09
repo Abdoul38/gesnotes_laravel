@@ -3,6 +3,7 @@
 namespace Tests\Feature\Portails;
 
 use App\Models\Utilisateur;
+use App\Services\IndicateursRectorat;
 use App\Support\Tableur;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -77,13 +78,30 @@ class RectoratTest extends TestCase
         $this->assertDatabaseHas('rectorat_logs_consultation', ['action' => 'export_pdf_admis', 'cible' => "PV#{$this->pvPublie}"]);
     }
 
+    public function test_admis_et_redoublants_meme_regle_que_les_statistiques(): void
+    {
+        // Doublon de passage (autre filière) pour ALPHA : compté une fois ; BROUILLON sans décision : redoublant
+        $autre = DB::table('filieres')->insertGetId(['code' => 'ECO2', 'libelle' => 'Économie appliquée', 'departement' => '', 'faculte' => 'Faculté des Sciences Économiques']);
+        $ligne = (array) DB::table('passages_niveau')->first(['etudiant_id', 'niveau_actuel_id', 'niveau_suivant_id', 'annee_depart_id', 'annee_arrivee_id', 'decision', 'date_decision']);
+        DB::table('passages_niveau')->insert($ligne + ['filiere_id' => $autre]);
+
+        $s = app(IndicateursRectorat::class)->pour($this->annee);
+        $this->assertSame([2, 1, 1, 50.0], [$s['inscrits'], $s['passages'], $s['redoublants'], $s['taux_passage']]);
+        $f = $s['facultes'][0];
+        $this->assertSame([2, 1, 1, 50.0], [$f['inscrits'], $f['passages'], $f['redoublants'], $f['taux']]);
+        $this->assertSame([2, 1, 1], [$f['filieres'][0]['inscrits'], $f['filieres'][0]['passages'], $f['filieres'][0]['redoublants']]);
+        $e = collect($s['evolution'])->firstWhere('annee', '2025-2026');
+        $this->assertSame([2, 1, 1, 50.0], [$e['inscrits'], $e['passages'], $e['redoublants'], $e['taux']]);
+    }
+
     public function test_excel_et_historique_personnel(): void
     {
         $reponse = $this->connecte($this->recteur)->get($this->url('rectorat/excel'))->assertOk();
         $lignes = Tableur::xlsx($reponse->baseResponse->getFile()->getPathname());
         $synthese = array_values($lignes)[3];
         $this->assertSame([2, 1, 1], [(int) $synthese[2], (int) $synthese[3], (int) $synthese[4]]);
-        $this->assertEquals(100, $synthese[8]);
+        // 2 inscrits, 1 admis : l'autre (sans décision) compte redoublant → 50 %
+        $this->assertEquals(50, $synthese[8]);
 
         // Un autre recteur ne voit pas ces consultations ; l'administrateur les voit toutes
         $autre = $this->creerUtilisateur('recteur', ['email' => 'autre@test.local']);

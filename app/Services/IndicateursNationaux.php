@@ -119,7 +119,8 @@ class IndicateursNationaux
         $passages = $somme('passages');
         $decisions = $passages + $somme('redoublants');
         $prevues = $somme('heures_prevues');
-        $taux = $decisions > 0 ? round($passages / $decisions * 100, 1) : null; // null : aucune décision de passage encore
+        // Admis + redoublants = inscrits (règle commune, App\Services\ClassementPassages) ; null : aucun inscrit
+        $taux = $decisions > 0 ? round($passages / $decisions * 100, 1) : null;
 
         $prec = ['inscrits' => 0, 'passages' => 0, 'redoublants' => 0, 'trouve' => false];
         foreach ($ok as $s) {

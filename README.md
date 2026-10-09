@@ -429,7 +429,7 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Signature de l'autorité servie avec les logos, sans connexion | adresse des logos refusée pour ce fichier ; servie par `fichiers/officiels/signature` aux seuls connectés | image de signature récupérable par n'importe qui |
 | Décision « licence validée » enregistrée VIDE (colonne `decision` sans cette valeur dans 8 bases sur 9, MySQL non strict) | connexion en mode strict (une valeur refusée provoque une erreur) ; réparation par `gesnotes:reparer-passages` | les licences validées comptaient comme redoublants |
 | Décision de passage reprise vers une autre filière (spécialisation) : nouvelle ligne, l'ancienne restait | la décision de l'année est remplacée, quelle que soit la filière | étudiants comptés deux fois dans les statistiques |
-| Statistiques : admis, ajournés et défaillants tirés de sources différentes | une catégorie par étudiant inscrit : admis (passage ou licence validée), redoublants (tous les autres) ; compteurs, répartition, tableau par filière et évolution concordent | décision de l'université |
+| Statistiques, rectorat et ministère : lignes de passage additionnées (doublons comptés deux fois), inscrits sans décision ignorés, sources différentes selon les graphiques | une catégorie par étudiant inscrit et par année (`ClassementPassages`) : admis (passage ou licence validée), redoublants (tous les autres, même sans décision) ; taux de passage = admis / inscrits ; compteurs, répartitions, facultés, filières et évolution concordent partout | décision de l'université |
 
 ## Décisions prises (université)
 

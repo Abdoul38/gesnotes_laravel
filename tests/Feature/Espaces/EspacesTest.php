@@ -140,16 +140,16 @@ class EspacesTest extends TestCase
 
     public function test_taux_de_passage_sans_decision(): void
     {
-        // Année en cours : aucune décision de passage encore — « — » et pas de fausse baisse
+        // Année en cours sans décision de passage : tous les inscrits comptent redoublants
+        // (règle de l'université : admis = passage ou licence validée, redoublants = tous les autres)
         foreach (['uam', 'udh'] as $code) {
             $this->universite($code);
             DB::table('passages_niveau')->delete();
         }
         $page = $this->mesr($this->compteMesr())->get($this->url('ministere', 'ministere'))->assertOk();
-        $this->assertNull($page->viewData('totaux')['taux_passage']);
-        $this->assertNull($page->viewData('totaux')['delta_taux']);
-        $page->assertSee('color:#6b7280">—</div>', false);
-        $this->get($this->url('ministere/rapport', 'ministere'))->assertOk()->assertSee('<strong>—</strong>Taux de passage', false);
+        $totaux = $page->viewData('totaux');
+        $this->assertSame([0, $totaux['inscrits'], 0.0], [$totaux['passages'], $totaux['redoublants'], (float) $totaux['taux_passage']]);
+        $this->get($this->url('ministere/rapport', 'ministere'))->assertOk()->assertSee('<strong>0%</strong>Taux de passage', false);
     }
 
     public function test_pv_publies_seulement_et_exports(): void
