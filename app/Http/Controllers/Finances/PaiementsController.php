@@ -208,17 +208,19 @@ class PaiementsController extends Controller
 
     /**
      * Colonnes de la liste et de l'export : paiement, étudiant, année académique
-     * du paiement et niveau de l'étudiant cette année-là (inscription de l'année
-     * du paiement, à défaut sa dernière inscription).
+     * du paiement, filière et niveau de l'étudiant cette année-là (inscription de
+     * l'année du paiement, à défaut sa dernière inscription).
      */
     private function avecAnneeEtNiveau($requete)
     {
-        $niveau = fn (bool $memeAnnee) => "SELECT n.code FROM inscriptions i JOIN promotions pr ON pr.id = i.promotion_id JOIN niveaux n ON n.id = pr.niveau_id
+        $inscription = fn (string $colonne, bool $memeAnnee) => "SELECT $colonne FROM inscriptions i JOIN promotions pr ON pr.id = i.promotion_id
+            JOIN niveaux n ON n.id = pr.niveau_id JOIN filieres f ON f.id = pr.filiere_id
             WHERE i.etudiant_id = p.etudiant_id".($memeAnnee ? ' AND pr.annee_id = p.annee_id' : '').' ORDER BY i.id DESC LIMIT 1';
+        $colonne = fn (string $expr, string $alias) => DB::raw('COALESCE(('.$inscription($expr, true).'), ('.$inscription($expr, false).")) AS $alias");
 
         return $requete->leftJoin('annees_academiques as an', 'an.id', '=', 'p.annee_id')
             ->select(['p.*', 'e.nom', 'e.prenoms', 'e.numero', 'an.libelle as annee',
-                DB::raw('COALESCE(('.$niveau(true).'), ('.$niveau(false).')) AS niveau')]);
+                $colonne('f.libelle', 'filiere'), $colonne('f.code', 'filiere_code'), $colonne('n.code', 'niveau')]);
     }
 
     /** Étudiants proposés à la saisie, avec la filière / le niveau de leur dernière inscription (suggestion du montant). */
@@ -249,10 +251,10 @@ class PaiementsController extends Controller
         return response()->streamDownload(function () use ($lignes, $cellule) {
             echo "\xEF\xBB\xBF";
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Étudiant', 'Matricule', 'Année académique', 'Niveau', 'Type', 'Montant dû', 'Montant payé', 'Reste', 'Date', 'Mode', 'Référence', 'Statut'], ';');
+            fputcsv($out, ['Étudiant', 'Matricule', 'Année académique', 'Filière', 'Niveau', 'Type', 'Montant dû', 'Montant payé', 'Reste', 'Date', 'Mode', 'Référence', 'Statut'], ';');
             foreach ($lignes as $r) {
                 fputcsv($out, array_map($cellule, [
-                    $r->nom.' '.$r->prenoms, $r->numero, $r->annee, $r->niveau, $r->type_paiement, $r->montant_du, $r->montant_paye,
+                    $r->nom.' '.$r->prenoms, $r->numero, $r->annee, $r->filiere, $r->niveau, $r->type_paiement, $r->montant_du, $r->montant_paye,
                     (float) $r->montant_du - (float) $r->montant_paye, $r->date_paiement, $r->mode_paiement, $r->reference, $r->statut,
                 ]), ';');
             }

@@ -64,15 +64,15 @@ class PaiementsTest extends TestCase
 
         $page = $this->connecte($this->admin)->get($this->url('paiements'))->assertOk()
             ->assertSee('REF-ACTIVE', false)->assertDontSee('REF-ANCIENNE', false)->assertDontSee('✕ Effacer')
-            ->assertSee('<th>Année</th><th>Niveau</th>', false)->assertSee('2025-2026')->assertSee('badge badge-blue">'.$niveau.'</span>', false);
+            ->assertSee('<th>Année</th><th>Filière</th><th>Niveau</th>', false)->assertSee('2025-2026')->assertSee('<span title="Filière FA1">FA1</span>', false)->assertSee('badge badge-blue">'.$niveau.'</span>', false);
         $this->assertSame($this->annee, $page->viewData('filtres')['annee_id']);
         // « Toutes » reste possible ; une autre année affiche « Effacer »
         $this->get($this->url('paiements?annee_id=0'))->assertSee('REF-ACTIVE', false)->assertSee('REF-ANCIENNE', false);
         $this->get($this->url("paiements?annee_id=$ancienne"))->assertSee('REF-ANCIENNE', false)->assertDontSee('REF-ACTIVE', false)->assertSee('✕ Effacer');
 
         $csv = $this->get($this->url('paiements?annee_id=0&export=csv'))->streamedContent();
-        $this->assertStringContainsString('"Année académique";Niveau;Type', $csv);
-        $this->assertStringContainsString(";2024-2025;$niveau;", $csv);
+        $this->assertStringContainsString('"Année académique";Filière;Niveau;Type', $csv);
+        $this->assertStringContainsString(";2024-2025;\"Filière FA1\";$niveau;", $csv);
     }
 
     public function test_liste_totaux_et_filtres(): void
