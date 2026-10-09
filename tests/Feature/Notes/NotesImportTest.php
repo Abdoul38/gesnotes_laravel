@@ -143,6 +143,59 @@ class NotesImportTest extends TestCase
         $this->assertSame('30.00', DB::table('notes')->where(['etudiant_id' => $a, 'matiere_id' => $this->m1])->value('note_examen'));
     }
 
+    public function test_export_avec_formules_des_regles_du_moteur(): void
+    {
+        // UE1 : M1 (Exam./40 + TD/20 = /60, 3 crédits), M2 (/20, 3 crédits) ; note éliminatoire 5/20
+        $cas = [
+            'ALPHA' => [30, 15, 14],     // tout validé → Admis
+            'BRAVO' => [20, 10, 9],      // UE 9,75 → Ajourné
+            'CHARLIE' => [38, 18, 4],    // 4/20 < 5 → Défaillant, même avec une UE à 15
+            'DELTA' => [28, 12, 8],      // UE 12 → M2 compensée (AC) → Admis
+            'ECHO' => [30, 15, null],    // examen M2 absent → Défaillant
+            'FOXTROT' => [40, 20, 5],    // 5/20 n'est pas sous la note éliminatoire → compensée → Admis
+        ];
+        $ids = [];
+        foreach (array_keys($cas) as $i => $nom) {
+            $ids[$nom] = $this->etudiant(sprintf('%05d', $i + 1), $nom);
+            [$exam, $td, $m2] = $cas[$nom];
+            DB::table('notes')->insert([
+                ['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m1, 'note_examen' => $exam, 'note_cc' => $td, 'note_finale' => $exam + $td],
+                ['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m2, 'note_examen' => $m2, 'note_cc' => null, 'note_finale' => $m2],
+            ]);
+            app(\App\Services\Resultats::class)->recalculer($this->pv, $ids[$nom]);
+        }
+        app(\App\Services\Resultats::class)->recalculerRangs($this->pv);
+        $this->assertSame(['Admis', 'Ajourné', 'Défaillant', 'Admis', 'Défaillant', 'Admis'],
+            array_map(fn ($id) => DB::table('resultats_semestre')->where('etudiant_id', $id)->value('decision'), array_values($ids)));
+
+        $this->connecte($this->admin);
+        $lire = fn ($reponse) => $reponse->assertOk()->assertDownload()->baseResponse->getFile()->getPathname();
+        $valeurs = Tableur::xlsx($lire($this->get($this->url("pv/export?id={$this->pv}"))));
+        $chemin = $lire($this->get($this->url("pv/export?id={$this->pv}&formules=1")));
+        $this->assertEquals(array_slice($valeurs, 1, null, true), array_slice(Tableur::xlsx($chemin), 1, null, true));
+
+        $zip = new \ZipArchive;
+        $zip->open($chemin);
+        $pv = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $calculs = (string) $zip->getFromName('xl/worksheets/sheet2.xml');
+        $textes = (string) $zip->getFromName('xl/sharedStrings.xml');
+        $this->assertStringContainsString('<sheet name="Calculs"', (string) $zip->getFromName('xl/workbook.xml'));
+        $zip->close();
+        $this->assertNotFalse((new \DOMDocument)->loadXML($calculs));
+        // Feuille PV, ligne de CHARLIE (7) : observation, crédits, validation de l'UE et décision en formules
+        foreach (['<f>IF(NOT(ISNUMBER(I7)),&quot;Déf.&quot;,IF(Calculs!I7,&quot;AC&quot;,IF(Calculs!H7,&quot;AV&quot;,&quot;NV&quot;)))</f><v>NV</v>',
+            '<f>IF(OR(K7=&quot;AV&quot;,K7=&quot;AC&quot;),3,0)</f><v>0</v>', '<f>Calculs!O7&amp;&quot;/6&quot;</f><v>3/6</v>',
+            '<f>IF(Calculs!P7,&quot;Défaillant&quot;,IF(Calculs!S7&gt;=6,&quot;Admis&quot;,&quot;Ajourné&quot;))</f><v>Défaillant</v>'] as $attendu) {
+            $this->assertStringContainsString($attendu, $pv);
+        }
+        // Feuille Calculs : note éliminatoire strictement inférieure à 5/20 (M2 sur 20 → 5 ; M1 sur 60 → 15)
+        $this->assertStringContainsString('<f>OR(NOT(ISNUMBER(PV!I7)),IF(ISNUMBER(PV!I7),PV!I7&lt;5,FALSE))</f><v>1</v>', $calculs);
+        $this->assertStringContainsString('PV!F7&lt;15,FALSE)', $calculs);
+        $this->assertStringContainsString('strictement inférieure à 5/20', $textes);
+        // Chaque ligne a reçu les formules des règles
+        $this->assertSame(6, substr_count($pv, '&quot;Défaillant&quot;,IF(Calculs!'));
+    }
+
     public function test_export_avec_formules_memes_valeurs_que_le_pv(): void
     {
         $a = $this->etudiant('00012', 'ALPHA');

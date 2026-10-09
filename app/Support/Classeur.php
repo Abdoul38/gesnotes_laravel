@@ -120,6 +120,7 @@ final class Classeur
                     $f = '<f>'.self::xml((string) $cellule['f']).'</f>';
                     $x .= match (true) {
                         $v === '' || $v === null => '<c r="'.$ref.'" s="'.$style.'">'.$f.'</c>',
+                        is_bool($v) => '<c r="'.$ref.'" s="'.$style.'" t="b">'.$f.'<v>'.($v ? 1 : 0).'</v></c>',
                         is_int($v) || is_float($v) => '<c r="'.$ref.'" s="'.$style.'">'.$f.'<v>'.$v.'</v></c>',
                         default => '<c r="'.$ref.'" s="'.$style.'" t="str">'.$f.'<v>'.self::xml((string) $v).'</v></c>',
                     };
