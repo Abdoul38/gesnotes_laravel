@@ -63,9 +63,6 @@
       @if ($modele !== 'badge')
         <div class="c-auth"><div class="au-titre">Signature de l'autorité</div><div class="au-zone">@if ($signature)<img src="{{ $signature }}" alt="">@endif</div></div>
       @endif
-      @if ($cachet)
-        <div class="c-sig-zone"><div class="c-cachet"><img src="{{ $cachet }}" alt=""></div></div>
-      @endif
     </div>
   </div>
 
@@ -96,7 +93,6 @@
         <p class="v-mention">Cette carte est strictement personnelle. Elle doit être présentée à toute réquisition des autorités universitaires. En cas de perte ou de vol, prévenir immédiatement la scolarité.</p>
         @if ($contact !== '')<p class="v-contact">{{ $contact }}</p>@endif
       </div>
-      <div class="v-sign"><span>Signature du titulaire</span></div>
     </div>
     <div class="v-right">
       <div class="v-qr" data-qr="{{ $k['urlVerification'] }}" data-qr-cellule="2"></div>

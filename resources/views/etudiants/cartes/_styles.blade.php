@@ -72,7 +72,6 @@ body{font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;backgrou
 .c-photo{width:20mm;height:24mm;border:.4mm solid #fff;outline:.25mm solid #c9a24b;border-radius:.8mm;box-shadow:0 .6mm 1.6mm rgba(11,34,64,.25);overflow:hidden;background:#eef1f5;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .c-photo img{width:100%;height:100%;object-fit:cover}
 .c-photo .np{font-size:16px;color:#c3cbd4;font-weight:800}
-.c-sig-zone{top:18mm;left:-8.5mm}
 
 @elseif ($modele === 'badge')
 /* ══════ MODÈLE BADGE (vertical) — CR80 53,98 × 85,6 mm : même identité que le moderne ══════ */
@@ -112,7 +111,6 @@ body{font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;backgrou
 .f-mat{display:none}
 .f-niv{order:1}.f-an{order:2}.c-champ.f-nat{order:3;grid-column:auto}.f-fil{order:4}
 .c-sep{display:none}
-.c-sig-zone{display:none}
 .c-footer{background:#f4f6f9;padding:1.2mm 3mm;display:flex;justify-content:center;align-items:center;gap:3mm;border-top:.3mm solid #c9a24b;flex-shrink:0;position:relative;z-index:1}
 .c-footer .mat{font-family:'Courier New',monospace;font-size:5.5pt;font-weight:700;color:{{ $c['marque'] }};letter-spacing:.8px}
 .c-footer .annee{display:none}
@@ -164,21 +162,17 @@ body{font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;backgrou
 .c-photo{width:16mm;height:19.5mm;border:.4mm solid #fff;outline:.25mm solid #c9a24b;box-shadow:0 .5mm 1.4mm rgba(11,34,64,.25);overflow:hidden;background:#eef1f5;display:flex;align-items:center;justify-content:center}
 .c-photo img{width:100%;height:100%;object-fit:cover}
 .c-photo .np{font-size:16px;color:#ccc}
-.c-sig-zone{top:13.5mm;left:-8mm}
 .au-zone{height:5.4mm}
 @endif
 @if ($modele !== 'badge')
-/* ══════ Commun moderne + administratif : bande du recto, cachet, verso ══════ */
+/* ══════ Commun moderne + administratif : bande du recto, signature, verso ══════ */
 .c-bande{flex-shrink:0;position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:1.1mm 3mm;background:linear-gradient(105deg,{{ $c['plusFonce'] }} 0%,{{ $c['marque'] }} 55%,{{ $c['clair'] }} 100%);border-top:.4mm solid #c9a24b;color:#fff;font-size:5.4pt;letter-spacing:.5px}
 .cb-num{font-family:'Courier New',monospace;font-weight:700;color:#f0d98a}
 .cb-val{text-transform:uppercase;font-weight:600}
-.c-sig-zone{position:absolute;left:-5mm;width:auto;display:block}
 .c-auth{width:100%;margin-top:.6mm;text-align:center}
 .au-titre{font-size:5pt;font-weight:700;color:{{ $c['marque'] }};line-height:1.25;white-space:nowrap}
 .au-zone{height:6mm;border:.2mm solid #b4bcc8;border-radius:.8mm;position:relative;background:rgba(255,255,255,.7)}
 .au-zone img{position:absolute;left:.4mm;top:.4mm;width:calc(100% - .8mm);height:calc(100% - .8mm);object-fit:contain;mix-blend-mode:multiply}
-.c-cachet{width:11mm;height:11mm;opacity:.78;transform:rotate(-8deg)}
-.c-cachet img{width:100%;height:100%;object-fit:contain}
 .carte.verso{background:#fff}
 .v-head{flex-shrink:0;background:linear-gradient(105deg,{{ $c['plusFonce'] }} 0%,{{ $c['marque'] }} 55%,{{ $c['clair'] }} 100%);color:#fff;padding:1.3mm 3mm;border-bottom:.4mm solid #c9a24b;display:flex;justify-content:space-between;align-items:center;gap:2mm}
 .v-inst{font-size:5.6pt;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -191,8 +185,6 @@ body{font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;backgrou
 .v-left{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1}
 .v-mention{font-size:5.8pt;line-height:1.4;color:#333;margin:0}
 .v-contact{font-size:5.6pt;line-height:1.35;color:{{ $c['marque'] }};font-weight:700;margin:1.2mm 0 0}
-.v-sign{border:.25mm dashed #aeb7c2;border-radius:.8mm;height:11mm;position:relative;background:rgba(255,255,255,.75)}
-.v-sign span{position:absolute;left:1.2mm;top:.6mm;font-size:4.8pt;color:#6b7684;text-transform:uppercase;letter-spacing:.4px}
 .v-right{width:21mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1mm;position:relative;z-index:1}
 .v-qr{width:19mm;height:19mm}
 .v-qr svg{width:100%;height:100%;display:block}

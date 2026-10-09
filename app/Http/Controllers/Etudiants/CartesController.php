@@ -96,7 +96,6 @@ class CartesController extends Controller
             'contact' => $contact,
             'logo' => $identite->logos()['gauche'],
             'filigrane' => $identite->logos()['gauche'],
-            'cachet' => $identite->urlImageOfficielle('cachet'),
             'signature' => $identite->urlImageOfficielle('signature'),
             'c' => [
                 'marque' => $couleur,

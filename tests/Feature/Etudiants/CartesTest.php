@@ -84,6 +84,16 @@ class CartesTest extends TestCase
         $this->assertSame(0, DB::table('cartes_emises')->count());
     }
 
+    public function test_seule_la_signature_de_l_autorite_figure_sur_la_carte(): void
+    {
+        $this->connecte($this->admin);
+        foreach (['administratif', 'moderne', 'badge'] as $modele) {
+            DB::table('parametres')->updateOrInsert(['cle' => 'carte_etudiant_modele'], ['valeur' => $modele]);
+            $this->get($this->url("etudiants/cartes/imprimer?id={$this->et}"))->assertOk()
+                ->assertSee("Signature de l'autorité", false)->assertDontSee('Signature du titulaire')->assertDontSee('c-cachet', false);
+        }
+    }
+
     public function test_cachet_et_signature_reserves_aux_connectes(): void
     {
         $this->get($this->url('fichiers/officiels/cachet'))->assertRedirect();
