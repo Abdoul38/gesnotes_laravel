@@ -167,9 +167,16 @@ class Inscriptions
             fn ($q) => $q->when($actuelle?->faculte, fn ($q) => $q->where('f2.faculte', $actuelle->faculte)))->get();
     }
 
-    /** Enregistre (ou remplace) une décision de passage — aucune inscription n'est créée. */
+    /**
+     * Enregistre (ou remplace) LA décision de passage de l'étudiant pour l'année
+     * d'arrivée — aucune inscription n'est créée. Différence voulue : la décision
+     * prise pour une autre filière (ex. reprise vers une spécialisation) est
+     * remplacée ; avant, la clé unique comprenant la filière, elle restait en
+     * doublon et l'étudiant était compté deux fois.
+     */
     public function enregistrerPassage(int $etudiantId, int $filiereId, int $niveauActuel, int $niveauSuivant, int $anneeDepart, int $anneeArrivee, string $decision): void
     {
+        DB::table('passages_niveau')->where(['etudiant_id' => $etudiantId, 'annee_arrivee_id' => $anneeArrivee])->where('filiere_id', '!=', $filiereId)->delete();
         DB::table('passages_niveau')->upsert([[
             'etudiant_id' => $etudiantId, 'filiere_id' => $filiereId, 'niveau_actuel_id' => $niveauActuel,
             'niveau_suivant_id' => $niveauSuivant, 'annee_depart_id' => $anneeDepart, 'annee_arrivee_id' => $anneeArrivee,

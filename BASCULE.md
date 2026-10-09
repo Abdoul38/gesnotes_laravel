@@ -48,6 +48,10 @@ ou toutes ensemble. Les **bases de données ne changent pas** : la version Larav
      `--appliquer` les crée (uniquement des `CREATE TABLE IF NOT EXISTS`, aucune donnée touchée) — nécessaire aussi pour
      les tables propres à la version Laravel (`paiements_annules`, sans laquelle l'annulation d'un paiement échoue ; `pv_publications`, sans laquelle
      la publication d'un PV échoue ; `convocations_emises`, sans laquelle l'impression des convocations échoue) ;
+   - `php artisan gesnotes:reparer-passages` constate, puis `--appliquer` répare (après une sauvegarde), les décisions
+     de passage : ajoute « licence_validee » à la colonne `passages_niveau.decision` des bases qui ne l'ont pas (MySQL
+     l'y enregistrait VIDE sans erreur), remet ces décisions vides en « licence_validee » et supprime les doublons
+     (même étudiant et même année, filières différentes : seule la dernière décision est gardée) ;
    - `php artisan gesnotes:licence <code> [--expiration=AAAA-MM-JJ] [--max=N] --installer` émet et installe la licence
      d'une université (une licence ne vaut que pour l'université dont elle porte le code) ;
    - une université pas encore ouverte : `UNI_<CODE>_ACTIF=false` dans le `.env`.

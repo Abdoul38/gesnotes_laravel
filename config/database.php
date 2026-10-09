@@ -78,10 +78,12 @@ return [
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'prefix_indexes' => true,
-            // null = ne pas toucher au sql_mode du serveur, comme l'ancien
-            // code. Avec strict=true, Laravel imposerait ONLY_FULL_GROUP_BY,
-            // qui casserait des requêtes existantes.
+            // Mode strict SANS ONLY_FULL_GROUP_BY (qui casserait des requêtes
+            // existantes) : une valeur refusée par une colonne provoque une
+            // erreur au lieu d'être enregistrée vide ou tronquée sans rien dire
+            // (ex. « licence_validee » devenue vide dans passages_niveau).
             'strict' => null,
+            'modes' => ['STRICT_TRANS_TABLES', 'NO_ZERO_IN_DATE', 'NO_ZERO_DATE', 'ERROR_FOR_DIVISION_BY_ZERO', 'NO_ENGINE_SUBSTITUTION'],
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? [PDO::ATTR_EMULATE_PREPARES => false] : [],
         ],

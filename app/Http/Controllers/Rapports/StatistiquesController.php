@@ -97,7 +97,8 @@ class StatistiquesController extends Controller
      * Étudiants inscrits, un par année (dernière inscription s'il en a deux), avec
      * leur catégorie (décision de l'université) : admis s'ils passent au niveau
      * suivant ou valident la licence (dernière décision non vide de l'année : les
-     * bases contiennent des doublons, que l'ancien calcul additionnait) ;
+     * bases contiennent des doublons, que l'ancien calcul additionnait ; une
+     * décision vide est une licence validée mal enregistrée) ;
      * redoublants tous les autres, y compris sans décision enregistrée.
      */
     private function classer(int $filiereId, int $fac): Collection
@@ -108,8 +109,11 @@ class StatistiquesController extends Controller
             ->where('i.statut', 'inscrit'))->orderBy('i.id')
             ->get(['i.etudiant_id', 'p.annee_id', 'a.libelle as annee', 'f.id as filiere_id', 'f.libelle as filiere', 'n.id as niveau_id', 'n.code as niveau'])
             ->keyBy(fn ($l) => $l->annee_id.'-'.$l->etudiant_id);
-        $decisions = DB::table('passages_niveau')->whereIn('decision', ['passage', 'licence_validee', 'redoublement'])->orderBy('id')
-            ->get(['etudiant_id', 'annee_depart_id', 'decision'])->mapWithKeys(fn ($d) => [$d->annee_depart_id.'-'.$d->etudiant_id => $d->decision]);
+        // Décision vide = « licence_validee » refusée par une colonne decision trop ancienne
+        // (MySQL non strict l'enregistrait vide) — réparé par gesnotes:reparer-passages
+        $decisions = DB::table('passages_niveau')->whereIn('decision', ['passage', 'licence_validee', 'redoublement', ''])->orderBy('id')
+            ->get(['etudiant_id', 'annee_depart_id', 'decision'])
+            ->mapWithKeys(fn ($d) => [$d->annee_depart_id.'-'.$d->etudiant_id => $d->decision === '' ? 'licence_validee' : $d->decision]);
 
         return $inscrits->map(function ($l, $cle) use ($decisions) {
             $l->categorie = in_array($decisions[$cle] ?? null, ['passage', 'licence_validee'], true) ? 'admis' : 'redoublants';

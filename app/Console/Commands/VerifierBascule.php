@@ -77,6 +77,9 @@ class VerifierBascule extends Command
                     $tables = array_map(fn ($t) => $t->n, DB::select('SELECT table_name AS n FROM information_schema.tables WHERE table_schema = DATABASE()'));
                     $manquantes = array_diff($schema, $tables);
                     $this->ligne(! $manquantes, 'Tables du schéma de référence'.($manquantes ? ' — manquantes : '.implode(', ', array_slice($manquantes, 0, 10)).' → php artisan gesnotes:completer-schema' : ''));
+                    $passages = ! str_contains(ReparerPassages::typeColonne(), 'licence_validee') || DB::table('passages_niveau')->where('decision', '')->exists()
+                        || ReparerPassages::doublons();
+                    $this->ligne(! $passages, 'Décisions de passage'.($passages ? ' — colonne incomplète, décisions vides ou doublons → php artisan gesnotes:reparer-passages' : ''));
                     $licence = app(Licence::class)->verifierInstallation();
                     $this->ligne($licence['valide'], 'Licence'.($licence['valide'] ? '' : ' — '.$licence['erreur'].' → php artisan gesnotes:licence <code> --installer'));
                     $this->ligne(DB::table('utilisateurs')->where('role', 'admin')->where('actif', 1)->exists(), 'Au moins un administrateur actif');

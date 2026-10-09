@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Inscriptions;
 
+use App\Console\Commands\ReparerPassages;
 use App\Models\Utilisateur;
 use App\Services\Inscriptions;
 use Illuminate\Support\Facades\DB;
@@ -117,6 +118,38 @@ class PassageTransfertTest extends TestCase
             ->assertSessionHas('erreur', "Cette filière n'est pas proposée pour ce passage.");
         $this->post($this->url('inscriptions/transfert/passage'), ['etudiant_id' => $et, 'nouvel_annee_id' => $this->suivante, 'filiere_l3_id' => $prive]);
         $this->assertSame($prive, (int) $this->decision($et)->filiere_id);
+
+        // Décision reprise vers une autre spécialisation, puis sans spécialisation :
+        // toujours UNE décision pour l'année (avant : une ligne par filière, étudiant compté plusieurs fois)
+        $this->post($this->url('inscriptions/transfert/passage'), ['etudiant_id' => $et, 'nouvel_annee_id' => $this->suivante, 'filiere_l3_id' => $public]);
+        $this->post($this->url('inscriptions/transfert/passage'), ['etudiant_id' => $et, 'nouvel_annee_id' => $this->suivante]);
+        $this->assertSame([$this->droit], DB::table('passages_niveau')->where('etudiant_id', $et)->pluck('filiere_id')->map(fn ($f) => (int) $f)->all());
+    }
+
+    public function test_reparation_des_decisions_de_passage(): void
+    {
+        // Base ancienne : colonne sans « licence_validee » ; MySQL non strict l'enregistrait vide
+        DB::statement("ALTER TABLE passages_niveau MODIFY decision enum('passage','redoublement') NOT NULL DEFAULT 'passage'");
+        $prive = DB::table('filieres')->insertGetId(['code' => 'DP', 'libelle' => 'Droit privé', 'departement' => '']);
+        $licence = $this->etudiant('LICENCE', 'L3');
+        $double = $this->etudiant('DOUBLE', 'L2');
+        $ligne = fn ($et, $fil, $decision) => ['etudiant_id' => $et, 'filiere_id' => $fil, 'niveau_actuel_id' => $this->niv['L2'], 'niveau_suivant_id' => $this->niv['L3'],
+            'annee_depart_id' => $this->annee, 'annee_arrivee_id' => $this->suivante, 'decision' => $decision, 'date_decision' => '2026-10-09'];
+        DB::statement("SET SESSION sql_mode = ''");
+        DB::table('passages_niveau')->insert([$ligne($licence, $this->droit, 'licence_validee'), $ligne($double, $this->droit, 'passage'), $ligne($double, $prive, 'redoublement')]);
+        $this->assertSame('', DB::table('passages_niveau')->where('etudiant_id', $licence)->value('decision'));
+
+        // Constat seul : rien ne change ; la vérification de bascule le signale
+        $this->artisan('gesnotes:reparer-passages', ['--universite' => ['udh']])
+            ->expectsOutputToContain('colonne decision sans « licence_validee », 1 décision(s) vide(s), 1 doublon(s)')->assertSuccessful();
+        $this->assertSame(3, DB::table('passages_niveau')->count());
+
+        $this->artisan('gesnotes:reparer-passages', ['--universite' => ['udh'], '--appliquer' => true])->assertSuccessful();
+        $this->assertStringContainsString('licence_validee', ReparerPassages::typeColonne());
+        $this->assertSame('licence_validee', DB::table('passages_niveau')->where('etudiant_id', $licence)->value('decision'));
+        // Doublon : seule la dernière décision reste
+        $this->assertSame(['redoublement'], DB::table('passages_niveau')->where('etudiant_id', $double)->pluck('decision')->all());
+        $this->artisan('gesnotes:reparer-passages', ['--universite' => ['udh']])->expectsOutputToContain('0 décision(s) vide(s), 0 doublon(s)');
     }
 
     public function test_transfert_de_filiere(): void

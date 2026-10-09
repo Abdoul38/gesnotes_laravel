@@ -427,6 +427,9 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Portail enseignant et traitement des réclamations : pas de 0,25 | 0,01 (2 décimales), comme la saisie du PV | une note comme 12,10 était refusée par le navigateur |
 | Inscription en ligne : délai de paiement de 15 min compté depuis l'identification | compté depuis le lancement du paiement ; sans paiement lancé, rien n'expire | un étudiant lent à choisir son moyen de paiement voyait le sien expirer plus tôt |
 | Signature de l'autorité servie avec les logos, sans connexion | adresse des logos refusée pour ce fichier ; servie par `fichiers/officiels/signature` aux seuls connectés | image de signature récupérable par n'importe qui |
+| Décision « licence validée » enregistrée VIDE (colonne `decision` sans cette valeur dans 8 bases sur 9, MySQL non strict) | connexion en mode strict (une valeur refusée provoque une erreur) ; réparation par `gesnotes:reparer-passages` | les licences validées comptaient comme redoublants |
+| Décision de passage reprise vers une autre filière (spécialisation) : nouvelle ligne, l'ancienne restait | la décision de l'année est remplacée, quelle que soit la filière | étudiants comptés deux fois dans les statistiques |
+| Statistiques : admis, ajournés et défaillants tirés de sources différentes | une catégorie par étudiant inscrit : admis (passage ou licence validée), redoublants (tous les autres) ; compteurs, répartition, tableau par filière et évolution concordent | décision de l'université |
 
 ## Décisions prises (université)
 
