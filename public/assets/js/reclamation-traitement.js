@@ -51,7 +51,8 @@
   ['inp-exam', 'inp-cc', 'inp-finale-override'].forEach(function (id) {
     if ($(id)) $(id).addEventListener('input', calculerApercu);
   });
-  $('btn-fondee').addEventListener('click', function () {
+  // PV verrouillé : pas de bouton « fondée » (seules « non fondée » et « rejetée » restent)
+  if ($('btn-fondee')) $('btn-fondee').addEventListener('click', function () {
     afficher(true);
     calculerApercu();
     $('bloc-notes-corrigees').scrollIntoView({ behavior: 'smooth', block: 'nearest' });

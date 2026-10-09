@@ -7,6 +7,7 @@ use App\Models\Utilisateur;
 use App\Navigation\Menu;
 use App\Services\Journal;
 use App\Services\Parametres;
+use App\Support\SessionPersonnel;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,9 +99,7 @@ class ConnexionController extends Controller
     public function deconnecter(Request $request): RedirectResponse
     {
         $this->journal->audit('LOGOUT', 'utilisateurs', Auth::id());
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        SessionPersonnel::fermer($request);
 
         return redirect()->route('login');
     }

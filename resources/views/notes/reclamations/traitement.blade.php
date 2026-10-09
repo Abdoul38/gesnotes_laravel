@@ -107,13 +107,13 @@
             <div class="form-grid form-grid-2" style="gap:10px">
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label" for="inp-exam">Note Examen corrigée <small class="text-muted">(/ {{ $r->note_max_examen ?? 20 }})</small></label>
-                <input type="number" name="note_examen" id="inp-exam" class="form-control" min="0" max="{{ $maxExam }}" step="0.25"
+                <input type="number" name="note_examen" id="inp-exam" class="form-control" min="0" max="{{ $maxExam }}" step="0.01" data-decimales="2"
                   value="{{ old('note_examen', $noteActuelle->note_examen ?? '') }}" placeholder="Ex: 14.50">
               </div>
               @if ($maxCc > 0)
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label" for="inp-cc">Note CC corrigée <small class="text-muted">(/ {{ $r->note_max_cc }})</small></label>
-                <input type="number" name="note_cc" id="inp-cc" class="form-control" min="0" max="{{ $maxCc }}" step="0.25"
+                <input type="number" name="note_cc" id="inp-cc" class="form-control" min="0" max="{{ $maxCc }}" step="0.01" data-decimales="2"
                   value="{{ old('note_cc', $noteActuelle->note_cc ?? '') }}" placeholder="Ex: 12.00">
               </div>
               @endif
@@ -129,7 +129,7 @@
               <label class="form-label" for="inp-finale-override" style="font-size:12px;color:var(--amber-700);margin-bottom:6px">
                 ✏️ Ou saisir directement la note finale / {{ $maxExam + $maxCc }} <small style="font-weight:400">(remplace le calcul automatique)</small>
               </label>
-              <input type="number" name="note_finale_override" id="inp-finale-override" class="form-control" min="0" max="{{ $maxExam + $maxCc }}" step="0.25"
+              <input type="number" name="note_finale_override" id="inp-finale-override" class="form-control" min="0" max="{{ $maxExam + $maxCc }}" step="0.01" data-decimales="2"
                 value="{{ old('note_finale_override') }}" placeholder="Note finale sur {{ $maxExam + $maxCc }}">
             </div>
           </div>
@@ -140,9 +140,13 @@
           </div>
 
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+            @if ($r->verrouille)
+            <div class="alert alert-warning" style="margin:0;font-size:12.5px">🔒 Le PV « {{ $r->pv_libelle }} » est verrouillé : pour corriger la note, faites-le d'abord déverrouiller. « Non fondée » et « rejetée » restent possibles.</div>
+            @else
             <div id="bloc-action-fondee">
               <button type="button" class="btn btn-success" style="width:100%" id="btn-fondee">✅ Réclamation fondée — Corriger la note</button>
             </div>
+            @endif
             <div id="bloc-confirmer-fondee" style="display:none;padding:12px;background:#f0fdf4;border-radius:8px;border:1px solid var(--green-300)">
               <div style="font-size:12px;color:var(--green-700);margin-bottom:8px">✅ Vérifiez la note corrigée ci-dessus puis confirmez</div>
               <button type="button" class="btn btn-success" style="width:100%" id="btn-confirmer-fondee">💾 Confirmer et enregistrer la note corrigée</button>

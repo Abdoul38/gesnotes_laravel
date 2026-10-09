@@ -23,11 +23,17 @@ use Illuminate\View\View;
  *  - notes corrigées bornées côté serveur (0 … maximum de l'examen / du CC) ;
  *  - si seule la note d'examen est corrigée, le CC existant est conservé
  *    (l'ancien l'effaçait et prenait l'examen seul comme note finale) ;
- *  - commentaire limité à 2000 caractères.
+ *  - commentaire limité à 2000 caractères ;
+ *  - réclamation fondée refusée tant que le PV est verrouillé : il faut le
+ *    faire déverrouiller, comme pour toute autre modification de notes
+ *    (décision de l'université ; avant, la note était corrigée quand même).
+ *    « Non fondée » et « rejetée » restent possibles (aucune note touchée).
  */
 class ReclamationTraitementController extends Controller
 {
     private const ACTIONS = ['fondee', 'non_fondee', 'rejetee'];
+
+    private const PV_VERROUILLE = 'Le PV est verrouillé : faites-le déverrouiller avant de corriger la note (« non fondée » et « rejetée » restent possibles).';
 
     public function __construct(private readonly Reclamations $reclamations) {}
 
@@ -78,12 +84,22 @@ class ReclamationTraitementController extends Controller
         $exam = isset($v['note_examen']) ? (float) $v['note_examen'] : null;
         $cc = $maxCc > 0 && isset($v['note_cc']) ? (float) $v['note_cc'] : null;
         $finale = isset($v['note_finale_override']) ? (float) $v['note_finale_override'] : null;
+        if ($v['action'] === 'fondee' && $r->verrouille) {
+            return back()->withInput()->with('erreur', self::PV_VERROUILLE);
+        }
         if ($v['action'] === 'fondee' && $exam === null && $cc === null && $finale === null) {
             return back()->withInput()->with('erreur', 'Veuillez saisir au moins une note corrigée si la réclamation est fondée.');
         }
 
         $noteCorrigee = null;
-        DB::transaction(function () use ($r, $v, $exam, $cc, $finale, $maxCc, $request, $resultats, $journal, &$noteCorrigee) {
+        $verrouilleEntreTemps = false;
+        DB::transaction(function () use ($r, $v, $exam, $cc, $finale, $maxCc, $request, $resultats, $journal, &$noteCorrigee, &$verrouilleEntreTemps) {
+            // Verrouillé pendant le traitement : rien n'est enregistré
+            if ($v['action'] === 'fondee' && DB::table('pv_sessions')->where('id', $r->pv_id)->lockForUpdate()->value('verrouille')) {
+                $verrouilleEntreTemps = true;
+
+                return;
+            }
             if ($v['action'] === 'fondee') {
                 $actuelle = $this->noteActuelle($r);
                 if ($maxCc > 0 && $cc === null) {
@@ -112,6 +128,10 @@ class ReclamationTraitementController extends Controller
             $journal->action('modifier', 'reclamation', "Traitement réclamation ({$v['action']}) — {$r->nom} {$r->prenoms}, {$r->matiere}", (int) $r->id);
         });
 
+        if ($verrouilleEntreTemps) {
+            return back()->withInput()->with('erreur', self::PV_VERROUILLE);
+        }
+
         return redirect()->route('reclamations')->with('succes', match ($v['action']) {
             'fondee' => '✅ Réclamation fondée — note corrigée et résultats recalculés.',
             'non_fondee' => '❌ Réclamation marquée non fondée.',
@@ -127,7 +147,7 @@ class ReclamationTraitementController extends Controller
             ->join('niveaux as n', 'n.id', '=', 'p.niveau_id')->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')
             ->join('matieres as m', 'm.id', '=', 'r.matiere_id')->leftJoin('utilisateurs as u', 'u.id', '=', 'r.traitee_par')
             ->where('r.id', $id)
-            ->first(['r.*', 'e.nom', 'e.prenoms', 'e.numero as matricule', 'ps.libelle as pv_libelle', 'ps.type_session',
+            ->first(['r.*', 'e.nom', 'e.prenoms', 'e.numero as matricule', 'ps.libelle as pv_libelle', 'ps.type_session', 'ps.verrouille',
                 'm.libelle as matiere', 'm.note_max_examen', 'm.note_max_cc', 'f.code as filiere_code', 'f.faculte_id', 'f.departement_id',
                 'n.code as niveau', 'a.libelle as annee', 'u.nom as traitee_par_nom']);
     }

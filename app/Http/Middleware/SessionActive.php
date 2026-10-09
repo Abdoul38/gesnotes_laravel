@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Espaces\Espaces;
+use App\Support\SessionPersonnel;
 use App\Universites\UniversiteCourante;
 use Closure;
 use Illuminate\Http\Request;
@@ -40,9 +41,7 @@ class SessionActive
         // l'université A serait lu dans la base de l'université B.
         $codeSession = $request->session()->get('universite');
         if ($codeSession !== null && $codeSession !== $this->universite->get()->code) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            SessionPersonnel::fermer($request);
 
             return redirect()->route('login');
         }
@@ -71,9 +70,7 @@ class SessionActive
         }
 
         if ($expiree) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            SessionPersonnel::fermer($request);
 
             return redirect()->route('login', $utilisateur->actif ? ['expired' => 1] : []);
         }

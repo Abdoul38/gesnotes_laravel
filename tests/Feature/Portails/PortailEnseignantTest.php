@@ -83,7 +83,9 @@ class PortailEnseignantTest extends TestCase
         $intrus = DB::table('etudiants')->insertGetId(['nom' => 'INTRUS', 'prenoms' => 'Z', 'numero' => '00099']);
 
         $this->connecte($this->cours)->get($this->url('portail/enseignant'))->assertOk()->assertSee('COURS Prof')->assertSee('Microéconomie');
-        $this->get($this->url("portail/enseignant?pv_id={$this->pv}&mat_id={$this->m1}"))->assertOk()->assertSee('ALPHA X')->assertSee('Examen (/40)')->assertDontSee('TD (/20)');
+        $this->get($this->url("portail/enseignant?pv_id={$this->pv}&mat_id={$this->m1}"))->assertOk()->assertSee('ALPHA X')->assertSee('Examen (/40)')->assertDontSee('TD (/20)')
+            // Même précision que la saisie du PV (avant : pas de 0,25, une note de 12,10 était refusée par le navigateur)
+            ->assertSee('step="0.01" data-decimales="2"', false)->assertDontSee('step="0.25"', false);
         // Matière non affectée : rien n'est affiché
         $this->get($this->url("portail/enseignant?pv_id={$this->pv}&mat_id={$this->m2}"))->assertOk()->assertDontSee('ALPHA X');
 

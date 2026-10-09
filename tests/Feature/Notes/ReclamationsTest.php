@@ -102,6 +102,31 @@ class ReclamationsTest extends TestCase
         $this->get($this->url("reclamations/$id"))->assertOk()->assertSee('Générer PV de réclamation');
     }
 
+    public function test_pv_verrouille_pas_de_correction(): void
+    {
+        DB::table('pv_sessions')->where('id', $this->pv)->update(['verrouille' => 1]);
+        $id = $this->reclamation($this->m1);
+        $this->connecte($this->admin)->get($this->url("reclamations/$id"))->assertOk()
+            ->assertSee('est verrouillé : pour corriger la note')->assertDontSee('id="btn-fondee"', false)->assertSee('id="btn-non-fondee"', false);
+
+        // Fondée : refusée, note et réclamation inchangées
+        $this->post($this->url("reclamations/$id"), ['action' => 'fondee', 'note_examen' => '30'])
+            ->assertSessionHas('erreur', 'Le PV est verrouillé : faites-le déverrouiller avant de corriger la note (« non fondée » et « rejetée » restent possibles).');
+        $this->assertEquals(10, DB::table('notes')->where(['etudiant_id' => $this->et, 'matiere_id' => $this->m1])->value('note_examen'));
+        $this->assertSame('en_attente', DB::table('reclamations')->where('id', $id)->value('statut'));
+
+        // Après déverrouillage : corrigée
+        DB::table('pv_sessions')->where('id', $this->pv)->update(['verrouille' => 0]);
+        $this->post($this->url("reclamations/$id"), ['action' => 'fondee', 'note_examen' => '30'])->assertRedirect($this->url('reclamations'));
+        $this->assertEquals(30, DB::table('notes')->where(['etudiant_id' => $this->et, 'matiere_id' => $this->m1])->value('note_examen'));
+
+        // Non fondée : possible même verrouillé
+        DB::table('pv_sessions')->where('id', $this->pv)->update(['verrouille' => 1]);
+        $id2 = $this->reclamation($this->m2);
+        $this->post($this->url("reclamations/$id2"), ['action' => 'non_fondee'])->assertRedirect($this->url('reclamations'));
+        $this->assertSame('non_fondee', DB::table('reclamations')->where('id', $id2)->value('statut'));
+    }
+
     public function test_validation_du_traitement(): void
     {
         $id = $this->reclamation($this->m2);

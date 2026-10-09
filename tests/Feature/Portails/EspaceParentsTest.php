@@ -62,6 +62,27 @@ class EspaceParentsTest extends TestCase
         $this->get($this->url('parents'))->assertRedirect($this->url('parents/connexion'));
     }
 
+    public function test_deconnexion_du_personnel_ne_ferme_pas_l_espace_parents(): void
+    {
+        // Même navigateur : un parent et un agent connectés
+        $this->seConnecter()->assertRedirect($this->url('parents'));
+        $agent = $this->creerUtilisateur('secretaire');
+        DB::table('utilisateurs')->where('id', $agent->id)->update(['mot_de_passe' => Hash::make('Agent#2026')]);
+        $this->post($this->url('connexion'), ['email' => 'secretaire@test.local', 'mot_de_passe' => 'Agent#2026'])->assertRedirect();
+        $this->assertAuthenticatedAs($agent);
+
+        // Déconnexion du personnel : l'agent est déconnecté, le parent reste connecté
+        $this->post($this->url('deconnexion'))->assertRedirect($this->url('connexion'));
+        $this->assertGuest('web');
+        $this->get($this->url('accueil'))->assertRedirect($this->url('connexion'));
+        $this->get($this->url('parents'))->assertOk()->assertSee('ALPHA Awa');
+
+        // Et inversement : la déconnexion du parent ne touche pas l'agent
+        $this->post($this->url('connexion'), ['email' => 'secretaire@test.local', 'mot_de_passe' => 'Agent#2026']);
+        $this->post($this->url('parents/deconnexion'));
+        $this->assertAuthenticatedAs($agent);
+    }
+
     public function test_compte_desactive_limite_et_expiration(): void
     {
         DB::table('parents')->where('id', $this->parent)->update(['actif' => 0]);

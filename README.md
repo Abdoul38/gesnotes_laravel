@@ -422,6 +422,9 @@ Plan en 13 étapes (section 11 de l'inventaire).
 | Attestations de réussite et convocations : numéro = rang dans la liste imprimée (même numéro pour des étudiants différents, numéro qui change à la réimpression) | numéro enregistré une fois par étudiant et par PV (`attestations_emises` type `reussite_<pv>`, préfixe `AR` ; `convocations_emises`, préfixe `CV`) ; l'attestation est vérifiable sur la page publique | traçabilité (table à créer : `gesnotes:completer-schema --appliquer`) |
 | ANAB : mentions calculées avec des seuils fixes 16 / 14 / 12 pour toutes les universités | seuils de l'université consultée (`mention_tres_bien`, `mention_bien`, `mention_assez_bien`), ceux de ses attestations ; 16 / 14 / 12 par défaut. Le seuil d'éligibilité aux bourses (12/20) reste celui de l'ANAB | même mention sur l'attestation et à l'ANAB |
 | Comptes « étudiant » orphelins (sans fiche étudiant liée ; environ 825 dans les bases actuelles) : aucun moyen de les voir ni de les retirer | section « Comptes orphelins » de la page Comptes étudiants : liste (admin, sc_centrale), suppression par l'administrateur seul, après confirmation, si le nombre n'a pas changé depuis l'affichage ; fiches étudiants, journaux et messages non touchés | accès ouverts inutiles (faire une sauvegarde avant) |
+| Déconnexion du personnel : toute la session du navigateur effacée | seule la partie « personnel » est fermée ; Espace Parents et portail candidats restent connectés | un parent et un agent sur le même poste |
+| Réclamation fondée sur un PV verrouillé : note corrigée quand même | refusée tant que le PV n'est pas déverrouillé | même règle que les autres modifications de notes |
+| Portail enseignant et traitement des réclamations : pas de 0,25 | 0,01 (2 décimales), comme la saisie du PV | une note comme 12,10 était refusée par le navigateur |
 
 ## Décisions prises (université)
 
@@ -429,20 +432,23 @@ Plan en 13 étapes (section 11 de l'inventaire).
   avant ; pas de date de naissance demandée. Risque accepté : les matricules se suivent, donc on peut voir le nom et
   la filière d'un autre étudiant. Garde-fou conservé : limite de tentatives par adresse IP.
 
+- **Corrections de fiabilité** (décidées le 04/10/2026) : paiement annulé avec motif au lieu d'être supprimé ;
+  délai de réclamation compté depuis la publication du PV ; numéros enregistrés pour les attestations de réussite et
+  les convocations ; mentions de l'ANAB selon les seuils de chaque université ; écran de nettoyage des comptes
+  étudiants orphelins (détails dans « Comportements volontairement modifiés »).
+- **Réclamation fondée sur un PV verrouillé** (décidé le 09/10/2026) : refusée tant que le PV n'est pas déverrouillé,
+  comme toute autre modification de notes ; « non fondée » et « rejetée » restent possibles.
+- **Session partagée** (décidé le 09/10/2026) : la déconnexion ou l'expiration de la session du personnel ne ferme plus
+  l'Espace Parents ni le portail candidats ouverts dans le même navigateur (et inversement).
+- **Saisie des notes au centième** (décidé le 09/10/2026) : portail enseignant et traitement des réclamations
+  acceptent 2 décimales (pas de 0,01), comme la saisie du PV ; avant, le pas de 0,25 refusait une note comme 12,10.
+
 ## Décisions à prendre (université)
 
-- **Réclamation fondée sur un PV verrouillé** : comme avant, la note est corrigée et les résultats
-  recalculés même si le PV source est verrouillé (c'est la procédure prévue après délibération).
-  Faut-il plutôt exiger le déverrouillage, comme pour les autres modifications ?
-- **Numéro « ANM/DepD/aa/0001 » des attestations de réussite et « N° 0001/aaaa » des convocations** :
-  simple compteur de la page imprimée (repris tel quel), il recommence à 1 à chaque impression et
-  n'est enregistré nulle part. Le remplacer par un numéro enregistré et vérifiable ?
 - **Identifiants KomiPay en clair dans l'ancien dépôt** : `candidature/includes/komipay.php` (suivi par git, dépôt
   GitHub) contient l'identifiant, le mot de passe, la clé API et la passe-clé KomiPay. Si le dépôt est ou a été
   public, ou partagé, les considérer comme compromis : en générer de nouveaux chez KomiPay, et les retirer du dépôt
   et de son historique. Dans la version Laravel ils iront dans `.env` (jamais versionné).
-- **Suppression d'un paiement** : effacement définitif (repris tel quel, désormais journalisé avec le montant).
-  Préférer une annulation (statut) qui garde la trace comptable ?
 - **Mot de passe SMTP dans l'ancien journal des e-mails** : chaque envoi réussi de l'ancienne application a
   enregistré dans `email_logs.reponse_brute` l'échange SMTP, authentification comprise (identifiant et mot de passe
   en base64, lisibles par quiconque accède à la base ou à ses sauvegardes). À faire par l'université : changer le
@@ -455,9 +461,6 @@ Plan en 13 étapes (section 11 de l'inventaire).
   menu. Vérifier si ces tables contiennent encore des dossiers à traiter ; sinon les archiver.
 - **Délai de paiement de 15 minutes** compté depuis l'identification (repris tel quel) et non depuis le paiement :
   un étudiant lent à choisir son moyen de paiement voit son paiement expirer plus tôt. Le compter depuis le paiement ?
-- **Délai de réclamation (72 h) compté depuis la dernière modification du PV** (repris tel quel : pas de date de
-  publication en base) : toute modification après publication (verrouillage, correction) rouvre le délai. Ajouter une
-  colonne `publie_le` renseignée à la publication ?
 - **Application mobile** : la version publiée de l'application (ancienne réinitialisation par date de naissance)
   recevra « mettez à jour l'application » pour le mot de passe oublié. Publier la version du dépôt (`MOBILE/`) avant la
   bascule de l'API, et y remplacer l'adresse du serveur.
@@ -477,13 +480,10 @@ Plan en 13 étapes (section 11 de l'inventaire).
   du serveur.
 - **Signature de l'autorité** (cartes étudiantes) : comme avant, l'image est rangée avec les logos, servis sans
   connexion (pour la page de connexion). La servir aux seuls utilisateurs connectés, comme le cachet ?
-- **Mentions de l'ANAB** : seuils fixes 16 / 14 / 12 et éligibilité à 12/20 (repris tels quels, point A4) alors que
-  les PV utilisent les seuils de chaque université. Unifier ?
 - **Comptes Ministère / ANAB dans la base UDH** (repris tels quels) : une restauration de la base UDH les ramènerait
   à leur état d'alors. Les déplacer dans une base propre aux espaces nationaux ?
 - **« Défaillant »** désigne à la fois une absence et une note sous la note éliminatoire (repris tel quel) :
   deux libellés distincts ?
-- **Session partagée** : se déconnecter du personnel ferme aussi l'Espace Parents ouvert dans le même navigateur.
 - Points A1 à A14 de l'inventaire (`docs/laravel/INVENTAIRE.md` de l'ancien dépôt).
 
 ## À vérifier
