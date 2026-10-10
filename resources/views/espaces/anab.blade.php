@@ -85,7 +85,7 @@
 @forelse ($dossier['resultats'] as $anneeLib => $lignes)
 <div style="font-weight:700;color:#7C3AED;margin:10px 0 6px">📅 {{ $anneeLib }}</div>
 <div class="card mb-16"><div style="overflow-x:auto"><table class="table" style="font-size:11.5px">
-  <thead><tr><th>Filière</th><th>Niv.</th><th>Sem.</th><th>Session</th><th style="text-align:center">Moyenne</th><th style="text-align:center">Crédits</th><th>Mention</th><th style="text-align:center">Statut</th><th style="text-align:center">Rang</th></tr></thead>
+  <thead><tr><th>Filière</th><th>Niv.</th><th>Sem.</th><th>Session</th><th style="text-align:center">Moyenne</th><th style="text-align:center">Crédits</th><th>Mention</th><th style="text-align:center">Statut</th></tr></thead>
   <tbody>
   @foreach ($lignes as $r)
   <tr>
@@ -95,7 +95,6 @@
     <td style="text-align:center">{{ $r->defaillant ? '—' : $r->credits_obtenus.'/'.$r->credits_total }}</td>
     <td>{{ $r->mention ?? '—' }}</td>
     <td style="text-align:center">@if ($r->defaillant)<span class="badge badge-amber">Déf.</span>@elseif ($r->valide)<span class="badge badge-green">✅ Validé</span>@else<span class="badge badge-red">❌ Non validé</span>@endif</td>
-    <td style="text-align:center;color:#7C3AED;font-weight:600">{{ $r->rang ? '#'.$r->rang : '—' }}</td>
   </tr>
   @endforeach
   </tbody>

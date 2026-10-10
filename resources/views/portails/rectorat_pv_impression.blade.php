@@ -48,14 +48,14 @@ table.res { width: 100%; border-collapse: collapse; font-size: 10px; }
     <tr><td colspan="2">@if ($type === 'admis')<strong>Admis :</strong> {{ $admis }} / {{ $total }} ({{ $taux }}%)@else<strong>Effectif :</strong> {{ $total }} étudiant(s) ({{ $admis }} admis — {{ $taux }}%)@endif</td></tr>
   </table>
   <table class="res">
-    <thead><tr><th>N°</th><th>Nom</th><th>Prénoms</th>@if ($type === 'global')<th>Crédits</th>@endif<th>Moyenne</th>@if ($type === 'global')<th>Décision</th>@endif<th>Mention</th><th>Rang</th></tr></thead>
+    <thead><tr><th>N°</th><th>Nom</th><th>Prénoms</th>@if ($type === 'global')<th>Crédits</th>@endif<th>Moyenne</th>@if ($type === 'global')<th>Décision</th>@endif<th>Mention</th></tr></thead>
     <tbody>
     @foreach ($lignes as $r)
     <tr><td>{{ $r->numero }}</td><td class="g">{{ $r->nom }}</td><td class="g">{{ $r->prenoms }}</td>
       @if ($type === 'global')<td>{{ $r->credits_obtenus ?? '—' }}</td>@endif
       <td>{{ $r->moyenne_generale !== null ? number_format($r->moyenne_generale, 2) : '—' }}</td>
       @if ($type === 'global')<td>{{ $r->decision ?? '—' }}</td>@endif
-      <td>{{ $r->mention ?? '—' }}</td><td>{{ $r->rang ?? '—' }}</td></tr>
+      <td>{{ $r->mention ?? '—' }}</td></tr>
     @endforeach
     </tbody>
   </table>

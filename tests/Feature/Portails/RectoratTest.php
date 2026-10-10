@@ -67,7 +67,9 @@ class RectoratTest extends TestCase
         $this->get($this->url("rectorat?onglet=pv&pv_id={$this->pvPublie}"))->assertOk()->assertSee('ALPHA')->assertSee('13.50/20');
         $this->get($this->url("rectorat?onglet=pv&pv_id={$this->pvBrouillon}"))->assertOk()->assertDontSee('BROUILLON');
         $this->get($this->url("rectorat/pv/{$this->pvBrouillon}/impression"))->assertRedirect();
-        $this->get($this->url("rectorat/pv/{$this->pvPublie}/impression?type=admis"))->assertOk()->assertSee('LISTE DES ÉTUDIANTS ADMIS')->assertSee('ALPHA');
+        $this->get($this->url("rectorat/pv/{$this->pvPublie}/impression?type=admis"))->assertOk()->assertSee('LISTE DES ÉTUDIANTS ADMIS')->assertSee('ALPHA')
+            ->assertDontSee('<th>Rang</th>', false);   // pas de rang sur les PV imprimés
+        $this->get($this->url("rectorat/pv/{$this->pvPublie}/impression?type=global"))->assertOk()->assertDontSee('<th>Rang</th>', false);
         $this->get($this->url('rectorat/rapport'))->assertOk()->assertSee('RAPPORT — ANNÉE 2025-2026');
 
         // Parcours d'un étudiant : uniquement les PV finalisés ou publiés

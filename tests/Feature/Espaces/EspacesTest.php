@@ -163,7 +163,8 @@ class EspacesTest extends TestCase
         $this->get($this->url("ministere?onglet=pv&pv_code=uam&pv_id={$uam['brouillon']}", 'ministere'))->assertOk()->assertViewHas('detail', null);
         $this->get($this->url("ministere/pv/uam/{$uam['brouillon']}/imprimer", 'ministere'))->assertRedirect();
         $this->get($this->url("ministere/pv/inconnue/{$uam['pub']}/imprimer", 'ministere'))->assertRedirect();
-        $this->get($this->url("ministere/pv/uam/{$uam['pub']}/imprimer?type=admis", 'ministere'))->assertOk()->assertSee('LISTE DES ÉTUDIANTS ADMIS')->assertSee('Université Abdou Moumouni');
+        $this->get($this->url("ministere/pv/uam/{$uam['pub']}/imprimer?type=admis", 'ministere'))->assertOk()->assertSee('LISTE DES ÉTUDIANTS ADMIS')->assertSee('Université Abdou Moumouni')
+            ->assertDontSee('<th>Rang</th>', false);   // pas de rang sur les PV imprimés
 
         $this->get($this->url('ministere/export?annee=2026-2027', 'ministere'))->assertOk()->assertDownload();
         $this->get($this->url('ministere/rapport', 'ministere'))->assertOk()->assertSee('RAPPORT NATIONAL');
@@ -247,6 +248,7 @@ class EspacesTest extends TestCase
         $this->get($this->url('anab?univ=pirate', 'anab'))->assertOk()->assertViewHas('uni', null);
 
         $this->get($this->url("anab?univ=udh&etudiant=$et1", 'anab'))->assertOk()->assertSee('UDH-ETU1')->assertSee('Éligible bourse L2')
+            ->assertDontSee('>Rang</th>', false)   // pas de rang dans le dossier consulté par l'ANAB
             ->assertSee('<th>Session</th>', false)->assertSee('Session normale');
         $this->assertTrue(DB::table('audit_log')->where('module', 'anab')->where('cible_id', $et1)->where('user_nom', 'ANAB — Agent Bourses')->exists());
 
