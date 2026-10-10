@@ -51,6 +51,8 @@ class PvImpressionController extends Controller
         $resSem = DB::table('resultats_semestre')->where('pv_id', $pv->id)->whereIn('etudiant_id', $tous->pluck('id'))->get()->keyBy('etudiant_id');
 
         return view('notes.pv.impression', [
+            // Format du papier : A4 paysage par défaut, A3 paysage pour les PV très chargés
+            'format' => $request->query('format') === 'a3' ? 'a3' : 'a4',
             'pv' => $pv,
             'faculte' => $libelles->faculte ?? '',
             'departement' => $libelles->departement ?? '',

@@ -1,9 +1,11 @@
-{{-- PV imprimable — portage de pv_imprimer.php (page autonome, A4 paysage) --}}
+{{-- PV imprimable — portage de pv_imprimer.php (page autonome, A4 ou A3 paysage ; tableau réduit pour tenir dans la largeur du papier) --}}
 @php
     use App\Support\Format;
     $f2 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
     $classeObs = fn ($o) => ['AV' => 'obs-av', 'AC' => 'obs-ac', 'NV' => 'obs-nv', 'Déf.' => 'obs-nv'][$o] ?? '';
     $creditsTotal = $ues->sum('credits_total');
+    // Largeur utile du papier en paysage : largeur − marges de page (2 × 8 mm) − marges du contenu (2 × 6 mm)
+    $largeurPapierMm = $format === 'a3' ? 420 - 16 - 12 : 297 - 16 - 12;
 @endphp
 <!DOCTYPE html>
 <html lang="fr">
@@ -20,7 +22,11 @@ table.pv{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px}
 table.pv th,table.pv td{border:0.5px solid #666;padding:1.5px 3px;text-align:center;vertical-align:middle}
 table.pv th{font-weight:600}
 .th-ue{background:#1a3a5c;color:#fff;font-size:7.5px}
-.th-mat{background:#2c5f9e;color:#fff;font-size:7px}
+.th-mat{background:#2c5f9e;color:#fff;font-size:7px;overflow-wrap:anywhere}
+.pv-zone{width:max-content;max-width:none;transform-origin:top left}
+/* Tailles de l'impression, appliquées aussi pendant la mesure qui précède l'impression (pv-impression.js) */
+body.mesure-impression table.pv th,body.mesure-impression table.pv td{font-size:7px !important;padding:1px 2px !important}
+body.mesure-impression .td-name{min-width:90px !important}
 .th-sub{background:#dce9f7;color:#000;font-size:7px}
 .th-resume{background:#0c3360;color:#fff;font-size:7px}
 .td-name{text-align:left !important;font-weight:bold;min-width:120px;white-space:nowrap}
@@ -45,7 +51,7 @@ table.pv th{font-weight:600}
   table.pv thead{display:table-header-group}
   .pied-page{position:fixed;bottom:0;left:0;right:0;background:#fff}
   .page{padding-bottom:25mm}
-  @page{size:A4 landscape;margin:8mm}
+  @page{size:{{ $format === 'a3' ? 'A3' : 'A4' }} landscape;margin:8mm}
 }
 </style>
 </head>
@@ -60,6 +66,12 @@ table.pv th{font-weight:600}
       <option value="0">— Tous les étudiants —</option>
       @foreach ($tous as $e)<option value="{{ $e->id }}" @selected($filtre === (int) $e->id)>{{ $e->nom }} {{ $e->prenoms }}</option>@endforeach
     </select>
+    <label for="format" style="font-size:13px;margin-left:10px">📄 Papier :</label>
+    <select name="format" id="format" data-autosubmit="1" style="padding:4px 8px;border-radius:4px;border:none;font-size:13px">
+      <option value="a4" @selected($format === 'a4')>A4 paysage</option>
+      <option value="a3" @selected($format === 'a3')>A3 paysage</option>
+    </select>
+    <span style="font-size:12px;opacity:.9;margin-left:6px" title="Le tableau est réduit pour tenir dans la largeur du papier">Échelle : <strong id="pv-echelle">100 %</strong></span>
   </form>
   <button type="button" data-print="1" style="background:#fff;color:#185FA5;border:none;padding:5px 14px;border-radius:4px;font-weight:600;cursor:pointer">🖨️ Imprimer</button>
   <button type="button" data-window-close="1" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);padding:5px 12px;border-radius:4px;cursor:pointer">✕ Fermer</button>
@@ -85,6 +97,8 @@ table.pv th{font-weight:600}
   <strong>AV</strong> = Acquis/Validé &nbsp;|&nbsp; <strong>AC</strong> = Acquis par Compensation &nbsp;|&nbsp; <strong>NV</strong> = Non Validé &nbsp;|&nbsp; <strong>Déf.</strong> = Défaillant
 </div>
 
+<div class="pv-cadre">
+<div class="pv-zone" data-largeur-papier-mm="{{ $largeurPapierMm }}">
 <table class="pv">
 <thead>
   <tr>
@@ -176,6 +190,8 @@ table.pv th{font-weight:600}
 @endforeach
 </tbody>
 </table>
+</div>
+</div>
 
 <div class="pied-page">
   <div>
@@ -196,5 +212,6 @@ table.pv th{font-weight:600}
 
 </div>
 <script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ asset('assets/js/pv-impression.js') }}"></script>
 </body>
 </html>
