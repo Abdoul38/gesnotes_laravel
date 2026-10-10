@@ -35,6 +35,11 @@ return [
     // la changer une fois des documents imprimés. À défaut : APP_KEY.
     'verification_secret' => env('VERIFICATION_SECRET'),
 
+    // Mot de passe de protection des exports Excel du PV (feuille verrouillée sauf
+    // les cases de notes, feuille « Calculs » masquée). Vide : mot de passe
+    // aléatoire, jamais communiqué (le fichier ne peut pas être déprotégé).
+    'pv_excel_mot_de_passe' => env('PV_EXCEL_MOT_DE_PASSE'),
+
     // Sauvegardes SQL (page Sauvegarde) : hors du dossier public, un
     // sous-dossier par université.
     'dossier_sauvegardes' => env('DOSSIER_SAUVEGARDES', storage_path('app/private/sauvegardes')),

@@ -25,8 +25,26 @@ final class Classeur
 
     private bool $formules = false;
 
+    /** Empreinte du mot de passe de protection : [hash, sel, itérations] (SHA-512, format Office). */
+    private ?array $empreinte = null;
+
     /** Feuille de styles propre au document (sinon les 12 styles ci-dessus). */
     public function __construct(private readonly ?string $styles = null) {}
+
+    /**
+     * Mot de passe des feuilles protégées et de la structure du classeur
+     * (empêche de réafficher ou de supprimer une feuille masquée). Sans appel,
+     * mot de passe aléatoire jamais communiqué.
+     */
+    public function motDePasse(string $motDePasse): void
+    {
+        $sel = random_bytes(16);
+        $h = hash('sha512', $sel.mb_convert_encoding($motDePasse, 'UTF-16LE', 'UTF-8'), true);
+        for ($i = 0; $i < 100000; $i++) {
+            $h = hash('sha512', $h.pack('V', $i), true);
+        }
+        $this->empreinte = [base64_encode($h), base64_encode($sel), 100000];
+    }
 
     /**
      * @param  list<array{height?: int, merges?: list<array{0:int,1:int}>, cells: list<array{v?: mixed, f?: string, style?: int}>}>  $lignes
@@ -34,8 +52,12 @@ final class Classeur
      */
     /**
      * @param  list<array{0:int,1:int}>  $groupes  colonnes groupées (numéros de 1 à n, bornes comprises) : bouton −/+ d'Excel pour les replier
+     * @param  array{masquee?: bool, protegee?: bool, validations?: list<array{plage: string, min: float, max: float, titre: string}>}  $options
+     *                                                                                                                                   masquee : feuille invisible, qu'on ne peut pas réafficher depuis Excel ;
+     *                                                                                                                                   protegee : cellules verrouillées sauf les styles déverrouillés (zone de saisie) ;
+     *                                                                                                                                   validations : nombres refusés hors de [min, max] dans la plage
      */
-    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = [], ?string $filtre = null, array $groupes = []): void
+    public function feuille(string $nom, array $lignes, array $largeurs = [], int $lignesFigees = 0, array $fusions = [], ?string $filtre = null, array $groupes = [], array $options = []): void
     {
         $nom = mb_substr(trim(preg_replace('/[\/\\\\?*\[\]:]/', '_', $nom)) ?: 'Feuille', 0, 31);
         $pris = array_map('mb_strtolower', array_column($this->feuilles, 'nom'));
@@ -44,7 +66,7 @@ final class Classeur
         }
         // $filtre : plage « A4:U30 » dont la première ligne porte les boutons de filtre d'Excel
         $filtre = $filtre !== null && preg_match('/^[A-Z]{1,3}\d+:[A-Z]{1,3}\d+$/', $filtre) ? $filtre : null;
-        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions, 'filtre' => $filtre, 'groupes' => $groupes];
+        $this->feuilles[] = ['nom' => $nom, 'lignes' => $lignes, 'largeurs' => $largeurs, 'figees' => $lignesFigees, 'fusions' => $fusions, 'filtre' => $filtre, 'groupes' => $groupes, 'options' => $options];
     }
 
     /** Écrit le classeur dans un fichier temporaire et retourne son chemin. */
@@ -52,6 +74,10 @@ final class Classeur
     {
         if (! $this->feuilles) {
             $this->feuille('Liste', [['cells' => [['v' => 'Aucun étudiant']]]]);
+        }
+        $protection = collect($this->feuilles)->contains(fn ($f) => ! empty($f['options']['protegee']) || ! empty($f['options']['masquee']));
+        if ($protection && ! $this->empreinte) {
+            $this->motDePasse(bin2hex(random_bytes(16)));
         }
         $xmlFeuilles = array_map(fn ($f) => $this->xmlFeuille($f), $this->feuilles);
 
@@ -64,7 +90,7 @@ final class Classeur
             }
             $id = $i + 1;
             $rels .= '<Relationship Id="rId'.$id.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'.$id.'.xml"/>';
-            $elements .= '<sheet name="'.self::xml($f['nom']).'" sheetId="'.$id.'" r:id="rId'.$id.'"/>';
+            $elements .= '<sheet name="'.self::xml($f['nom']).'" sheetId="'.$id.'"'.(! empty($f['options']['masquee']) ? ' state="veryHidden"' : '').' r:id="rId'.$id.'"/>';
             $types .= '<Override PartName="/xl/worksheets/sheet'.$id.'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
         }
         $entete = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
@@ -87,7 +113,9 @@ final class Classeur
             .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
         // Classeur avec formules : recalcul complet à l'ouverture
         $calcul = $this->formules ? '<calcPr calcId="0" fullCalcOnLoad="1"/>' : '';
-        $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'.$elements.'</sheets>'.($noms ? '<definedNames>'.$noms.'</definedNames>' : '').$calcul.'</workbook>');
+        $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            .($protection ? '<workbookProtection workbookAlgorithmName="SHA-512" workbookHashValue="'.$this->empreinte[0].'" workbookSaltValue="'.$this->empreinte[1].'" workbookSpinCount="'.$this->empreinte[2].'" lockStructure="1"/>' : '')
+            .'<sheets>'.$elements.'</sheets>'.($noms ? '<definedNames>'.$noms.'</definedNames>' : '').$calcul.'</workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', $entete.'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             .'<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
             .'<Relationship Id="rId101" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'.$rels.'</Relationships>');
@@ -163,14 +191,37 @@ final class Classeur
             }
         }
         $x .= '</sheetData>';
+        if (! empty($f['options']['protegee']) || ! empty($f['options']['masquee'])) {
+            // Tout est verrouillé sauf les cellules au style déverrouillé ; filtres et masquage de colonnes permis
+            [$hash, $sel, $tours] = $this->empreinte;
+            $x .= '<sheetProtection algorithmName="SHA-512" hashValue="'.$hash.'" saltValue="'.$sel.'" spinCount="'.$tours.'" sheet="1" objects="1" scenarios="1"'
+                .' formatColumns="0" autoFilter="0"/>';
+        }
         if ($f['filtre']) {
             $x .= '<autoFilter ref="'.$f['filtre'].'"/>';
         }
         if ($fusions) {
             $x .= '<mergeCells count="'.count($fusions).'">'.implode('', array_map(fn ($m) => '<mergeCell ref="'.$m.'"/>', $fusions)).'</mergeCells>';
         }
+        $validations = $f['options']['validations'] ?? [];
+        if ($validations) {
+            $x .= '<dataValidations count="'.count($validations).'">';
+            foreach ($validations as $v) {
+                [$min, $max] = [self::nombre($v['min']), self::nombre($v['max'])];
+                $x .= '<dataValidation type="decimal" operator="between" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop"'
+                    .' errorTitle="Note refusée" error="'.self::xml($v['titre'].' : saisir une note de '.$min.' à '.$max.'.').'"'
+                    .' promptTitle="'.self::xml(mb_substr($v['titre'], 0, 32)).'" prompt="'.self::xml('Note de '.$min.' à '.$max).'" sqref="'.$v['plage'].'">'
+                    .'<formula1>'.$min.'</formula1><formula2>'.$max.'</formula2></dataValidation>';
+            }
+            $x .= '</dataValidations>';
+        }
 
         return $x.'</worksheet>';
+    }
+
+    private static function nombre(float $v): string
+    {
+        return rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.');
     }
 
     public static function ref(int $col, int $ligne): string

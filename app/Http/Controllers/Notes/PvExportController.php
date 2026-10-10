@@ -30,6 +30,12 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * Filtres d'Excel sur chaque colonne (ligne 4), dans les deux variantes : les
  * en-têtes de la ligne 4 ne sont plus fusionnés avec la ligne 3.
  *
+ * Feuille protégée : seules les cases Examen et TD (fond jaune) sont
+ * modifiables, sauf celles d'une matière acquise (AV/AC, ignorées par
+ * l'import) ; une note hors de 0 au maximum y est refusée. Feuille « Calculs »
+ * invisible et structure du classeur protégée. Mot de passe :
+ * PV_EXCEL_MOT_DE_PASSE, sinon aléatoire (jamais communiqué).
+ *
  * Variante « avec formules » (?formules=1, en plus de l'export en valeurs) :
  * les résultats deviennent des formules Excel qui reproduisent les règles du
  * moteur et se recalculent si l'on modifie une note dans le fichier, avec une
@@ -142,8 +148,9 @@ class PvExportController extends Controller
                     // (avant : l'examen seul s'affichait quand le TD manquait, alors que le moteur traitait la note comme absente)
                     $finale = $note?->note_finale ?? (($note && $note->note_examen !== null && ($note->note_cc !== null || (float) $m->note_max_cc <= 0))
                         ? (float) $note->note_examen + (float) $note->note_cc : null);
+                    $saisie = in_array($obs, ['AV', 'AC'], true) ? 0 : 17;
                     $cellules[] = match ($t) {
-                        'exam' => $n($note?->note_examen), 'td' => $n($note?->note_cc), 'note' => $n($finale),
+                        'exam' => $n($note?->note_examen, $saisie), 'td' => $n($note?->note_cc, $saisie), 'note' => $n($finale),
                         'cr_mat' => $n(in_array($obs, ['AV', 'AC'], true) ? $m->credits : 0, 13),
                         'obs_mat' => $c($obs ?: '—', $styleObs($obs)),
                     };
@@ -224,11 +231,26 @@ class PvExportController extends Controller
             };
         }
         $classeur = new Classeur(self::STYLES);
+        if (filled(config('gesnotes.pv_excel_mot_de_passe'))) {
+            $classeur->motDePasse((string) config('gesnotes.pv_excel_mot_de_passe'));
+        }
+        // Notes refusées hors de 0 au maximum de la matière (colonnes Examen et TD)
+        $derniere = 4 + max(1, $etudiants->count());
+        $validations = [];
+        foreach ($cols as $i => $col) {
+            [$t, $ue, $m] = $col + [null, null, null];
+            if (in_array($t, ['exam', 'td'], true)) {
+                $lettre = preg_replace('/\d+$/', '', Classeur::ref($i + 1, 1));
+                $validations[] = ['plage' => $lettre.'5:'.$lettre.$derniere, 'min' => 0, 'max' => (float) ($t === 'exam' ? $m->note_max_examen : $m->note_max_cc),
+                    'titre' => ($t === 'exam' ? 'Examen' : 'TD').' — '.$m->libelle];
+            }
+        }
         // Filtres d'Excel sur la ligne 4 (une flèche par colonne), étudiants en dessous
-        $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions, 'A4:'.Classeur::ref($nb, 4 + max(1, $etudiants->count())), $groupes);
+        $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions, 'A4:'.Classeur::ref($nb, $derniere), $groupes,
+            ['protegee' => true, 'validations' => $validations]);
         if ($excel) {
             [$lignesCalculs, $largeursCalculs] = $excel->feuilleCalculs();
-            $classeur->feuille('Calculs', $lignesCalculs, $largeursCalculs, 4);
+            $classeur->feuille('Calculs', $lignesCalculs, $largeursCalculs, 4, options: ['masquee' => true]);
         }
         $nom = 'PV_'.preg_replace('/[^a-zA-Z0-9_]/', '_', $pv->semestre.'_'.mb_substr($pv->filiere, 0, 15).'_'.$pv->annee).($formules ? '_formules' : '').'.xlsx';
 
@@ -259,14 +281,15 @@ class PvExportController extends Controller
         .'<font><sz val="10"/><b/><name val="Arial"/></font><font><sz val="10"/><b/><color rgb="FF1B5E20"/><name val="Arial"/></font>'
         .'<font><sz val="10"/><b/><color rgb="FF0D47A1"/><name val="Arial"/></font><font><sz val="10"/><b/><color rgb="FFE65100"/><name val="Arial"/></font>'
         .'<font><sz val="10"/><b/><color rgb="FFB71C1C"/><name val="Arial"/></font><font><sz val="10"/><b/><color rgb="FF1B5E20"/><name val="Arial"/></font></fonts>'
-        .'<fills count="12"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+        .'<fills count="13"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
         .'<fill><patternFill patternType="solid"><fgColor rgb="FF1A3A5C"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2C5F9E"/></patternFill></fill>'
         .'<fill><patternFill patternType="solid"><fgColor rgb="FF1A5C3A"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCE9F7"/></patternFill></fill>'
         .'<fill><patternFill patternType="solid"><fgColor rgb="FFE8F5E9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE3F2FD"/></patternFill></fill>'
         .'<fill><patternFill patternType="solid"><fgColor rgb="FFFFF8E1"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFEBEE"/></patternFill></fill>'
-        .'<fill><patternFill patternType="solid"><fgColor rgb="FFE8F5E9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE0E0E0"/></patternFill></fill></fills>'
+        .'<fill><patternFill patternType="solid"><fgColor rgb="FFE8F5E9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE0E0E0"/></patternFill></fill>'
+        .'<fill><patternFill patternType="solid"><fgColor rgb="FFFFFDE7"/></patternFill></fill></fills>'
         .'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFCCCCCC"/></left><right style="thin"><color rgb="FFCCCCCC"/></right><top style="thin"><color rgb="FFCCCCCC"/></top><bottom style="thin"><color rgb="FFCCCCCC"/></bottom></border></borders>'
-        .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="17">'
+        .'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="18">'
         .'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
         .'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
         .'<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
@@ -284,5 +307,7 @@ class PvExportController extends Controller
         .'<xf numFmtId="0" fontId="7" fillId="10" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf>'
         .'<xf numFmtId="0" fontId="5" fillId="8" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf>'
         .'<xf numFmtId="0" fontId="0" fillId="11" borderId="1" xfId="0"><alignment horizontal="center" vertical="center"/></xf>'
+        // 17 : case de saisie d'une note (seule modifiable quand la feuille est protégée)
+        .'<xf numFmtId="0" fontId="0" fillId="12" borderId="1" xfId="0" applyProtection="1"><alignment horizontal="center" vertical="center"/><protection locked="0"/></xf>'
         .'</cellXfs></styleSheet>';
 }

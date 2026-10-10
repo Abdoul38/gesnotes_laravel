@@ -175,6 +175,19 @@ class NotesImportTest extends TestCase
             $this->assertStringContainsString('<mergeCell ref="'.$zone.'"/>', $feuille);
         }
         $this->assertStringContainsString('<sheetPr><outlinePr summaryRight="1"/></sheetPr>', $feuille);
+        // Feuille protégée : seules les cases Examen/TD (style 17, déverrouillé) se modifient ; ALPHA (AV) reste verrouillé
+        $this->assertMatchesRegularExpression('/<sheetProtection algorithmName="SHA-512" hashValue="[^"]+" saltValue="[^"]+" spinCount="100000" sheet="1" objects="1" scenarios="1" formatColumns="0" autoFilter="0"\/>/', $feuille);
+        $this->assertStringContainsString('<c r="D5" s="0"><v>30</v></c>', $feuille);
+        $this->assertStringContainsString('<c r="D6" s="17"/>', $feuille);
+        $this->assertStringContainsString('<c r="E6" s="17"/>', $feuille);
+        $this->assertStringContainsString('<c r="I6" s="17"/>', $feuille);
+        $this->assertStringContainsString('<protection locked="0"/>', (string) $zip->getFromName('xl/styles.xml'));
+        // Notes refusées hors de 0 au maximum : Examen/40, TD/20, Examen/20
+        foreach (['D5:D6' => 40, 'E5:E6' => 20, 'I5:I6' => 20] as $plage => $max) {
+            $this->assertMatchesRegularExpression('/<dataValidation type="decimal" operator="between" allowBlank="1"[^>]*sqref="'.$plage.'"><formula1>0<\/formula1><formula2>'.$max.'<\/formula2><\/dataValidation>/', $feuille);
+        }
+        $this->assertStringContainsString('error="Examen — Microéconomie : saisir une note de 0 à 40."', $feuille);
+        $this->assertStringContainsString('<workbookProtection workbookAlgorithmName="SHA-512"', (string) $zip->getFromName('xl/workbook.xml'));
         $this->assertSame(8, substr_count($feuille, 'outlineLevel="1"/>'));                     // D à K : les 8 colonnes des matières
         $this->assertStringContainsString('<col min="11" max="11" width="6" customWidth="1" outlineLevel="1"/><col min="12" max="12" width="7" customWidth="1"/>', $feuille);
         $zip->close();
@@ -228,7 +241,9 @@ class NotesImportTest extends TestCase
         $pv = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
         $calculs = (string) $zip->getFromName('xl/worksheets/sheet2.xml');
         $textes = (string) $zip->getFromName('xl/sharedStrings.xml');
-        $this->assertStringContainsString('<sheet name="Calculs"', (string) $zip->getFromName('xl/workbook.xml'));
+        // Feuille « Calculs » invisible (ne se réaffiche pas depuis Excel) et protégée
+        $this->assertStringContainsString('<sheet name="Calculs" sheetId="2" state="veryHidden"', (string) $zip->getFromName('xl/workbook.xml'));
+        $this->assertStringContainsString('<sheetProtection', (string) $zip->getFromName('xl/worksheets/sheet2.xml'));
         $zip->close();
         $this->assertNotFalse((new \DOMDocument)->loadXML($calculs));
         // Feuille PV, ligne de CHARLIE (7) : observation, crédits, validation de l'UE et décision en formules
