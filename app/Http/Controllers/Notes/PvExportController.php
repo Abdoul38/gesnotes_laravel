@@ -33,7 +33,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * Feuille protégée : seules les cases Examen et TD (fond jaune) sont
  * modifiables, sauf celles d'une matière acquise (AV/AC, ignorées par
  * l'import) ; une note hors de 0 au maximum y est refusée. Feuille « Calculs »
- * invisible et structure du classeur protégée. Mot de passe :
+ * très masquée ; la feuille PV peut être copiée (impression), et s'imprime en
+ * A4 paysage, sur la largeur d'une page, en-têtes répétés. Mot de passe :
  * PV_EXCEL_MOT_DE_PASSE, sinon aléatoire (jamais communiqué).
  *
  * Variante « avec formules » (?formules=1, en plus de l'export en valeurs) :
@@ -247,7 +248,7 @@ class PvExportController extends Controller
         }
         // Filtres d'Excel sur la ligne 4 (une flèche par colonne), étudiants en dessous
         $classeur->feuille('PV', $lignes, $largeurs, 4, $fusions, 'A4:'.Classeur::ref($nb, $derniere), $groupes,
-            ['protegee' => true, 'validations' => $validations]);
+            ['protegee' => true, 'validations' => $validations, 'impression' => 4]);
         if ($excel) {
             [$lignesCalculs, $largeursCalculs] = $excel->feuilleCalculs();
             $classeur->feuille('Calculs', $lignesCalculs, $largeursCalculs, 4, options: ['masquee' => true]);

@@ -183,7 +183,8 @@ class PvFormulesExcel
             } elseif ($t === 'sem_rang' && $rs) {
                 $calcule = $rs->decision === 'Admis' ? $this->admis->filter(fn ($m) => $m > (float) $rs->moyenne_generale + 0.0001)->count() + 1 : null;
                 if ($rs->decision === 'Admis' ? (int) $rs->rang === $calcule && (bool) $rs->valide : ! $rs->valide) {
-                    $cellules[$i] = ['f' => 'IF('.$ref('sem_dec').'="Admis",COUNTIFS('.$this->plageDec.',"Admis",'.$this->plageMoy.',">"&'.$ref('sem_moy').')+1,"")',
+                    // SUMPRODUCT plutôt que COUNTIFS : reconnu tel quel par toutes les versions d'Excel
+                    $cellules[$i] = ['f' => 'IF('.$ref('sem_dec').'="Admis",SUMPRODUCT(('.$this->plageDec.'="Admis")*('.$this->plageMoy.'>'.$ref('sem_moy').'))+1,"")',
                         'v' => $calcule ?? '', 'style' => $cellules[$i]['style']];
                 }
             }

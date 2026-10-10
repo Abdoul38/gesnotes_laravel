@@ -162,7 +162,7 @@ class NotesImportTest extends TestCase
         $this->assertStringContainsString('<pane ySplit="4"', $zip->getFromName('xl/worksheets/sheet1.xml'));   // en-têtes figés
         // Filtres d'Excel sur chaque colonne (ligne 4) ; la ligne 4 n'est plus fusionnée avec la ligne 3
         $this->assertStringContainsString('<autoFilter ref="A4:U6"/>', $zip->getFromName('xl/worksheets/sheet1.xml'));
-        $this->assertStringContainsString('<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'PV\'!$A$4:$U$6</definedName>', $zip->getFromName('xl/workbook.xml'));
+        $this->assertStringContainsString('<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">PV!$A$4:$U$6</definedName>', $zip->getFromName('xl/workbook.xml'));
         $this->assertStringNotContainsString('S3:S4', $zip->getFromName('xl/worksheets/sheet1.xml'));
         $this->assertSame(['N°', 'Matricule', 'Nom & Prénoms'], array_slice($lignes[4], 0, 3));
         $this->assertSame(['Total/80', 'Moy./20', 'Crédits (6)', 'Validée', 'Résultat UE', 'Crédits', 'Moyenne', 'Décision', 'Mention', 'Rang'], array_slice($lignes[4], 11, 10));
@@ -174,7 +174,7 @@ class NotesImportTest extends TestCase
         foreach (['D2:P2', 'D3:H3', 'I3:K3', 'L3:P3'] as $zone) {
             $this->assertStringContainsString('<mergeCell ref="'.$zone.'"/>', $feuille);
         }
-        $this->assertStringContainsString('<sheetPr><outlinePr summaryRight="1"/></sheetPr>', $feuille);
+        $this->assertStringContainsString('<sheetPr><outlinePr summaryRight="1"/><pageSetUpPr fitToPage="1"/></sheetPr>', $feuille);
         // Feuille protégée : seules les cases Examen/TD (style 17, déverrouillé) se modifient ; ALPHA (AV) reste verrouillé
         $this->assertMatchesRegularExpression('/<sheetProtection algorithmName="SHA-512" hashValue="[^"]+" saltValue="[^"]+" spinCount="100000" sheet="1" objects="1" scenarios="1" formatColumns="0" autoFilter="0"\/>/', $feuille);
         $this->assertStringContainsString('<c r="D5" s="0"><v>30</v></c>', $feuille);
@@ -187,7 +187,11 @@ class NotesImportTest extends TestCase
             $this->assertMatchesRegularExpression('/<dataValidation type="decimal" operator="between" allowBlank="1"[^>]*sqref="'.$plage.'"><formula1>0<\/formula1><formula2>'.$max.'<\/formula2><\/dataValidation>/', $feuille);
         }
         $this->assertStringContainsString('error="Examen — Microéconomie : saisir une note de 0 à 40."', $feuille);
-        $this->assertStringContainsString('<workbookProtection workbookAlgorithmName="SHA-512"', (string) $zip->getFromName('xl/workbook.xml'));
+        // Structure du classeur libre : la feuille PV se copie (impression) ; impression A4 paysage, une page en largeur, en-têtes répétés
+        $this->assertStringNotContainsString('workbookProtection', (string) $zip->getFromName('xl/workbook.xml'));
+        $this->assertStringContainsString('<definedName name="_xlnm.Print_Titles" localSheetId="0">PV!$1:$4</definedName>', (string) $zip->getFromName('xl/workbook.xml'));
+        $this->assertStringContainsString('<pageSetUpPr fitToPage="1"/>', $feuille);
+        $this->assertStringContainsString('<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>', $feuille);
         $this->assertSame(8, substr_count($feuille, 'outlineLevel="1"/>'));                     // D à K : les 8 colonnes des matières
         $this->assertStringContainsString('<col min="11" max="11" width="6" customWidth="1" outlineLevel="1"/><col min="12" max="12" width="7" customWidth="1"/>', $feuille);
         $zip->close();
@@ -294,7 +298,7 @@ class NotesImportTest extends TestCase
         // Ligne 5 (ALPHA) : note = Exam. + TD, total et moyenne de l'UE, moyenne générale, mention, rang
         foreach (['<c r="F5" s="0"><f>IF(AND(ISNUMBER(D5),ISNUMBER(E5)),D5+E5,&quot;&quot;)</f><v>45</v>',
             '<f>SUM(F5,I5)</f><v>59</v>', '<f>ROUND(L5/80*20,2)</f><v>14.75</v>', '<f>ROUND(AVERAGE(M5),2)</f><v>14.75</v>',
-            '<f>IF(S5=&quot;Admis&quot;,IF(R5&gt;=16,&quot;Très bien&quot;,IF(R5&gt;=14,&quot;Bien&quot;', '<f>IF(S5=&quot;Admis&quot;,COUNTIFS($S$5:$S$6,&quot;Admis&quot;,$R$5:$R$6,&quot;&gt;&quot;&amp;R5)+1,&quot;&quot;)</f><v>1</v>'] as $attendu) {
+            '<f>IF(S5=&quot;Admis&quot;,IF(R5&gt;=16,&quot;Très bien&quot;,IF(R5&gt;=14,&quot;Bien&quot;', '<f>IF(S5=&quot;Admis&quot;,SUMPRODUCT(($S$5:$S$6=&quot;Admis&quot;)*($R$5:$R$6&gt;R5))+1,&quot;&quot;)</f><v>1</v>'] as $attendu) {
             $this->assertStringContainsString($attendu, $feuille);
         }
         // Validations, observations, crédits et décisions restent des valeurs

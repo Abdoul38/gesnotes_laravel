@@ -52,8 +52,10 @@ final class Classeur
      */
     /**
      * @param  list<array{0:int,1:int}>  $groupes  colonnes groupées (numéros de 1 à n, bornes comprises) : bouton −/+ d'Excel pour les replier
-     * @param  array{masquee?: bool, protegee?: bool, validations?: list<array{plage: string, min: float, max: float, titre: string}>}  $options
-     *                                                                                                                                   masquee : feuille invisible, qu'on ne peut pas réafficher depuis Excel ;
+     * @param  array{masquee?: bool, protegee?: bool, impression?: int, validations?: list<array{plage: string, min: float, max: float, titre: string}>}  $options
+     *                                                                                                                                   masquee : feuille « très masquée », qu'on ne peut pas réafficher depuis Excel (la structure du classeur
+     *                                                                                                                                   reste libre : les feuilles visibles se copient, par exemple pour l'impression) ;
+     *                                                                                                                                   impression : paysage, une page en largeur, lignes d'en-tête (nombre) répétées sur chaque page ;
      *                                                                                                                                   protegee : cellules verrouillées sauf les styles déverrouillés (zone de saisie) ;
      *                                                                                                                                   validations : nombres refusés hors de [min, max] dans la plage
      */
@@ -86,7 +88,10 @@ final class Classeur
             if ($f['filtre']) {
                 // Nom réservé qu'Excel associe au filtre automatique de la feuille
                 $plage = preg_replace('/([A-Z]+)(\d+)/', '\$$1\$$2', $f['filtre']);
-                $noms .= '<definedName name="_xlnm._FilterDatabase" localSheetId="'.$i.'" hidden="1">\''.self::xml(str_replace("'", "''", $f['nom'])).'\'!'.$plage.'</definedName>';
+                $noms .= '<definedName name="_xlnm._FilterDatabase" localSheetId="'.$i.'" hidden="1">'.self::nomFeuille($f['nom']).'!'.$plage.'</definedName>';
+            }
+            if (! empty($f['options']['impression'])) {
+                $noms .= '<definedName name="_xlnm.Print_Titles" localSheetId="'.$i.'">'.self::nomFeuille($f['nom']).'!$1:$'.(int) $f['options']['impression'].'</definedName>';
             }
             $id = $i + 1;
             $rels .= '<Relationship Id="rId'.$id.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'.$id.'.xml"/>';
@@ -114,7 +119,6 @@ final class Classeur
         // Classeur avec formules : recalcul complet à l'ouverture
         $calcul = $this->formules ? '<calcPr calcId="0" fullCalcOnLoad="1"/>' : '';
         $zip->addFromString('xl/workbook.xml', $entete.'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            .($protection ? '<workbookProtection workbookAlgorithmName="SHA-512" workbookHashValue="'.$this->empreinte[0].'" workbookSaltValue="'.$this->empreinte[1].'" workbookSpinCount="'.$this->empreinte[2].'" lockStructure="1"/>' : '')
             .'<sheets>'.$elements.'</sheets>'.($noms ? '<definedNames>'.$noms.'</definedNames>' : '').$calcul.'</workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', $entete.'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             .'<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
@@ -139,8 +143,9 @@ final class Classeur
                 $niveaux[$c] = 1;
             }
         }
-        if ($niveaux) {
-            $x .= '<sheetPr><outlinePr summaryRight="1"/></sheetPr>';
+        $impression = (int) ($f['options']['impression'] ?? 0);
+        if ($niveaux || $impression) {
+            $x .= '<sheetPr>'.($niveaux ? '<outlinePr summaryRight="1"/>' : '').($impression ? '<pageSetUpPr fitToPage="1"/>' : '').'</sheetPr>';
         }
         if ($f['figees']) {
             $x .= '<sheetViews><sheetView workbookViewId="0"><pane ySplit="'.$f['figees'].'" topLeftCell="A'.($f['figees'] + 1).'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
@@ -215,8 +220,19 @@ final class Classeur
             }
             $x .= '</dataValidations>';
         }
+        if ($impression) {
+            // A4 paysage, toute la largeur sur une page (hauteur libre)
+            $x .= '<pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/>'
+                .'<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>';
+        }
 
         return $x.'</worksheet>';
+    }
+
+    /** Nom de feuille dans une référence : tel quel s'il est simple (comme Excel), sinon entre apostrophes. */
+    private static function nomFeuille(string $nom): string
+    {
+        return preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $nom) ? $nom : "'".self::xml(str_replace("'", "''", $nom))."'";
     }
 
     private static function nombre(float $v): string
