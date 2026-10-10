@@ -224,7 +224,9 @@ class PvTest extends TestCase
 
         $this->connecte($this->admin)->get($this->url("pv/impression?id={$this->pv}"))->assertOk()
             ->assertSee('RÉSULTATS DES EXAMENS — SEMESTRE 1')->assertSee('ALPHA X')->assertSee('AVANCE Y')
-            ->assertSee('Maradi, le 10/02/2026')->assertSee('1/2')->assertSee('Admis');
+            ->assertSee('Maradi, le 10/02/2026')->assertSee('Admis')
+            // Pas de rang sur le PV imprimé ; « RÉSULTAT SEMESTRE » couvre les 4 colonnes restantes
+            ->assertDontSee('RANG')->assertDontSee('1/2')->assertSee('<th colspan="4" class="th-resume">RÉSULTAT SEMESTRE</th>', false);
         $this->get($this->url("pv/impression?id={$this->pv}&et_id=$avance"))->assertOk()->assertDontSee('ALPHA X</td>', false)->assertSee('AVANCE Y');
 
         $this->donnerPermissions('enseignant', ['pv_imprimer']);

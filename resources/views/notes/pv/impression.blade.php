@@ -94,7 +94,7 @@ table.pv th{font-weight:600}
     @foreach ($ues as $ue)
     <th colspan="{{ $ue->matieres->sum(fn ($m) => (float) $m->note_max_cc > 0 ? 5 : 3) + 5 }}" class="th-ue">{{ $ue->code }} — {{ $ue->libelle }}</th>
     @endforeach
-    <th colspan="5" class="th-resume">RÉSULTAT SEMESTRE</th>
+    <th colspan="4" class="th-resume">RÉSULTAT SEMESTRE</th>
   </tr>
   <tr>
     @foreach ($ues as $ue)
@@ -108,7 +108,8 @@ table.pv th{font-weight:600}
     <th rowspan="2" class="th-sub" style="writing-mode:vertical-rl;transform:rotate(180deg)">{{ $t }}</th>
     @endforeach
     @endforeach
-    @foreach (['RANG', 'CR. TOT.', 'MOY. GÉN.', 'DÉCISION', 'MENTION'] as $t)
+    {{-- Pas de rang sur le PV imprimé (décision de l'université) --}}
+    @foreach (['CR. TOT.', 'MOY. GÉN.', 'DÉCISION', 'MENTION'] as $t)
     <th rowspan="2" class="th-sub" style="writing-mode:vertical-rl;transform:rotate(180deg)">{{ $t }}</th>
     @endforeach
   </tr>
@@ -167,7 +168,6 @@ table.pv th{font-weight:600}
       <td style="text-align:center;font-weight:bold;background:{{ $fond }};color:{{ $couleur }}">{{ $val }}</td>
       <td style="text-align:center;font-weight:bold;background:{{ $obsUe === 'AC' ? '#dbeafe' : $fond }};color:{{ $obsUe === 'AC' ? '#1e40af' : $couleur }}">{{ $obsUe }}</td>
     @endforeach
-    <td style="font-weight:bold;font-size:9px">{{ $r?->rang ? $r->rang.'/'.$tous->count() : '—' }}</td>
     <td style="font-weight:bold;color:{{ $r && $r->credits_obtenus >= $creditsTotal ? '#1b5e20' : '#b71c1c' }}">{{ $r->credits_obtenus ?? 0 }}/{{ $creditsTotal }}</td>
     <td class="{{ $r?->valide ? 'moy-ok' : 'moy-ko' }}" style="font-size:9px;font-weight:bold">{{ $f2($r?->moyenne_generale) }}</td>
     <td class="{{ $r?->valide ? 'moy-ok' : 'moy-ko' }}" style="font-size:7.5px;font-weight:bold">{{ $r->decision ?? '—' }}</td>
