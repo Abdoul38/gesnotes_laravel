@@ -109,6 +109,38 @@ class NotesImportTest extends TestCase
         $this->assertSame('Défaillant', DB::table('resultats_semestre')->where(['pv_id' => $ratt, 'etudiant_id' => $b])->value('decision'));
     }
 
+    public function test_regles_du_rattrapage_matiere_avec_td(): void
+    {
+        // 1ère session de M1 (Exam./40 + TD/20 = /60) : tous non validés, sauf ECHO qui a acquis M1
+        $s1 = ['ALPHA' => [10, 5], 'BRAVO' => [18, 6], 'CHARLIE' => [12, 4], 'DELTA' => [12, 4], 'ECHO' => [40, 20]];
+        $ids = [];
+        foreach ($s1 as $nom => [$exam, $td]) {
+            $ids[$nom] = $this->etudiant('000'.(count($ids) + 21), $nom);
+            DB::table('notes')->insert(['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m1, 'note_examen' => $exam, 'note_cc' => $td,
+                'note_finale' => $exam + $td, 'observation' => $nom === 'ECHO' ? 'AV' : 'NV']);
+            DB::table('notes')->insert(['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m2, 'note_examen' => 6, 'note_finale' => 6, 'observation' => 'NV']);
+            DB::table('resultats_semestre')->insert(['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'valide' => 0]);
+        }
+        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'type_session' => 'rattrapage', 'pv_normale_id' => $this->pv, 'libelle' => 'Ratt']);
+        DB::table('notes')->insert(['pv_id' => $ratt, 'etudiant_id' => $ids['ECHO'], 'matiere_id' => $this->m1, 'note_examen' => 40, 'note_cc' => 20, 'note_finale' => 60, 'observation' => 'AV']);
+
+        $this->importer($this->m1, $this->fichierTexte("N° Etudiant;Nom;Prénoms;Examen/40;TD/20\n"
+            ."00021;ALPHA;X;30;\n"        // a composé, mieux qu'en 1ère session : 30 + TD de 1ère session (5) = 35
+            ."00022;BRAVO;X;10;\n"        // a composé, moins bien : 10 + 6 = 16 < 24 → la 1ère session (24) est gardée
+            ."00024;DELTA;X;;15\n"        // examen vide (TD saisi) : n'a pas composé → note écrasée
+            ."00025;ECHO;X;5;0\n"),        // matière acquise en 1ère session : ignorée
+            $ratt)->assertSessionHas('resultat_import', fn ($r) => $r['ok'] === 3 && $r['absents'] === 1);   // CHARLIE, absent du fichier
+
+        $note = fn ($nom) => DB::table('notes')->where(['pv_id' => $ratt, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m1])->first();
+        $this->assertSame(['30.00', '5.00', '35.00', 0], [$note('ALPHA')->note_examen, $note('ALPHA')->note_cc, $note('ALPHA')->note_finale, (int) $note('ALPHA')->defaillant]);
+        $this->assertSame(['18.00', '6.00', '24.00'], [$note('BRAVO')->note_examen, $note('BRAVO')->note_cc, $note('BRAVO')->note_finale]);
+        foreach (['CHARLIE', 'DELTA'] as $absent) {
+            $this->assertSame([null, null, 1], [$note($absent)->note_examen, $note($absent)->note_finale, (int) $note($absent)->defaillant], $absent);
+            $this->assertSame('Défaillant', DB::table('resultats_semestre')->where(['pv_id' => $ratt, 'etudiant_id' => $ids[$absent]])->value('decision'));
+        }
+        $this->assertSame('60.00', $note('ECHO')->note_finale);
+    }
+
     public function test_export_puis_reimport_du_pv_complet(): void
     {
         $a = $this->etudiant('00012', 'ALPHA');

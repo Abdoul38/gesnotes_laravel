@@ -156,6 +156,24 @@ class PortailEnseignantTest extends TestCase
             ->assertSessionHas('erreur', 'Aucun dossier enseignant lié à votre compte.');
     }
 
+    public function test_rattrapage_td_de_premiere_session_et_absent(): void
+    {
+        // M1 (Exam./40 + TD/20) non validée en 1ère session : 10 + 5 = 15 ; 12 + 4 = 16
+        $a = $this->etudiant('00001', 'ALPHA');
+        $b = $this->etudiant('00002', 'BRAVO');
+        DB::table('notes')->insert([
+            ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m1, 'note_examen' => 10, 'note_cc' => 5, 'note_finale' => 15, 'observation' => 'NV'],
+            ['pv_id' => $this->pv, 'etudiant_id' => $b, 'matiere_id' => $this->m1, 'note_examen' => 12, 'note_cc' => 4, 'note_finale' => 16, 'observation' => 'NV'],
+        ]);
+        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'type_session' => 'rattrapage',
+            'libelle' => 'PV S1 rattrapage', 'pv_normale_id' => $this->pv]);
+
+        // L'enseignant de cours saisit l'examen : TD de 1ère session repris (30 + 5 = 35) ; BRAVO laissé vide = n'a pas composé
+        $this->saisir($this->cours, 'exam', [$a => '30', $b => ''], $this->m1, $ratt)->assertSessionHas('succes');
+        $this->assertSame(['30.00', '5.00', '35.00'], [$this->note($a, $this->m1, $ratt)->note_examen, $this->note($a, $this->m1, $ratt)->note_cc, $this->note($a, $this->m1, $ratt)->note_finale]);
+        $this->assertSame([null, 1], [$this->note($b, $this->m1, $ratt)->note_finale, (int) $this->note($b, $this->m1, $ratt)->defaillant]);
+    }
+
     public function test_rattrapage_modele_et_import(): void
     {
         $admin = $this->creerUtilisateur('admin');

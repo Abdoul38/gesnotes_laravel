@@ -8,8 +8,16 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Enregistrement des notes d'un PV, commun à l'import de la scolarité et au
- * portail enseignant : mêmes bornes, même règle de rattrapage (meilleure note
- * finale entre les deux sessions), même lecture des fichiers.
+ * portail enseignant : mêmes bornes, même lecture des fichiers, mêmes règles
+ * de rattrapage (règles de l'université) :
+ *  - le rattrapage est obligatoire pour chaque matière non acquise (ni AV ni
+ *    AC) en 1ère session ;
+ *  - examen vide (n'a pas composé) : la note de 1ère session est écrasée —
+ *    note vide, matière défaillante ;
+ *  - examen saisi (a composé) : la meilleure note finale entre le rattrapage
+ *    et la 1ère session est gardée ;
+ *  - le TD n'est pas repassé : vide au rattrapage, celui de 1ère session est
+ *    repris pour calculer la note de rattrapage.
  */
 class SaisieNotes
 {
@@ -25,29 +33,37 @@ class SaisieNotes
     }
 
     /**
-     * Enregistre les notes [étudiant][matière] = [examen, TD]. En rattrapage,
-     * la meilleure note entre 1ère session et rattrapage est gardée.
+     * Enregistre les notes [étudiant][matière] = [examen, TD], avec les règles
+     * de rattrapage ci-dessus. Différences voulues : examen vide au rattrapage
+     * = absent même si un TD est saisi (la 1ère session était gardée) ; TD
+     * vide au rattrapage = TD de 1ère session (la note n'était pas calculée et
+     * la 1ère session restait, même si le rattrapage était meilleur).
      */
     public function enregistrer(object $pv, array $saisies, int $utilisateur): int
     {
         $matieres = $this->matieres($pv)->keyBy('id');
-        $normale = ($pv->type_session === 'rattrapage' && $pv->pv_normale_id)
+        $rattrapage = $pv->type_session === 'rattrapage' && $pv->pv_normale_id;
+        $normale = $rattrapage
             ? DB::table('notes')->where('pv_id', $pv->pv_normale_id)->get()->groupBy('etudiant_id')->map->keyBy('matiere_id') : collect();
         $lignes = [];
         foreach ($saisies as $et => $mats) {
             foreach ($mats as $mid => [$exam, $td]) {
                 $avecTd = (float) $matieres[$mid]->note_max_cc > 0;
+                $n1 = $normale[$et][$mid] ?? null;
+                $defaillant = 0;
+                if ($rattrapage && $exam === null) {
+                    // N'a pas composé : la note de 1ère session est écrasée
+                    [$td, $defaillant] = [null, 1];
+                } elseif ($rattrapage && $avecTd && $td === null && $n1?->note_cc !== null) {
+                    $td = (float) $n1->note_cc;   // TD non repassé : celui de 1ère session
+                }
                 // Note finale seulement si l'examen ET le TD prévu sont saisis
                 $finale = ($exam !== null && (! $avecTd || $td !== null)) ? $exam + ($td ?? 0) : null;
-                $n1 = $normale[$et][$mid] ?? null;
-                if ($n1 && $n1->note_finale !== null) {
-                    $garderSession1 = $finale === null ? (float) $n1->note_finale != 0.0 : (float) $n1->note_finale > $finale;
-                    if ($garderSession1) {
-                        [$exam, $td, $finale] = [$n1->note_examen, $n1->note_cc, (float) $n1->note_finale];
-                    }
+                if ($rattrapage && ! $defaillant && $n1 && $n1->note_finale !== null && ($finale === null || (float) $n1->note_finale > $finale)) {
+                    [$exam, $td, $finale] = [$n1->note_examen, $n1->note_cc, (float) $n1->note_finale];   // meilleure des deux sessions
                 }
                 $lignes[] = ['pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mid, 'note_examen' => $exam, 'note_cc' => $td,
-                    'note_finale' => $finale, 'defaillant' => 0, 'saisie_par' => $utilisateur, 'updated_at' => now()];
+                    'note_finale' => $finale, 'defaillant' => $defaillant, 'saisie_par' => $utilisateur, 'updated_at' => now()];
             }
         }
         foreach (array_chunk($lignes, 500) as $paquet) {
@@ -74,10 +90,13 @@ class SaisieNotes
         $lignes = [];
         foreach ($valeurs as $et => $valeur) {
             $n = $existantes[$et] ?? null;
+            $n1 = $session1[$et] ?? null;
             $exam = $type === 'exam' ? $valeur : ($n?->note_examen !== null ? (float) $n->note_examen : null);
             $td = $type === 'cc' ? $valeur : ($n?->note_cc !== null ? (float) $n->note_cc : null);
+            if ($session1->isNotEmpty() && $type === 'exam' && $valeur !== null && $avecTd && $td === null && $n1?->note_cc !== null) {
+                $td = (float) $n1->note_cc;   // rattrapage : TD non repassé, celui de 1ère session
+            }
             $finale = ($valeur !== null && $exam !== null && (! $avecTd || $td !== null)) ? $exam + ($td ?? 0) : null;
-            $n1 = $session1[$et] ?? null;
             if ($finale !== null && $n1 && $n1->note_finale !== null && (float) $n1->note_finale > $finale) {
                 [$exam, $td, $finale] = [$n1->note_examen, $n1->note_cc, (float) $n1->note_finale];
             }
