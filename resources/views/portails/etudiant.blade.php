@@ -4,7 +4,7 @@
 @section('contenu')
 @php
     $parametres = fn (array $p = []) => $p + ($personnel && $et ? ['et_id' => $et->id] : []);
-    $couleurDecision = fn ($d) => $d === 'Admis' ? 'var(--green-700)' : ($d === 'Défaillant' ? 'var(--red-600)' : 'var(--amber-600)');
+    $couleurDecision = fn ($d) => $d === 'Admis' ? 'var(--green-700)' : (in_array($d, ['Défaillant', 'Elim'], true) ? 'var(--red-600)' : 'var(--amber-600)');
 @endphp
 
 @if ($personnel)

@@ -91,10 +91,10 @@
   <tr>
     <td style="font-weight:600">{{ $r->filiere }}</td><td><span class="badge badge-blue">{{ $r->niveau }}</span></td><td style="font-weight:700;color:#7C3AED">{{ $r->sem_code }}</td>
     <td>{{ \App\Services\IndicateursNationaux::SESSIONS[$r->type_session] ?? $r->type_session }}</td>
-    <td style="text-align:center">@if ($r->defaillant)<span style="color:#dc2626;font-weight:700">Défaillant</span>@elseif ($r->moyenne_generale !== null)<strong style="color:{{ $r->valide ? '#166534' : '#dc2626' }}">{{ $note($r->moyenne_generale) }}</strong>/20 @else — @endif</td>
+    <td style="text-align:center">@if ($r->defaillant)<span style="color:#dc2626;font-weight:700">{{ $r->decision === 'Elim' ? 'Elim' : 'Défaillant' }}</span>@elseif ($r->moyenne_generale !== null)<strong style="color:{{ $r->valide ? '#166534' : '#dc2626' }}">{{ $note($r->moyenne_generale) }}</strong>/20 @else — @endif</td>
     <td style="text-align:center">{{ $r->defaillant ? '—' : $r->credits_obtenus.'/'.$r->credits_total }}</td>
     <td>{{ $r->mention ?? '—' }}</td>
-    <td style="text-align:center">@if ($r->defaillant)<span class="badge badge-amber">Déf.</span>@elseif ($r->valide)<span class="badge badge-green">✅ Validé</span>@else<span class="badge badge-red">❌ Non validé</span>@endif</td>
+    <td style="text-align:center">@if ($r->defaillant)<span class="badge badge-amber">{{ $r->decision === 'Elim' ? 'Elim' : 'Déf.' }}</span>@elseif ($r->valide)<span class="badge badge-green">✅ Validé</span>@else<span class="badge badge-red">❌ Non validé</span>@endif</td>
   </tr>
   @endforeach
   </tbody>

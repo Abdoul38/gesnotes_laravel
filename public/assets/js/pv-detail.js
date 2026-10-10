@@ -13,7 +13,7 @@
     return fetch(url, { method: 'POST', body: fd, headers: { 'X-CSRF-TOKEN': jeton, 'Accept': 'application/json' } })
       .then(function (r) { return r.json(); });
   }
-  var couleurs = { 'AV': 'var(--green-700)', 'AC': 'var(--blue-600)', 'NV': 'var(--amber-600)', 'Déf.': 'var(--red-600)' };
+  var couleurs = { 'AV': 'var(--green-700)', 'AC': 'var(--blue-600)', 'NV': 'var(--amber-600)', 'Déf.': 'var(--red-600)', 'Elim': 'var(--red-600)' };
   var f2 = function (v) { return v === null || v === undefined ? '—' : Number(v).toFixed(2); };
   function cellule(tr, classe, texte, couleur) {
     var td = tr.querySelector('.' + classe);
@@ -58,7 +58,8 @@
         });
         Object.keys(d.ues).forEach(function (ue) {
           var u = d.ues[ue];
-          var obs = u.defaillant ? 'Déf.' : (!u.valide ? 'NV' : null);
+          // Déf. : une note manque dans l'UE ; Elim : note ou moyenne d'UE éliminatoire
+          var obs = u.defaillant ? (u.vide ? 'Déf.' : 'Elim') : (!u.valide ? 'NV' : null);
           cellule(tr, 'ue-total-' + ue, f2(u.total));
           cellule(tr, 'ue-moy-' + ue, f2(u.moyenne), u.valide ? 'var(--green-700)' : 'var(--amber-600)');
           cellule(tr, 'ue-cred-' + ue, u.credits + '/' + u.max, u.credits >= u.max ? 'var(--green-700)' : 'var(--red-600)');

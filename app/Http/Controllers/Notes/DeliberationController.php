@@ -56,7 +56,9 @@ class DeliberationController extends Controller
             'stats' => [
                 'total' => $resultats->count(),
                 'admis' => $admis->count(),
-                'defaillants' => $resultats->where('defaillant', 1)->count(),
+                // Défaillant : une note manque ; Elim : note ou moyenne d'UE éliminatoire
+                'defaillants' => $resultats->where('defaillant', 1)->where('decision', '!=', 'Elim')->count(),
+                'elimines' => $resultats->where('decision', 'Elim')->count(),
                 'ajournes' => $resultats->where('valide', 0)->where('defaillant', 0)->count(),
             ],
             'admisListe' => DB::table('resultats_semestre as rs')->join('etudiants as e', 'e.id', '=', 'rs.etudiant_id')

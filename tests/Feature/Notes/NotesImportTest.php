@@ -215,7 +215,7 @@ class NotesImportTest extends TestCase
         $cas = [
             'ALPHA' => [30, 15, 14],     // tout validé → Admis
             'BRAVO' => [20, 10, 9],      // UE 9,75 → Ajourné
-            'CHARLIE' => [38, 18, 4],    // 4/20 < 5 → Défaillant, même avec une UE à 15
+            'CHARLIE' => [38, 18, 4],    // 4/20 < 5 → Elim (note éliminatoire), même avec une UE à 15
             'DELTA' => [28, 12, 8],      // UE 12 → M2 compensée (AC) → Admis
             'ECHO' => [30, 15, null],    // examen M2 absent → Défaillant
             'FOXTROT' => [40, 20, 5],    // 5/20 n'est pas sous la note éliminatoire → compensée → Admis
@@ -231,7 +231,7 @@ class NotesImportTest extends TestCase
             app(\App\Services\Resultats::class)->recalculer($this->pv, $ids[$nom]);
         }
         app(\App\Services\Resultats::class)->recalculerRangs($this->pv);
-        $this->assertSame(['Admis', 'Ajourné', 'Défaillant', 'Admis', 'Défaillant', 'Admis'],
+        $this->assertSame(['Admis', 'Ajourné', 'Elim', 'Admis', 'Défaillant', 'Admis'],
             array_map(fn ($id) => DB::table('resultats_semestre')->where('etudiant_id', $id)->value('decision'), array_values($ids)));
 
         $this->connecte($this->admin);
@@ -253,7 +253,12 @@ class NotesImportTest extends TestCase
         // Feuille PV, ligne de CHARLIE (7) : observation, crédits, validation de l'UE et décision en formules
         foreach (['<f>IF(NOT(ISNUMBER(I7)),&quot;Déf.&quot;,IF(Calculs!I7,&quot;AC&quot;,IF(Calculs!H7,&quot;AV&quot;,&quot;NV&quot;)))</f><v>NV</v>',
             '<f>IF(OR(K7=&quot;AV&quot;,K7=&quot;AC&quot;),3,0)</f><v>0</v>', '<f>Calculs!O7&amp;&quot;/6&quot;</f><v>3/6</v>',
-            '<f>IF(Calculs!P7,&quot;Défaillant&quot;,IF(Calculs!S7&gt;=6,&quot;Admis&quot;,&quot;Ajourné&quot;))</f><v>Défaillant</v>'] as $attendu) {
+            // Note éliminatoire sans case vide : « Elim » pour l'UE et le semestre
+            '<f>IF(Calculs!J7,IF(OR(NOT(ISNUMBER(PV!D7)),NOT(ISNUMBER(PV!E7)),NOT(ISNUMBER(PV!I7))),&quot;Déf.&quot;,&quot;Elim&quot;),IF(NOT(Calculs!N7),&quot;NV&quot;,IF(M7&lt;10,&quot;AC&quot;,&quot;AV&quot;)))</f><v>Elim</v>',
+            '<f>IF(Calculs!P7,IF(OR(P7=&quot;Déf.&quot;),&quot;Défaillant&quot;,&quot;Elim&quot;),IF(Calculs!S7&gt;=6,&quot;Admis&quot;,&quot;Ajourné&quot;))</f><v>Elim</v>',
+            // ECHO (ligne 9) : examen manquant → « Déf. » / « Défaillant »
+            '<f>IF(Calculs!J9,IF(OR(NOT(ISNUMBER(PV!D9)),NOT(ISNUMBER(PV!E9)),NOT(ISNUMBER(PV!I9))),&quot;Déf.&quot;,&quot;Elim&quot;),IF(NOT(Calculs!N9),&quot;NV&quot;,IF(M9&lt;10,&quot;AC&quot;,&quot;AV&quot;)))</f><v>Déf.</v>',
+            '<f>IF(Calculs!P9,IF(OR(P9=&quot;Déf.&quot;),&quot;Défaillant&quot;,&quot;Elim&quot;),IF(Calculs!S9&gt;=6,&quot;Admis&quot;,&quot;Ajourné&quot;))</f><v>Défaillant</v>'] as $attendu) {
             $this->assertStringContainsString($attendu, $pv);
         }
         // Feuille Calculs : note éliminatoire strictement inférieure à 5/20 (M2 sur 20 → 5 ; M1 sur 60 → 15)
@@ -261,7 +266,7 @@ class NotesImportTest extends TestCase
         $this->assertStringContainsString('PV!F7&lt;15,FALSE)', $calculs);
         $this->assertStringContainsString('strictement inférieure à 5/20', $textes);
         // Chaque ligne a reçu les formules des règles
-        $this->assertSame(6, substr_count($pv, '&quot;Défaillant&quot;,IF(Calculs!'));
+        $this->assertSame(6, substr_count($pv, '&quot;Défaillant&quot;,&quot;Elim&quot;),IF(Calculs!'));
     }
 
     public function test_export_avec_formules_memes_valeurs_que_le_pv(): void

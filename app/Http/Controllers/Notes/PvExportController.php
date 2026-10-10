@@ -128,7 +128,7 @@ class PvExportController extends Controller
         $lignes[] = ['height' => 40, 'cells' => $l3];
         $lignes[] = ['height' => 30, 'cells' => $l4];
 
-        $styleObs = fn (?string $o) => ['AV' => 5, 'AC' => 6, 'NV' => 7, 'Déf.' => 8][$o] ?? 0;
+        $styleObs = fn (?string $o) => ['AV' => 5, 'AC' => 6, 'NV' => 7, 'Déf.' => 8, 'Elim' => 8][$o] ?? 0;
         $formules = $request->boolean('formules');
         $excel = $formules ? app(PvFormulesExcel::class) : null;
         $excel?->preparer($pv, $cols, $ues, $etudiants, $resSem);
@@ -160,7 +160,7 @@ class PvExportController extends Controller
                 }
                 if ($ue) {
                     $r = $resUe[$et->id][$ue->id] ?? null;
-                    $obsUe = ! $r ? '—' : ($r->defaillant ? 'Déf.' : (! $r->valide ? 'NV' : ((float) $r->moyenne_20 < $seuil ? 'AC' : 'AV')));
+                    $obsUe = Resultats::observationUe($r, $ue->matieres->contains(fn ($m) => Resultats::caseVide($notes[$et->id][$m->id] ?? null, $m)), $seuil);
                     $cellules[] = match ($t) {
                         'ue_tot' => $n($r?->total_points),
                         'ue_moy' => $n($r?->moyenne_20, $r && (float) $r->moyenne_20 >= $seuil ? 9 : 10),
@@ -177,7 +177,7 @@ class PvExportController extends Controller
                     'nom' => $c($et->nom.' '.$et->prenoms, 12),
                     'sem_cr' => $c(($rs->credits_obtenus ?? 0).'/'.$creditsTotal, 11),
                     'sem_moy' => $n($rs?->moyenne_generale, $rs?->valide ? 9 : 10),
-                    'sem_dec' => $c($rs->decision ?? '—', ['Admis' => 14, 'Défaillant' => 8][$rs->decision ?? ''] ?? 15),
+                    'sem_dec' => $c($rs->decision ?? '—', ['Admis' => 14, 'Défaillant' => 8, 'Elim' => 8][$rs->decision ?? ''] ?? 15),
                     'sem_men' => $c($rs?->valide ? $rs->mention : '', 11),
                     'sem_rang' => $c($rs?->valide ? (string) $rs->rang : '', 13),
                 };

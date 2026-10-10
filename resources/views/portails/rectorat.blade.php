@@ -295,7 +295,7 @@
       <td style="text-align:center;font-weight:700;color:{{ ($sm->moyenne_generale ?? 0) >= 10 ? '#166534' : '#d97706' }}">{{ $sm->moyenne_generale !== null ? number_format($sm->moyenne_generale, 2) : '—' }}</td>
       <td style="text-align:center"><strong style="color:{{ (int) $sm->credits_obtenus >= (int) $sm->credits_total ? '#166534' : '#d97706' }}">{{ (int) $sm->credits_obtenus }}</strong>/{{ (int) $sm->credits_total }}</td>
       <td style="text-align:center">{{ $sm->mention ?? '—' }}</td>
-      <td style="text-align:center;font-weight:700;color:{{ $sm->decision === 'Admis' ? '#166534' : ($sm->decision === 'Défaillant' ? '#dc2626' : '#d97706') }}">{{ $sm->decision ?? '—' }}</td>
+      <td style="text-align:center;font-weight:700;color:{{ $sm->decision === 'Admis' ? '#166534' : (in_array($sm->decision, ['Défaillant', 'Elim'], true) ? '#dc2626' : '#d97706') }}">{{ $sm->decision ?? '—' }}</td>
     </tr>
     @endforeach
     @foreach ($bloc['sans_resultat'] as $ins)

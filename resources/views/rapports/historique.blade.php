@@ -47,7 +47,7 @@
           <td style="text-align:center;font-weight:700;color:{{ ($s->moyenne_generale ?? 0) >= 10 ? 'var(--green-700)' : 'var(--amber-600)' }}">{{ $s->moyenne_generale !== null ? number_format($s->moyenne_generale, 2) : '—' }}</td>
           <td style="text-align:center;font-size:12px"><strong style="color:{{ $s->credits_obtenus >= $s->credits_total ? 'var(--green-700)' : 'var(--amber-600)' }}">{{ (int) $s->credits_obtenus }}</strong>/{{ (int) $s->credits_total }}</td>
           <td style="text-align:center;font-size:11px;font-weight:600;color:var(--green-700)">{{ $s->mention ?? '—' }}</td>
-          <td style="text-align:center;font-weight:700;font-size:12px;color:{{ $s->decision === 'Admis' ? 'var(--green-700)' : ($s->decision === 'Défaillant' ? 'var(--red-600)' : 'var(--amber-600)') }}">{{ $s->decision ?? '—' }}</td>
+          <td style="text-align:center;font-weight:700;font-size:12px;color:{{ $s->decision === 'Admis' ? 'var(--green-700)' : (in_array($s->decision, ['Défaillant', 'Elim'], true) ? 'var(--red-600)' : 'var(--amber-600)') }}">{{ $s->decision ?? '—' }}</td>
           <td style="text-align:center">
             @if ($s->valide)
             <a href="{{ route('releve_notes', ['pv_id' => $s->pv_id, 'et_id' => $et->id]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary" title="Relevé de notes">📄</a>

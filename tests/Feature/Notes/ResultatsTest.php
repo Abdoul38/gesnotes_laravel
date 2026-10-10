@@ -118,20 +118,56 @@ class ResultatsTest extends TestCase
 
     public function test_note_eliminatoire_et_regle_figee_pour_l_annee(): void
     {
-        // M3 4/20 < 5 : éliminatoire → défaillant
+        // M3 4/20 < 5 : éliminatoire → « Elim » (aucune note ne manque), toujours défaillant pour les règles
         $et = $this->etudiant(['M1' => [38, 18], 'M2' => [38, 18], 'M3' => [4, null]]);
-        $this->assertSame('Défaillant', $this->resultat($et)->decision);
+        $r = $this->resultat($et);
+        $this->assertSame(['Elim', 'Elim', 1, null], [$r->decision, $r->mention, (int) $r->defaillant, $r->rang]);
+        $this->assertSame('NV', $this->obs($et, 'M3'));
+        $ru = DB::table('resultats_ue')->where(['etudiant_id' => $et, 'ue_id' => $this->ue['UE2']])->first();
+        $this->assertSame('Elim', \App\Services\Resultats::observationUe($ru, false, 10));
+        $this->assertSame('Déf.', \App\Services\Resultats::observationUe($ru, true, 10));
+
+        // Une case vide l'emporte sur la note éliminatoire : « Défaillant »
+        $vide = $this->etudiant(['M1' => [38, null], 'M2' => [38, 18], 'M3' => [4, null]]);
+        $this->assertSame(['Défaillant', 'Défaillant'], [$this->resultat($vide)->decision, $this->resultat($vide)->mention]);
+
+        // Moyenne d'UE sous la note éliminatoire d'UE, sans note éliminatoire de matière : « Elim »
+        DB::table('parametres_annee')->insert(['cle' => 'note_eliminatoire', 'annee_id' => $this->annee, 'valeur' => '0']);
+        $this->assertSame('Elim', $this->resultat($et)->decision);
 
         // Note éliminatoire désactivée pour CETTE année : compensation entre UE possible
-        DB::table('parametres_annee')->insert(['cle' => 'note_eliminatoire', 'annee_id' => $this->annee, 'valeur' => '0']);
         DB::table('parametres_annee')->insert(['cle' => 'note_eliminatoire_ue', 'annee_id' => $this->annee, 'valeur' => '0']);
         $this->assertSame('Admis', $this->resultat($et)->decision);
+    }
+
+    public function test_commande_distinguer_elimines(): void
+    {
+        // Résultats enregistrés avant la distinction : tous « Défaillant »
+        $elim = $this->etudiant(['M1' => [38, 18], 'M2' => [38, 18], 'M3' => [4, null]]);
+        $vide = $this->etudiant(['M1' => [38, null], 'M2' => [38, 18], 'M3' => [4, null]]);
+        // Données anciennes : TD vide mais note finale enregistrée (examen seul) → case vide, reste « Défaillant »
+        $tdVide = $this->etudiant(['M2' => [38, 18], 'M3' => [16, null]]);
+        DB::table('notes')->insert(['pv_id' => $this->pv, 'etudiant_id' => $tdVide, 'matiere_id' => $this->m['M1'], 'note_examen' => 38, 'note_cc' => null, 'note_finale' => 38]);
+        $this->assertSame('Défaillant', $this->resultat($tdVide)->decision);
+        $this->resultat($elim);
+        $this->resultat($vide);
+        DB::table('resultats_semestre')->update(['decision' => 'Défaillant', 'mention' => 'Défaillant']);
+
+        $this->artisan('gesnotes:distinguer-elimines', ['--universite' => ['udh']])
+            ->expectsOutputToContain('1 résultat(s) « Défaillant » à passer en « Elim »')->assertSuccessful();
+        $this->assertSame(0, DB::table('resultats_semestre')->where('decision', 'Elim')->count());
+
+        $this->artisan('gesnotes:distinguer-elimines', ['--universite' => ['udh'], '--appliquer' => true])->assertSuccessful();
+        $decision = fn ($et) => DB::table('resultats_semestre')->where('etudiant_id', $et)->first(['decision', 'mention']);
+        $this->assertEquals((object) ['decision' => 'Elim', 'mention' => 'Elim'], $decision($elim));
+        $this->assertEquals((object) ['decision' => 'Défaillant', 'mention' => 'Défaillant'], $decision($vide));
+        $this->assertEquals((object) ['decision' => 'Défaillant', 'mention' => 'Défaillant'], $decision($tdVide));
     }
 
     public function test_rattrapage_conserve_les_matieres_acquises(): void
     {
         $et = $this->etudiant(['M1' => [30, 15], 'M2' => [10, 5], 'M3' => [4, null]]);
-        $this->assertSame('Défaillant', $this->resultat($et)->decision);
+        $this->assertSame('Elim', $this->resultat($et)->decision);
         $ratt = $this->pv('rattrapage', $this->pv);
         DB::table('notes')->insert([
             ['pv_id' => $ratt, 'etudiant_id' => $et, 'matiere_id' => $this->m['M2'], 'note_examen' => 30, 'note_cc' => 14],

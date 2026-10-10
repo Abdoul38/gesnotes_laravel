@@ -232,6 +232,7 @@ class PvTest extends TestCase
             // Groupes de colonnes (identité, UE, résultat) pour le découpage en bandes à l'impression
             ->assertSee('<th rowspan="3" data-g="f"', false)->assertSee('data-g="0" class="th-ue"', false)->assertSee('<th colspan="4" data-g="r"', false)
             ->assertSee('@page{size:A4 landscape', false)
+            ->assertSee('<strong>Elim</strong> = Note éliminatoire', false)
             ->assertSee('assets/js/pv-impression.js', false)->assertSee('<option value="a3" >A3 paysage</option>', false);
         // Format A3 paysage pour les PV très chargés
         $this->get($this->url("pv/impression?id={$this->pv}&format=a3"))->assertOk()

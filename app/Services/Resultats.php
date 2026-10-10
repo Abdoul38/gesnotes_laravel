@@ -25,7 +25,11 @@ use Throwable;
  *  - compensation intra-UE : moyenne d'UE ≥ seuil et aucune défaillance ;
  *  - compensation inter-UE : moyenne générale ≥ seuil, aucune défaillance,
  *    exactement une UE non validée ;
- *  - semestre validé : tous les crédits, aucune défaillance.
+ *  - semestre validé : tous les crédits, aucune défaillance ;
+ *  - décision d'un semestre non validé avec défaillance : « Défaillant » si
+ *    une note manque (case vide), sinon « Elim » (note ou moyenne d'UE
+ *    éliminatoire) ; même distinction pour l'observation d'UE (« Déf. » /
+ *    « Elim », voir observationUe()).
  */
 class Resultats
 {
@@ -95,6 +99,37 @@ class Resultats
         }
 
         return ['defaillant' => false, 'note_finale' => $finale(), 'motif' => 'ok'];
+    }
+
+    /**
+     * Une case de la matière est-elle vide (examen, ou TD s'il est prévu) ?
+     * Matière acquise (AV/AC, ex. en session normale) ou note reportée : non.
+     * Sans ligne de note (option non choisie) : non — le moteur enregistre une
+     * ligne pour chaque matière qu'il prend en compte.
+     */
+    public static function caseVide(?object $note, object $matiere): bool
+    {
+        if (! $note || in_array($note->observation ?? null, ['AV', 'AC'], true) || ! empty($note->reportee)) {
+            return false;
+        }
+
+        return $note->note_examen === null || ((float) $matiere->note_max_cc > 0 && $note->note_cc === null);
+    }
+
+    /**
+     * Observation d'une UE au PV : « Déf. » si une case est vide dans l'UE
+     * (voir caseVide()), « Elim » si l'UE est défaillante pour une note ou une
+     * moyenne éliminatoire, sinon NV / AC / AV.
+     */
+    public static function observationUe(?object $ru, bool $caseVide, float $seuil): string
+    {
+        return match (true) {
+            ! $ru => '—',
+            (bool) $ru->defaillant => $caseVide ? 'Déf.' : 'Elim',
+            ! $ru->valide => 'NV',
+            (float) $ru->moyenne_20 < $seuil => 'AC',
+            default => 'AV',
+        };
     }
 
     /** Ancien recalculerResultats() : calcule et enregistre les résultats d'un étudiant pour un PV. */
@@ -168,6 +203,7 @@ class Resultats
         $nbUe = 0;
         $totalCredits = 0;
         $defaillantGlobal = false;
+        $caseVide = false; // une note manque : « Défaillant » plutôt que « Elim »
         $resUe = [];
 
         foreach ($ues as $ue) {
@@ -195,7 +231,8 @@ class Resultats
                     }
                 }
                 $dejaValidee = isset($validesNormale[$mat['matiere_id']]);
-                $def = self::matiereDefaillante($note, $mat, $elimMatiere, $dejaValidee)['defaillant'];
+                $etat = self::matiereDefaillante($note, $mat, $elimMatiere, $dejaValidee);
+                $def = $etat['defaillant'];
                 $moy20 = ($val !== null && $mat['note_max_totale'] > 0) ? round(($val / $mat['note_max_totale']) * 20, 4) : null;
                 $mats[$mat['matiere_id']] = [
                     'note_max' => $mat['note_max_totale'], 'm_credits' => $mat['m_credits'],
@@ -210,6 +247,7 @@ class Resultats
                 $max += $mat['note_max_totale'];
                 if ($def) {
                     $ueDef = true;
+                    $caseVide = $caseVide || in_array($etat['motif'], ['examen_manquant', 'td_manquant'], true);
                 }
             }
             if ($ueDef) {
@@ -279,8 +317,9 @@ class Resultats
         // 6. Décision
         $creditsObtenus = array_sum(array_column($resUe, 'credits'));
         $valide = ! $defaillantGlobal && $creditsObtenus >= $totalCredits;
-        $mention = $valide ? $this->mention($moyGen) : ($defaillantGlobal ? 'Défaillant' : 'Ajourné');
-        $decision = $valide ? 'Admis' : ($defaillantGlobal ? 'Défaillant' : 'Ajourné');
+        $nonValide = $defaillantGlobal ? ($caseVide ? 'Défaillant' : 'Elim') : 'Ajourné';
+        $mention = $valide ? $this->mention($moyGen) : $nonValide;
+        $decision = $valide ? 'Admis' : $nonValide;
 
         // 7. Observations par matière (insertion si absente : matière exemptée en rattrapage)
         foreach ($resUe as $r) {

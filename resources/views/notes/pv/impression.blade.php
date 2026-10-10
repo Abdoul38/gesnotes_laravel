@@ -2,7 +2,7 @@
 @php
     use App\Support\Format;
     $f2 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
-    $classeObs = fn ($o) => ['AV' => 'obs-av', 'AC' => 'obs-ac', 'NV' => 'obs-nv', 'Déf.' => 'obs-nv'][$o] ?? '';
+    $classeObs = fn ($o) => ['AV' => 'obs-av', 'AC' => 'obs-ac', 'NV' => 'obs-nv', 'Déf.' => 'obs-nv', 'Elim' => 'obs-nv'][$o] ?? '';
     $creditsTotal = $ues->sum('credits_total');
     // Largeur utile du papier en paysage : largeur − marges de page (2 × 8 mm) − marges du contenu (2 × 6 mm)
     $largeurPapierMm = $format === 'a3' ? 420 - 16 - 12 : 297 - 16 - 12;
@@ -95,7 +95,7 @@ body.mesure-impression .td-name{min-width:90px !important}
 </div>
 
 <div style="margin:4px 0;font-size:8px;border:0.5px solid #ccc;padding:3px 6px;background:#f9f9f9">
-  <strong>AV</strong> = Acquis/Validé &nbsp;|&nbsp; <strong>AC</strong> = Acquis par Compensation &nbsp;|&nbsp; <strong>NV</strong> = Non Validé &nbsp;|&nbsp; <strong>Déf.</strong> = Défaillant
+  <strong>AV</strong> = Acquis/Validé &nbsp;|&nbsp; <strong>AC</strong> = Acquis par Compensation &nbsp;|&nbsp; <strong>NV</strong> = Non Validé &nbsp;|&nbsp; <strong>Déf.</strong> = Défaillant (note manquante) &nbsp;|&nbsp; <strong>Elim</strong> = Note éliminatoire
 </div>
 
 <div class="pv-cadre">
@@ -176,7 +176,7 @@ body.mesure-impression .td-name{min-width:90px !important}
       @php
           $ru = $resUe[$et->id][$ue->id] ?? null;
           [$val, $obsUe, $fond, $couleur] = ! $ru ? ['—', '—', '#f3f4f6', '#6b7280']
-              : ($ru->defaillant ? ['NON', 'Déf.', '#fee2e2', '#991b1b']
+              : ($ru->defaillant ? ['NON', $ue->matieres->contains(fn ($m) => \App\Services\Resultats::caseVide($notes[$et->id][$m->id] ?? null, $m)) ? 'Déf.' : 'Elim', '#fee2e2', '#991b1b']
               : (! $ru->valide ? ['NON', 'NV', '#fef3c7', '#92400e']
               : ['OUI', (float) $ru->moyenne_20 < $seuil ? 'AC' : 'AV', '#dcfce7', '#166534']));
       @endphp

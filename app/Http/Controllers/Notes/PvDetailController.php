@@ -89,7 +89,9 @@ class PvDetailController extends Controller
             'stats' => [
                 'total' => $tous->count(),
                 'admis' => $resultatsTous->where('valide', 1)->count(),
-                'defaillants' => $resultatsTous->where('defaillant', 1)->count(),
+                // Défaillant : une note manque ; Elim : note ou moyenne d'UE éliminatoire
+                'defaillants' => $resultatsTous->where('defaillant', 1)->where('decision', '!=', 'Elim')->count(),
+                'elimines' => $resultatsTous->where('decision', 'Elim')->count(),
                 'ajournes' => $resultatsTous->where('valide', 0)->where('defaillant', 0)->count(),
                 'non_calcules' => $tous->count() - $resultatsTous->count(),
             ],
@@ -160,13 +162,16 @@ class PvDetailController extends Controller
             DB::rollBack();
         }
         $ueMax = $this->pvs->ues($pv)->mapWithKeys(fn ($ue) => [$ue->id => (int) $ue->credits_total]);
-        $credits = DB::table('matieres')->whereIn('id', $notes->keys())->pluck('credits', 'id');
+        $matieres = DB::table('matieres')->whereIn('id', $notes->keys())->get(['id', 'credits', 'ue_id', 'note_max_cc'])->keyBy('id');
+        $credits = $matieres->pluck('credits', 'id');
+        // UE où une case est vide : « Déf. » plutôt que « Elim »
+        $vides = $notes->filter(fn ($n, $mat) => isset($matieres[$mat]) && Resultats::caseVide($n, $matieres[$mat]))->map(fn ($n, $mat) => $matieres[$mat]->ue_id)->flip();
 
         return response()->json(['ok' => true,
             'matieres' => $notes->map(fn ($n, $mat) => ['finale' => $n->note_finale, 'obs' => $n->observation,
                 'credits' => in_array($n->observation, ['AV', 'AC'], true) ? (int) ($credits[$mat] ?? 0) : 0]),
             'ues' => $ues->map(fn ($r) => ['total' => $r->total_points, 'moyenne' => $r->moyenne_20, 'credits' => (int) $r->credits_obtenus,
-                'max' => $ueMax[$r->ue_id] ?? 0, 'valide' => (bool) $r->valide, 'defaillant' => (bool) $r->defaillant]),
+                'max' => $ueMax[$r->ue_id] ?? 0, 'valide' => (bool) $r->valide, 'defaillant' => (bool) $r->defaillant, 'vide' => isset($vides[$r->ue_id])]),
             'semestre' => $semestre ? ['moyenne' => $semestre->moyenne_generale, 'credits' => (int) $semestre->credits_obtenus,
                 'decision' => $semestre->decision, 'mention' => $semestre->mention, 'valide' => (bool) $semestre->valide] : null,
         ]);

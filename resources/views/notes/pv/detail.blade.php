@@ -5,7 +5,7 @@
 @php
     $sessionLib = $pv->type_session === 'rattrapage' ? '2ème Session' : '1ère Session';
     $nbCols = fn ($m) => (float) $m->note_max_cc > 0 ? 5 : 3;
-    $couleurObs = fn ($o) => ['AV' => 'var(--green-700)', 'AC' => 'var(--blue-600)', 'NV' => 'var(--amber-600)', 'Déf.' => 'var(--red-600)'][$o] ?? 'var(--text-muted)';
+    $couleurObs = fn ($o) => ['AV' => 'var(--green-700)', 'AC' => 'var(--blue-600)', 'NV' => 'var(--amber-600)', 'Déf.' => 'var(--red-600)', 'Elim' => 'var(--red-600)'][$o] ?? 'var(--text-muted)';
     $creditsTotal = $ues->sum('credits_total');
     $f2 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
 @endphp
@@ -80,6 +80,7 @@
   <div class="stat-card"><div class="stat-value" style="color:var(--green-600)">{{ $stats['admis'] }}</div><div class="stat-label">✅ Admis</div></div>
   <div class="stat-card"><div class="stat-value" style="color:var(--amber-600)">{{ $stats['ajournes'] }}</div><div class="stat-label">⏳ Ajournés</div></div>
   <div class="stat-card"><div class="stat-value" style="color:var(--red-600)">{{ $stats['defaillants'] }}</div><div class="stat-label">❌ Défaillants</div></div>
+  <div class="stat-card"><div class="stat-value" style="color:var(--red-600)">{{ $stats['elimines'] }}</div><div class="stat-label">🚫 Éliminés</div></div>
   <div class="stat-card"><div class="stat-value" style="color:var(--blue-600)">{{ round($stats['admis'] / $stats['total'] * 100, 1) }}%</div><div class="stat-label">📈 Taux réussite</div></div>
 </div>
 @if ($stats['non_calcules'])
@@ -127,10 +128,10 @@
       <span style="font-size:11px;color:var(--text-muted)">Crédits ≥</span>
       <input type="number" id="filter-credits" class="form-control form-control-sm" placeholder="—" min="0" step="1" style="width:60px" aria-label="Crédits minimum">
       <select id="filter-decision" class="form-control form-control-sm" style="width:120px" aria-label="Décision">
-        <option value="">Décision…</option><option>Admis</option><option>Ajourné</option><option>Défaillant</option>
+        <option value="">Décision…</option><option>Admis</option><option>Ajourné</option><option>Défaillant</option><option>Elim</option>
       </select>
       <select id="filter-mention" class="form-control form-control-sm" style="width:130px" aria-label="Mention">
-        <option value="">Mention…</option><option>Passable</option><option>Assez bien</option><option>Bien</option><option>Très bien</option><option>Défaillant</option>
+        <option value="">Mention…</option><option>Passable</option><option>Assez bien</option><option>Bien</option><option>Très bien</option><option>Défaillant</option><option>Elim</option>
       </select>
       <button type="button" id="filter-reset" class="btn btn-secondary btn-sm" title="Réinitialiser les filtres">✕</button>
       <span id="filter-count" style="font-size:11px;color:var(--text-muted)"></span>
@@ -226,13 +227,14 @@
             @endforeach
             @php
                 $ru = $resultatsUe[$et->id][$ue->id] ?? null;
-                [$val, $obsUe] = ! $ru ? ['—', '—'] : ($ru->defaillant ? ['NON', 'Déf.'] : (! $ru->valide ? ['NON', 'NV'] : ['OUI', (float) $ru->moyenne_20 < $seuil ? 'AC' : 'AV']));
+                $obsUe = \App\Services\Resultats::observationUe($ru, $ue->matieres->contains(fn ($m) => \App\Services\Resultats::caseVide($cellules[$et->id][$m->id]['note'], $m)), $seuil);
+                $val = ! $ru ? '—' : ($ru->valide ? 'OUI' : 'NON');
                 $fond = $ru && $ru->valide ? 'var(--green-50)' : 'var(--amber-50)';
             @endphp
             <td class="ue-total-{{ $ue->id }}" style="text-align:center;font-weight:600;font-size:11px;background:{{ $fond }}">{{ $f2($ru?->total_points) }}</td>
             <td class="ue-moy-{{ $ue->id }}" style="text-align:center;font-weight:700;font-size:12px;background:{{ $fond }};color:{{ $ru && $ru->valide ? 'var(--green-700)' : 'var(--amber-600)' }}">{{ $f2($ru?->moyenne_20) }}</td>
             <td class="ue-cred-{{ $ue->id }}" style="text-align:center;font-weight:700;font-size:12px;color:{{ $ru && $ru->credits_obtenus >= $ue->credits_total ? 'var(--green-700)' : 'var(--red-600)' }}">{{ $ru ? $ru->credits_obtenus : 0 }}/{{ $ue->credits_total }}</td>
-            <td class="ue-val-{{ $ue->id }}" style="text-align:center;font-weight:700;font-size:12px;{{ ['OUI' => 'background:#dcfce7;color:#166534', 'NON' => $obsUe === 'Déf.' ? 'background:#fee2e2;color:#991b1b' : 'background:#fef3c7;color:#92400e'][$val] ?? '' }}">{{ $val }}</td>
+            <td class="ue-val-{{ $ue->id }}" style="text-align:center;font-weight:700;font-size:12px;{{ ['OUI' => 'background:#dcfce7;color:#166534', 'NON' => in_array($obsUe, ['Déf.', 'Elim'], true) ? 'background:#fee2e2;color:#991b1b' : 'background:#fef3c7;color:#92400e'][$val] ?? '' }}">{{ $val }}</td>
             <td class="ue-obs-{{ $ue->id }}" style="text-align:center;font-weight:700;font-size:11px;color:{{ $couleurObs($obsUe) }}">{{ $obsUe }}</td>
           @endforeach
           <td class="sem-cred" style="text-align:center;font-weight:700;font-size:12px;color:{{ $res && $res->credits_obtenus >= $creditsTotal ? 'var(--green-700)' : 'var(--red-600)' }}">{{ $res->credits_obtenus ?? 0 }}/{{ $creditsTotal }}</td>
@@ -253,7 +255,7 @@
     </table>
   </div>
   <div class="card-footer no-print">
-    <span class="text-muted text-xs">AV = Acquis par validation · AC = Acquis par compensation · NV = Non validé · Déf. = Défaillant · NC = option non choisie &nbsp;|&nbsp; 📥 = Note reportée · 🔒 = Validée en 1ère session · <em>en italique : résultat provisoire pendant la saisie</em></span>
+    <span class="text-muted text-xs">AV = Acquis par validation · AC = Acquis par compensation · NV = Non validé · Déf. = Défaillant (note manquante) · Elim = Note éliminatoire · NC = option non choisie &nbsp;|&nbsp; 📥 = Note reportée · 🔒 = Validée en 1ère session · <em>en italique : résultat provisoire pendant la saisie</em></span>
     @if ($peutModifier)<button type="submit" class="btn btn-primary btn-sm" style="margin-left:auto">💾 Enregistrer les notes</button>@endif
   </div>
 </div>

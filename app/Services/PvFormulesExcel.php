@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
  *    défaillance (examen ou TD absent, note sous la note éliminatoire, en
  *    stricte infériorité), validation (moyenne ≥ seuil), compensation dans
  *    l'UE puis entre UE, crédits.
+ *  - défaillance avec une note manquante : « Déf. » (UE) / « Défaillant »
+ *    (semestre) ; sinon (note ou moyenne d'UE éliminatoire) : « Elim ».
  *
  * Paramètres de l'année du PV (seuil, note éliminatoire, compensations)
  * écrits dans les formules et rappelés en tête de la feuille « Calculs ».
@@ -211,6 +213,7 @@ class PvFormulesExcel
         $num = fn ($v) => ($v === '' || $v === null) ? null : (float) $v;
         $s = ['mat' => [], 'ue' => []];
         $defg = false;
+        $vide = false;
         $nbnv = 0;
         foreach ($ues as $ue) {
             $r = $resUe[$ue->id] ?? null;
@@ -219,6 +222,7 @@ class PvFormulesExcel
             }
             $moy = (float) $r->moyenne_20;
             $uedef = false;
+            $uevide = false;
             $sommeVal = 0;
             foreach ($ue->matieres as $m) {
                 if (isset($ignorees[$m->id])) {
@@ -235,14 +239,17 @@ class PvFormulesExcel
                 $val = $n !== null && round($n / $max * 20, 4) >= $p['seuil'] && ! $def;
                 $s['mat'][$m->id] = ['def' => $def, 'val' => $val, 'n' => $n, 'ue' => $ue->id, 'credits' => (int) $m->credits];
                 $uedef = $uedef || $def;
+                $uevide = $uevide || $num($valeurs["exam-{$ue->id}-{$m->id}"]) === null
+                    || ((float) $m->note_max_cc > 0 && $num($valeurs["td-{$ue->id}-{$m->id}"] ?? null) === null);
                 $sommeVal += $val ? (int) $m->credits : 0;
             }
             $uedef = $uedef || ($p['elimUe'] > 0 && $moy < $p['elimUe']);
             $cintra = $p['compUe'] && ! $uedef && $moy >= $p['seuil'];
             $craw = $cintra ? (int) $ue->credits_total : $sommeVal;
             $vraw = ! $uedef && ($cintra || $craw >= (int) $ue->credits_total);
-            $s['ue'][$ue->id] = ['uedef' => $uedef, 'cintra' => $cintra, 'craw' => $craw, 'vraw' => $vraw, 'moy' => $moy, 'total' => (int) $ue->credits_total];
+            $s['ue'][$ue->id] = ['uedef' => $uedef, 'cintra' => $cintra, 'craw' => $craw, 'vraw' => $vraw, 'moy' => $moy, 'total' => (int) $ue->credits_total, 'vide' => $uevide];
             $defg = $defg || $uedef;
+            $vide = $vide || $uevide;
             $nbnv += $vraw ? 0 : 1;
         }
         $inter = $p['compSem'] && ! $defg && (float) $rs->moyenne_generale >= $p['seuil'] && $nbnv === 1;
@@ -261,7 +268,7 @@ class PvFormulesExcel
         unset($m);
 
         return $s + ['defg' => $defg, 'nbnv' => $nbnv, 'inter' => $inter, 'ctot' => $ctot,
-            'dec' => $defg ? 'Défaillant' : ($ctot >= $this->creditsTotal ? 'Admis' : 'Ajourné')];
+            'dec' => $defg ? ($vide ? 'Défaillant' : 'Elim') : ($ctot >= $this->creditsTotal ? 'Admis' : 'Ajourné')];
     }
 
     /** La simulation redonne-t-elle chaque valeur affichée du PV (observations, crédits, validations, décision) ? */
@@ -274,7 +281,7 @@ class PvFormulesExcel
             }
         }
         foreach ($s['ue'] as $id => $u) {
-            $obs = $u['uedef'] ? 'Déf.' : (! $u['vfin'] ? 'NV' : ($u['moy'] < $this->p['seuil'] ? 'AC' : 'AV'));
+            $obs = $u['uedef'] ? ($u['vide'] ? 'Déf.' : 'Elim') : (! $u['vfin'] ? 'NV' : ($u['moy'] < $this->p['seuil'] ? 'AC' : 'AV'));
             if (($valeurs["ue_cr-$id"] ?? null) !== $u['cfin'].'/'.$u['total'] || ($valeurs["ue_val-$id"] ?? null) !== ($u['vfin'] ? 'OUI' : 'NON')
                 || ($valeurs["ue_obs-$id"] ?? null) !== $obs) {
                 return false;
@@ -299,6 +306,7 @@ class PvFormulesExcel
         foreach ($ues as $ue) {
             $defs = [];
             $vals = [];
+            $vides = [];
             foreach ($ue->matieres as $m) {
                 if (! isset($s['mat'][$m->id])) {
                     continue;
@@ -318,6 +326,8 @@ class PvFormulesExcel
                 $poser("comp-{$ue->id}-{$m->id}", 'IF(ISNUMBER('.$n.'),AND(NOT('.$etape("val-{$ue->id}-{$m->id}").'),NOT('.$etape("def-{$ue->id}-{$m->id}").'),OR('
                     .$etape("cintra-{$ue->id}").',AND('.$etape('inter').',NOT('.$etape("vraw-{$ue->id}").')))),FALSE)', $x['comp']);
                 $defs[] = $etape("def-{$ue->id}-{$m->id}");
+                // Case vide (examen, ou TD s'il est prévu) : « Déf. » plutôt que « Elim »
+                array_push($vides, ...array_slice($conditions, 0, (float) $m->note_max_cc > 0 ? 2 : 1));
                 $vals[] = $etape("val-{$ue->id}-{$m->id}").'*'.(int) $m->credits;
 
                 // Feuille PV : observation et crédits de la matière
@@ -345,7 +355,7 @@ class PvFormulesExcel
                 $f = match (self::cle($col)) {
                     "ue_cr-{$ue->id}" => $ca("cfin-{$ue->id}").'&"/'.$total.'"',
                     "ue_val-{$ue->id}" => 'IF('.$ca("vfin-{$ue->id}").',"OUI","NON")',
-                    "ue_obs-{$ue->id}" => 'IF('.$ca("uedef-{$ue->id}").',"Déf.",IF(NOT('.$ca("vfin-{$ue->id}").'),"NV",IF('.$this->pos["ue_moy-{$ue->id}"].$ligne.'<'.$seuil.',"AC","AV")))',
+                    "ue_obs-{$ue->id}" => 'IF('.$ca("uedef-{$ue->id}").',IF(OR('.implode(',', $vides ?: ['FALSE']).'),"Déf.","Elim"),IF(NOT('.$ca("vfin-{$ue->id}").'),"NV",IF('.$this->pos["ue_moy-{$ue->id}"].$ligne.'<'.$seuil.',"AC","AV")))',
                     default => null,
                 };
                 if ($f) {
@@ -362,7 +372,7 @@ class PvFormulesExcel
         foreach ($cols as $i => $col) {
             $f = match (self::cle($col)) {
                 'sem_cr' => $ca('ctot').'&"/'.$this->creditsTotal.'"',
-                'sem_dec' => 'IF('.$ca('defg').',"Défaillant",IF('.$ca('ctot').'>='.$this->creditsTotal.',"Admis","Ajourné"))',
+                'sem_dec' => 'IF('.$ca('defg').',IF(OR('.implode(',', array_map(fn ($ue) => $this->pos["ue_obs-{$ue->id}"].$ligne.'="Déf."', $ues->all())).'),"Défaillant","Elim"),IF('.$ca('ctot').'>='.$this->creditsTotal.',"Admis","Ajourné"))',
                 default => null,
             };
             if ($f) {

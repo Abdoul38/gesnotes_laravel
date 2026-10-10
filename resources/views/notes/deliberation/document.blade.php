@@ -113,7 +113,7 @@ body{
 /* ── Grille stats ───────────────────────────────────────────── */
 .stats{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(6,1fr);
   gap:6px;
   margin-bottom:4mm;
 }
@@ -270,6 +270,7 @@ table.t td.c{text-align:center}
     <div class="stat"><div class="v" style="color:var(--green)">{{ $stats['admis'] }}</div><div class="l">Admis</div></div>
     <div class="stat"><div class="v" style="color:var(--orange)">{{ $stats['ajournes'] }}</div><div class="l">Ajournés</div></div>
     <div class="stat"><div class="v" style="color:var(--red)">{{ $stats['defaillants'] }}</div><div class="l">Défaillants</div></div>
+    <div class="stat"><div class="v" style="color:var(--red)">{{ $stats['elimines'] }}</div><div class="l">Éliminés</div></div>
     <div class="stat"><div class="v" style="color:var(--blue-dark)">{{ $taux }}%</div><div class="l">Taux de réussite</div></div>
   </div>
 

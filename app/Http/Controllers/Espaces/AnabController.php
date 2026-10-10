@@ -155,7 +155,7 @@ class AnabController extends Controller
             ->where('rs.etudiant_id', $id)->whereIn('ps.statut', ['finalise', 'publie'])
             ->orderBy('a.libelle')->orderBy('n.code')->orderBy('s.code')->orderByRaw("ps.type_session = 'normale' DESC")
             ->get(['a.libelle as annee', 'n.code as niveau', 'f.libelle as filiere', DB::raw('COALESCE(s.code, ps.libelle) AS sem_code'), 'ps.type_session',
-                'rs.moyenne_generale', 'rs.credits_obtenus', 'rs.credits_total', 'rs.mention', 'rs.valide', 'rs.defaillant', 'rs.rang']);
+                'rs.moyenne_generale', 'rs.credits_obtenus', 'rs.credits_total', 'rs.mention', 'rs.decision', 'rs.valide', 'rs.defaillant', 'rs.rang']);
         $passages = DB::table('passages_niveau as pn')->join('annees_academiques as a', 'a.id', '=', 'pn.annee_depart_id')
             ->join('filieres as f', 'f.id', '=', 'pn.filiere_id')->where('pn.etudiant_id', $id)->orderByDesc('a.libelle')
             ->get(['a.libelle as annee', 'f.libelle as filiere', 'pn.decision']);
