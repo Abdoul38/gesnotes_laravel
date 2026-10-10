@@ -226,9 +226,12 @@ class PvTest extends TestCase
             ->assertSee('RÉSULTATS DES EXAMENS — SEMESTRE 1')->assertSee('ALPHA X')->assertSee('AVANCE Y')
             ->assertSee('Maradi, le 10/02/2026')->assertSee('Admis')
             // Pas de rang sur le PV imprimé ; « RÉSULTAT SEMESTRE » couvre les 4 colonnes restantes
-            ->assertDontSee('RANG')->assertDontSee('1/2')->assertSee('<th colspan="4" class="th-resume">RÉSULTAT SEMESTRE</th>', false)
+            ->assertDontSee('RANG')->assertDontSee('1/2')->assertSee('<th colspan="4" data-g="r" class="th-resume">RÉSULTAT SEMESTRE</th>', false)
             // Tableau réduit pour tenir dans la largeur du papier (A4 paysage par défaut : 297 − 16 − 12 = 269 mm)
-            ->assertSee('<div class="pv-zone" data-largeur-papier-mm="269">', false)->assertSee('@page{size:A4 landscape', false)
+            ->assertSee('<div class="pv-zone" data-largeur-papier-mm="269">', false)
+            // Groupes de colonnes (identité, UE, résultat) pour le découpage en bandes à l'impression
+            ->assertSee('<th rowspan="3" data-g="f"', false)->assertSee('data-g="0" class="th-ue"', false)->assertSee('<th colspan="4" data-g="r"', false)
+            ->assertSee('@page{size:A4 landscape', false)
             ->assertSee('assets/js/pv-impression.js', false)->assertSee('<option value="a3" >A3 paysage</option>', false);
         // Format A3 paysage pour les PV très chargés
         $this->get($this->url("pv/impression?id={$this->pv}&format=a3"))->assertOk()

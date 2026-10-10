@@ -22,8 +22,9 @@ table.pv{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px}
 table.pv th,table.pv td{border:0.5px solid #666;padding:1.5px 3px;text-align:center;vertical-align:middle}
 table.pv th{font-weight:600}
 .th-ue{background:#1a3a5c;color:#fff;font-size:7.5px}
-.th-mat{background:#2c5f9e;color:#fff;font-size:7px;overflow-wrap:anywhere}
-.pv-zone{width:max-content;max-width:none;transform-origin:top left}
+.th-mat{background:#2c5f9e;color:#fff;font-size:7px}
+.pv-zone{max-width:none}
+.pv-zone table.pv + table.pv{margin-top:6mm}
 /* Tailles de l'impression, appliquées aussi pendant la mesure qui précède l'impression (pv-impression.js) */
 body.mesure-impression table.pv th,body.mesure-impression table.pv td{font-size:7px !important;padding:1px 2px !important}
 body.mesure-impression .td-name{min-width:90px !important}
@@ -102,41 +103,43 @@ body.mesure-impression .td-name{min-width:90px !important}
 <table class="pv">
 <thead>
   <tr>
-    <th rowspan="3" class="th-ue" style="writing-mode:vertical-rl;transform:rotate(180deg);min-width:14px">N°</th>
-    <th rowspan="3" class="th-ue" style="writing-mode:vertical-rl;transform:rotate(180deg);min-width:28px">N° Étud.</th>
-    <th rowspan="3" class="th-ue" style="text-align:left;min-width:110px">NOM &amp; PRÉNOMS</th>
+    <th rowspan="3" data-g="f" class="th-ue" style="writing-mode:vertical-rl;transform:rotate(180deg);min-width:14px">N°</th>
+    <th rowspan="3" data-g="f" class="th-ue" style="writing-mode:vertical-rl;transform:rotate(180deg);min-width:28px">N° Étud.</th>
+    <th rowspan="3" data-g="f" class="th-ue" style="text-align:left;min-width:110px">NOM &amp; PRÉNOMS</th>
     @foreach ($ues as $ue)
-    <th colspan="{{ $ue->matieres->sum(fn ($m) => (float) $m->note_max_cc > 0 ? 5 : 3) + 5 }}" class="th-ue">{{ $ue->code }} — {{ $ue->libelle }}</th>
+    <th colspan="{{ $ue->matieres->sum(fn ($m) => (float) $m->note_max_cc > 0 ? 5 : 3) + 5 }}" data-g="{{ $loop->index }}" class="th-ue">{{ $ue->code }} — {{ $ue->libelle }}</th>
     @endforeach
-    <th colspan="4" class="th-resume">RÉSULTAT SEMESTRE</th>
+    <th colspan="4" data-g="r" class="th-resume">RÉSULTAT SEMESTRE</th>
   </tr>
   <tr>
     @foreach ($ues as $ue)
     @php
+        $g = $loop->index;
         $options = $ue->nb_options_a_choisir > 0;
         $maxUe = $ue->matieres->reject(fn ($m) => $options && $m->type_matiere === 'optionnelle')->sum('note_max_totale')
             + ($options ? (float) ($ue->matieres->firstWhere('type_matiere', 'optionnelle')->note_max_totale ?? 0) * $ue->nb_options_a_choisir : 0);
     @endphp
-    @foreach ($ue->matieres as $m)<th colspan="{{ (float) $m->note_max_cc > 0 ? 5 : 3 }}" class="th-mat">{{ $m->libelle }}</th>@endforeach
+    @foreach ($ue->matieres as $m)<th colspan="{{ (float) $m->note_max_cc > 0 ? 5 : 3 }}" data-g="{{ $g }}" class="th-mat">{{ $m->libelle }}</th>@endforeach
     @foreach (['TOTAL/'.(int) $maxUe, 'MOY./20', 'CRÉDITS ('.$ue->credits_total.')', 'VALID.', 'OBS.'] as $t)
-    <th rowspan="2" class="th-sub" style="writing-mode:vertical-rl;transform:rotate(180deg)">{{ $t }}</th>
+    <th rowspan="2" data-g="{{ $g }}" class="th-sub" style="writing-mode:vertical-rl;transform:rotate(180deg)">{{ $t }}</th>
     @endforeach
     @endforeach
     {{-- Pas de rang sur le PV imprimé (décision de l'université) --}}
     @foreach (['CR. TOT.', 'MOY. GÉN.', 'DÉCISION', 'MENTION'] as $t)
-    <th rowspan="2" class="th-sub" style="writing-mode:vertical-rl;transform:rotate(180deg)">{{ $t }}</th>
+    <th rowspan="2" data-g="r" class="th-sub" style="writing-mode:vertical-rl;transform:rotate(180deg)">{{ $t }}</th>
     @endforeach
   </tr>
   <tr>
     @foreach ($ues as $ue)
+    @php $g = $loop->index; @endphp
     @foreach ($ue->matieres as $m)
-    <th class="th-sub">Exam<br>/{{ (float) $m->note_max_examen }}</th>
+    <th data-g="{{ $g }}" class="th-sub">Exam<br>/{{ (float) $m->note_max_examen }}</th>
     @if ((float) $m->note_max_cc > 0)
-    <th class="th-sub">TD<br>/{{ (float) $m->note_max_cc }}</th>
-    <th class="th-sub">Note<br>/{{ (float) $m->note_max_totale }}</th>
+    <th data-g="{{ $g }}" class="th-sub">TD<br>/{{ (float) $m->note_max_cc }}</th>
+    <th data-g="{{ $g }}" class="th-sub">Note<br>/{{ (float) $m->note_max_totale }}</th>
     @endif
-    <th class="th-sub">Cr<br>({{ $m->credits }})</th>
-    <th class="th-sub">Obs.</th>
+    <th data-g="{{ $g }}" class="th-sub">Cr<br>({{ $m->credits }})</th>
+    <th data-g="{{ $g }}" class="th-sub">Obs.</th>
     @endforeach
     @endforeach
   </tr>
@@ -145,13 +148,14 @@ body.mesure-impression .td-name{min-width:90px !important}
 @foreach ($etudiants as $i => $et)
   @php $r = $resSem[$et->id] ?? null; @endphp
   <tr class="{{ ! $r ? '' : ($r->defaillant ? 'tr-defaillant' : ($r->valide ? 'tr-admit' : 'tr-ajourne')) }}">
-    <td>{{ $i + 1 }}</td>
-    <td class="td-num">{{ $et->numero }}</td>
-    <td class="td-name">{{ $et->nom }} {{ $et->prenoms }}</td>
+    <td data-g="f">{{ $i + 1 }}</td>
+    <td data-g="f" class="td-num">{{ $et->numero }}</td>
+    <td data-g="f" class="td-name">{{ $et->nom }} {{ $et->prenoms }}</td>
     @foreach ($ues as $ue)
+      @php $g = $loop->index; @endphp
       @foreach ($ue->matieres as $m)
         @if ($ue->nb_options_a_choisir > 0 && $m->type_matiere === 'optionnelle' && ! in_array((int) $m->id, $choix[$et->id][$ue->id] ?? [], true))
-        <td colspan="{{ (float) $m->note_max_cc > 0 ? 5 : 3 }}" style="text-align:center;color:#9ca3af;font-size:10px;background:#f9fafb">— NC —</td>
+        <td data-g="{{ $g }}" colspan="{{ (float) $m->note_max_cc > 0 ? 5 : 3 }}" style="text-align:center;color:#9ca3af;font-size:10px;background:#f9fafb">— NC —</td>
         @else
         @php
             $n = $notes[$et->id][$m->id] ?? null;
@@ -159,14 +163,14 @@ body.mesure-impression .td-name{min-width:90px !important}
             $finale = $n?->note_finale ?? (($n && ($n->note_examen !== null || $n->note_cc !== null)) ? (float) $n->note_examen + (float) $n->note_cc : null);
             $reportee = (bool) $n?->reportee;
         @endphp
-        <td class="{{ $obs === 'Déf.' && ! $reportee ? 'obs-nv' : '' }}" style="{{ $reportee ? 'color:#1e40af;font-style:italic' : '' }}">{{ $f2($n?->note_examen) }}{{ $reportee ? ' ↩' : '' }}</td>
+        <td data-g="{{ $g }}" class="{{ $obs === 'Déf.' && ! $reportee ? 'obs-nv' : '' }}" style="{{ $reportee ? 'color:#1e40af;font-style:italic' : '' }}">{{ $f2($n?->note_examen) }}{{ $reportee ? ' ↩' : '' }}</td>
         @if ((float) $m->note_max_cc > 0)
-        <td>{{ $f2($n?->note_cc) }}</td>
-        <td class="{{ $obs === 'Déf.' ? 'obs-nv' : '' }}">{{ $f2($finale) }}</td>
+        <td data-g="{{ $g }}">{{ $f2($n?->note_cc) }}</td>
+        <td data-g="{{ $g }}" class="{{ $obs === 'Déf.' ? 'obs-nv' : '' }}">{{ $f2($finale) }}</td>
         @endif
         @php $cr = in_array($obs, ['AV', 'AC'], true) ? $m->credits : 0; @endphp
-        <td style="color:{{ $cr ? '#1b5e20' : '#999' }};font-weight:{{ $cr ? 'bold' : 'normal' }}">{{ $cr }}</td>
-        <td class="{{ $classeObs($obs) }}">{{ $obs ?: '—' }}</td>
+        <td data-g="{{ $g }}" style="color:{{ $cr ? '#1b5e20' : '#999' }};font-weight:{{ $cr ? 'bold' : 'normal' }}">{{ $cr }}</td>
+        <td data-g="{{ $g }}" class="{{ $classeObs($obs) }}">{{ $obs ?: '—' }}</td>
         @endif
       @endforeach
       @php
@@ -176,16 +180,16 @@ body.mesure-impression .td-name{min-width:90px !important}
               : (! $ru->valide ? ['NON', 'NV', '#fef3c7', '#92400e']
               : ['OUI', (float) $ru->moyenne_20 < $seuil ? 'AC' : 'AV', '#dcfce7', '#166534']));
       @endphp
-      <td>{{ $f2($ru?->total_points) }}</td>
-      <td class="{{ $ru?->valide ? 'moy-ok' : 'moy-ko' }}">{{ $f2($ru?->moyenne_20) }}</td>
-      <td style="font-weight:bold;color:{{ $ru && $ru->credits_obtenus >= $ue->credits_total ? '#1b5e20' : '#b71c1c' }}">{{ $ru->credits_obtenus ?? 0 }}/{{ $ue->credits_total }}</td>
-      <td style="text-align:center;font-weight:bold;background:{{ $fond }};color:{{ $couleur }}">{{ $val }}</td>
-      <td style="text-align:center;font-weight:bold;background:{{ $obsUe === 'AC' ? '#dbeafe' : $fond }};color:{{ $obsUe === 'AC' ? '#1e40af' : $couleur }}">{{ $obsUe }}</td>
+      <td data-g="{{ $g }}">{{ $f2($ru?->total_points) }}</td>
+      <td data-g="{{ $g }}" class="{{ $ru?->valide ? 'moy-ok' : 'moy-ko' }}">{{ $f2($ru?->moyenne_20) }}</td>
+      <td data-g="{{ $g }}" style="font-weight:bold;color:{{ $ru && $ru->credits_obtenus >= $ue->credits_total ? '#1b5e20' : '#b71c1c' }}">{{ $ru->credits_obtenus ?? 0 }}/{{ $ue->credits_total }}</td>
+      <td data-g="{{ $g }}" style="text-align:center;font-weight:bold;background:{{ $fond }};color:{{ $couleur }}">{{ $val }}</td>
+      <td data-g="{{ $g }}" style="text-align:center;font-weight:bold;background:{{ $obsUe === 'AC' ? '#dbeafe' : $fond }};color:{{ $obsUe === 'AC' ? '#1e40af' : $couleur }}">{{ $obsUe }}</td>
     @endforeach
-    <td style="font-weight:bold;color:{{ $r && $r->credits_obtenus >= $creditsTotal ? '#1b5e20' : '#b71c1c' }}">{{ $r->credits_obtenus ?? 0 }}/{{ $creditsTotal }}</td>
-    <td class="{{ $r?->valide ? 'moy-ok' : 'moy-ko' }}" style="font-size:9px;font-weight:bold">{{ $f2($r?->moyenne_generale) }}</td>
-    <td class="{{ $r?->valide ? 'moy-ok' : 'moy-ko' }}" style="font-size:7.5px;font-weight:bold">{{ $r->decision ?? '—' }}</td>
-    <td style="font-size:7.5px;font-weight:bold">{{ $r->mention ?? '—' }}</td>
+    <td data-g="r" style="font-weight:bold;color:{{ $r && $r->credits_obtenus >= $creditsTotal ? '#1b5e20' : '#b71c1c' }}">{{ $r->credits_obtenus ?? 0 }}/{{ $creditsTotal }}</td>
+    <td data-g="r" class="{{ $r?->valide ? 'moy-ok' : 'moy-ko' }}" style="font-size:9px;font-weight:bold">{{ $f2($r?->moyenne_generale) }}</td>
+    <td data-g="r" class="{{ $r?->valide ? 'moy-ok' : 'moy-ko' }}" style="font-size:7.5px;font-weight:bold">{{ $r->decision ?? '—' }}</td>
+    <td data-g="r" style="font-size:7.5px;font-weight:bold">{{ $r->mention ?? '—' }}</td>
   </tr>
 @endforeach
 </tbody>
