@@ -114,3 +114,72 @@ Les mots de passe changés entre-temps restent valables (même algorithme de hac
 2. Vider `ANCIENNE_APP_CHEMIN` du `.env`, relancer `php artisan config:cache` et `gesnotes:verifier-bascule`.
 3. Traiter les points de « Décisions à prendre » du README, notamment : identifiants KomiPay et mot de passe SMTP
    à changer, colonne `email_logs.reponse_brute` à vider, utilisateur MySQL en lecture seule pour le Ministère et l'ANAB.
+
+## 6. Sauvegardes automatiques
+
+Trois types, pour toutes les bases de production (universités actives et base des espaces), dans
+`SAUVEGARDES_AUTO_DOSSIER` (défaut `storage/app/private/sauvegardes-auto`), un dossier par sauvegarde avec un
+`manifest.json` (fichiers, empreintes SHA-256, position du journal binaire) :
+
+| Type | Contenu | Quand (planification) | Restauration |
+|---|---|---|---|
+| complète | une copie `mysqldump` par base | dimanche 2 h | complète seule |
+| différentielle | journaux binaires depuis la dernière complète | lundi à samedi 2 h | complète + dernière différentielle |
+| incrémentielle | journaux binaires depuis la dernière sauvegarde | chaque heure, 7 h – 20 h | complète + différentielle + incrémentielles suivantes |
+
+Conservation : les 5 dernières complètes (`SAUVEGARDES_AUTO_GARDER`) avec leurs différentielles et
+incrémentielles, la première complète de chacun des 12 derniers mois (`SAUVEGARDES_AUTO_GARDER_MOIS`), les archives
+sans limite ; suppression après chaque complète.
+
+### Mise en place (une fois)
+
+1. **Journal binaire** — dans `C:\xampp00\mysql\bin\my.ini`, section `[mysqld]` (`server-id=1` y est déjà), puis
+   redémarrer MySQL depuis XAMPP ; vérifier avec `SELECT @@log_bin;` (1) :
+   ```
+   log_bin=mysql-bin
+   binlog_format=ROW
+   expire_logs_days=21
+   ```
+   Sans journal binaire, seules les complètes fonctionnent (les autres échouent avec un message clair).
+2. **Compte MySQL de sauvegarde** (mot de passe fort, jamais versionné) :
+   ```sql
+   CREATE USER 'sauvegarde'@'localhost' IDENTIFIED BY '…';
+   GRANT SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT, RELOAD, REPLICATION CLIENT ON *.* TO 'sauvegarde'@'localhost';
+   ```
+3. **`.env`** : `SAUVEGARDES_AUTO=true`, `SAUVEGARDES_AUTO_DB_USERNAME=sauvegarde`, `SAUVEGARDES_AUTO_DB_PASSWORD=…`,
+   `SAUVEGARDES_AUTO_ALERTE=<adresse>` (e-mail en cas d'échec, par le serveur SMTP de l'université par défaut), puis
+   `php artisan config:cache`.
+4. **Premier essai** : `php artisan gesnotes:sauvegarder --type=complete`, puis `--type=incrementielle`.
+5. **Planificateur de tâches Windows** (invite de commandes administrateur) : lance le planificateur Laravel chaque
+   minute, qui déclenche les sauvegardes aux heures prévues :
+   ```
+   schtasks /create /tn "EDUFILE planificateur" /sc minute /mo 1 /ru SYSTEM /tr "C:\xampp00\php\php.exe C:\xampp00\gesnotes-laravel\artisan schedule:run"
+   ```
+   Contrôle : `php artisan schedule:list`.
+6. **Copie hors du serveur** : le dossier des sauvegardes est à recopier (chiffré) vers un autre lieu
+   chaque nuit, et sur un disque débranché chaque mois — une sauvegarde restée sur le serveur disparaît avec lui.
+
+### Utilisation
+
+- État : `php artisan gesnotes:restaurer --liste` (sauvegardes, statuts, erreurs) ; `etat.json` dans le dossier.
+- Fin d'année, après les délibérations : `php artisan gesnotes:sauvegarder --type=complete --archive` (jamais supprimée).
+- Avant une opération risquée (`--appliquer`, mise à jour) : `php artisan gesnotes:sauvegarder --type=incrementielle`.
+
+### Restaurer
+
+Toujours d'abord le plan (rien n'est modifié), puis `--appliquer` :
+
+```
+php artisan gesnotes:restaurer --universite=udh
+php artisan gesnotes:restaurer --universite=udh --appliquer
+```
+
+- Par défaut la base est restaurée **à côté** (`<base>_restauration`) : on vérifie, on récupère ce qu'il faut.
+- `--jusqua="2026-10-12 14:30"` : état à cette heure (ex. juste avant une erreur de saisie).
+- `--journaux-serveur` : ajoute les modifications pas encore sauvegardées, si le serveur MySQL est intact.
+- `--espaces` : base des espaces (ministère, ANAB) au lieu d'une université.
+- `--remplacer` : restaure dans la base de production elle-même — mettre d'abord le site en maintenance
+  (`php artisan down`), puis `php artisan up` ; une nouvelle complète est faite aussitôt.
+
+Les empreintes de tous les fichiers sont contrôlées avant la restauration ; une chaîne de journaux incomplète est
+refusée plutôt que de produire une base incomplète. Faire un essai de restauration à côté chaque mois.

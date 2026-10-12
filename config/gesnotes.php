@@ -44,6 +44,27 @@ return [
     // sous-dossier par université.
     'dossier_sauvegardes' => env('DOSSIER_SAUVEGARDES', storage_path('app/private/sauvegardes')),
 
+    // Sauvegardes automatiques de toutes les bases (gesnotes:sauvegarder) :
+    // complète, différentielle (journaux binaires depuis la complète) et
+    // incrémentielle (journaux depuis la dernière sauvegarde). Voir BASCULE.md.
+    'sauvegardes_auto' => [
+        // Planification (dimanche 2 h complète, autres nuits différentielle, chaque heure de 7 h à 20 h incrémentielle)
+        'planifiees' => (bool) env('SAUVEGARDES_AUTO', false),
+        'dossier' => env('SAUVEGARDES_AUTO_DOSSIER', storage_path('app/private/sauvegardes-auto')),
+        // Dossier de mysqldump, mysqlbinlog et mysql ; vide : <basedir du serveur>/bin
+        'outils' => env('SAUVEGARDES_AUTO_OUTILS'),
+        // Compte MySQL dédié (SELECT, SHOW VIEW, TRIGGER, LOCK TABLES, EVENT, RELOAD, REPLICATION CLIENT) ;
+        // vide : compte de l'application. La restauration utilise toujours le compte de l'application.
+        'utilisateur' => env('SAUVEGARDES_AUTO_DB_USERNAME'),
+        'mot_de_passe' => env('SAUVEGARDES_AUTO_DB_PASSWORD'),
+        // Conservation : les N dernières complètes (avec leurs différentielles et incrémentielles),
+        // la première complète de chacun des M derniers mois ; les archives (--archive) jamais supprimées
+        'garder_completes' => (int) env('SAUVEGARDES_AUTO_GARDER', 5),
+        'garder_mois' => (int) env('SAUVEGARDES_AUTO_GARDER_MOIS', 12),
+        // Adresse prévenue en cas d'échec (serveur SMTP de l'université par défaut)
+        'alerte' => env('SAUVEGARDES_AUTO_ALERTE'),
+    ],
+
     // Pièces déposées par les candidats sur le portail (CNI, extrait de
     // naissance…), consultées depuis le dossier étudiant.
     'dossier_pieces_candidats' => env('DOSSIER_PIECES_CANDIDATS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/uploads/pieces' : null),
