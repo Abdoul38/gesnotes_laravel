@@ -156,12 +156,28 @@ sans limite ; suppression après chaque complète.
    schtasks /create /tn "EDUFILE planificateur" /sc minute /mo 1 /ru SYSTEM /tr "C:\xampp00\php\php.exe C:\xampp00\gesnotes-laravel\artisan schedule:run"
    ```
    Contrôle : `php artisan schedule:list`.
-6. **Copie hors du serveur** : le dossier des sauvegardes est à recopier (chiffré) vers un autre lieu
-   chaque nuit, et sur un disque débranché chaque mois — une sauvegarde restée sur le serveur disparaît avec lui.
+6. **Copie hors du serveur (Google Drive, chiffrée)** — faite automatiquement après chaque sauvegarde avec
+   [rclone](https://rclone.org) (`C:\xampp00\rclone\rclone.exe`) ; rien n'est jamais effacé sur Drive.
+   1. Autoriser rclone sur le compte Google (le navigateur s'ouvre ; droit limité aux fichiers créés par rclone) :
+      ```
+      C:\xampp00\rclone\rclone.exe config create gdrive drive scope=drive.file --config C:\xampp00\rclone\rclone.conf
+      ```
+   2. Remote chiffré par-dessus : `C:\xampp00\rclone\rclone.exe config --config C:\xampp00\rclone\rclone.conf`, puis `n` (nouveau), nom `edufile`, type `crypt`,
+      remote `gdrive:EDUFILE-sauvegardes`, chiffrement des noms `standard`, des dossiers `true`, mot de passe et
+      « salt » saisis (`y`). **Noter les deux mots de passe hors du serveur** : sans eux, les copies sont
+      illisibles, même pour nous.
+   3. Restreindre l'accès au fichier de configuration (il donne accès au Drive) — SYSTEM et Administrateurs :
+      ```
+      icacls C:\xampp00\rclone\rclone.conf /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F
+      ```
+   4. `.env` : `SAUVEGARDES_HORS_SERVEUR_RCLONE=C:\xampp00\rclone\rclone.exe`, `SAUVEGARDES_HORS_SERVEUR_CONFIG=C:\xampp00\rclone\rclone.conf`,
+      `SAUVEGARDES_HORS_SERVEUR_DESTINATION=edufile:` ; essai : `php artisan gesnotes:copier-hors-serveur`.
+   En plus, chaque mois, une copie sur un disque débranché.
 
 ### Utilisation
 
-- État : `php artisan gesnotes:restaurer --liste` (sauvegardes, statuts, erreurs) ; `etat.json` dans le dossier.
+- État : `php artisan gesnotes:restaurer --liste` (sauvegardes, statuts, erreurs, dernière copie hors du serveur) ;
+  `etat.json` dans le dossier.
 - Fin d'année, après les délibérations : `php artisan gesnotes:sauvegarder --type=complete --archive` (jamais supprimée).
 - Avant une opération risquée (`--appliquer`, mise à jour) : `php artisan gesnotes:sauvegarder --type=incrementielle`.
 
@@ -180,6 +196,10 @@ php artisan gesnotes:restaurer --universite=udh --appliquer
 - `--espaces` : base des espaces (ministère, ANAB) au lieu d'une université.
 - `--remplacer` : restaure dans la base de production elle-même — mettre d'abord le site en maintenance
   (`php artisan down`), puis `php artisan up` ; une nouvelle complète est faite aussitôt.
+
+**Serveur perdu** : réinstaller l'application, MySQL et rclone, remettre `rclone.conf` (ou le recréer avec le même
+compte Google et les deux mots de passe notés), puis `php artisan gesnotes:copier-hors-serveur --recuperer` avant
+`gesnotes:restaurer`.
 
 Les empreintes de tous les fichiers sont contrôlées avant la restauration ; une chaîne de journaux incomplète est
 refusée plutôt que de produire une base incomplète. Faire un essai de restauration à côté chaque mois.
