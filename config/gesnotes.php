@@ -63,6 +63,14 @@ return [
         'garder_mois' => (int) env('SAUVEGARDES_AUTO_GARDER_MOIS', 12),
         // Adresse prévenue en cas d'échec (serveur SMTP de l'université par défaut)
         'alerte' => env('SAUVEGARDES_AUTO_ALERTE'),
+        // Copie hors du serveur (gesnotes:copier-hors-serveur), après chaque sauvegarde : rclone vers une
+        // destination chiffrée (ex. remote « crypt » sur Google Drive) ; copie seule, rien n'y est jamais effacé.
+        // Vide : pas de copie.
+        'hors_serveur' => [
+            'rclone' => env('SAUVEGARDES_HORS_SERVEUR_RCLONE'),
+            'config' => env('SAUVEGARDES_HORS_SERVEUR_CONFIG'),
+            'destination' => env('SAUVEGARDES_HORS_SERVEUR_DESTINATION'),
+        ],
     ],
 
     // Pièces déposées par les candidats sur le portail (CNI, extrait de

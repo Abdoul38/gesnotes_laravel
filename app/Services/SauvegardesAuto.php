@@ -443,6 +443,71 @@ class SauvegardesAuto
         file_put_contents($this->dossier().DIRECTORY_SEPARATOR.'etat.json', json_encode($etat, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 
+    public function horsServeurConfiguree(): bool
+    {
+        $c = config('gesnotes.sauvegardes_auto.hors_serveur');
+
+        return filled($c['rclone'] ?? null) && filled($c['destination'] ?? null);
+    }
+
+    /**
+     * Copie hors du serveur (rclone copy) : ajoute ce qui manque à la
+     * destination, sans jamais y effacer — une sauvegarde supprimée ou
+     * abîmée sur le serveur reste intacte à l'extérieur. Le chiffrement est
+     * assuré par la destination (remote « crypt » de rclone).
+     */
+    public function copierHorsServeur(): void
+    {
+        $this->verrouiller(function () {
+            try {
+                $this->rclone(['copy', $this->dossier(), $this->destinationHorsServeur(),
+                    '--exclude', '/.tmp/**', '--exclude', '/.verrou', '--exclude', '/etat.json']);
+                $this->noterEtatHorsServeur('ok');
+            } catch (Throwable $e) {
+                $this->noterEtatHorsServeur('echec', $e->getMessage());
+                throw $e;
+            }
+        });
+    }
+
+    /** Rapatrie dans le dossier local les sauvegardes de la destination (serveur perdu ou dossier effacé). */
+    public function recupererHorsServeur(): void
+    {
+        $this->verrouiller(fn () => $this->rclone(['copy', $this->destinationHorsServeur(), $this->dossier()]));
+    }
+
+    private function destinationHorsServeur(): string
+    {
+        if (! $this->horsServeurConfiguree()) {
+            throw new RuntimeException('Copie hors du serveur non configurée (SAUVEGARDES_HORS_SERVEUR_* dans .env).');
+        }
+
+        return (string) config('gesnotes.sauvegardes_auto.hors_serveur.destination');
+    }
+
+    private function rclone(array $arguments): void
+    {
+        $c = config('gesnotes.sauvegardes_auto.hors_serveur');
+        if (! is_file($c['rclone'])) {
+            throw new RuntimeException('rclone introuvable : '.$c['rclone']);
+        }
+        $p = new Process([$c['rclone'], ...$arguments, ...(filled($c['config'] ?? null) ? ['--config', $c['config']] : []),
+            '--retries', '3', '--low-level-retries', '10', '--log-level', 'ERROR']);
+        $p->setTimeout(3600);
+        $p->run();
+        if (! $p->isSuccessful()) {
+            $erreurs = trim($p->getErrorOutput()) ?: trim($p->getOutput());
+            throw new RuntimeException('rclone a échoué : '.Str::limit(implode(' | ', array_slice(explode("\n", $erreurs), -3)), 400));
+        }
+    }
+
+    private function noterEtatHorsServeur(string $statut, ?string $erreur = null): void
+    {
+        $etat = $this->etat();
+        $etat['hors_serveur'] = ['date' => now()->toIso8601String(), 'statut' => $statut, 'erreur' => $erreur];
+        file_put_contents($this->dossier().DIRECTORY_SEPARATOR.'etat.json', json_encode($etat, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
     /** Connexion au serveur sans base : compte de sauvegarde, ou compte de l'application ($admin). */
     private function connexion(bool $admin = false): Connection
     {

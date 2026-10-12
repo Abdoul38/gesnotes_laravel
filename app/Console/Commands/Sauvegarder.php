@@ -15,6 +15,7 @@ use Throwable;
  *   --type=complete        chaque base (mysqldump), puis suppression des sauvegardes trop anciennes ;
  *   --type=differentielle  journaux binaires depuis la dernière complète ;
  *   --type=incrementielle  journaux binaires depuis la dernière sauvegarde.
+ * Puis copie hors du serveur si elle est configurée (gesnotes:copier-hors-serveur).
  * En cas d'échec : journal du serveur et, si SAUVEGARDES_AUTO_ALERTE est
  * renseignée, e-mail par le serveur SMTP de l'université par défaut.
  */
@@ -60,10 +61,24 @@ class Sauvegarder extends Command
             }
         }
 
+        // Copie hors du serveur : une sauvegarde restée sur le serveur disparaît avec lui
+        if ($sauvegardes->horsServeurConfiguree()) {
+            try {
+                $sauvegardes->copierHorsServeur();
+                $this->line('  Copiée hors du serveur ('.config('gesnotes.sauvegardes_auto.hors_serveur.destination').')');
+            } catch (Throwable $e) {
+                Log::error('Copie hors du serveur échouée', ['erreur' => $e->getMessage()]);
+                $this->error('  Copie hors du serveur échouée : '.$e->getMessage());
+                $this->alerter("$type (copie hors du serveur)", $e->getMessage(), 'gesnotes:copier-hors-serveur');
+
+                return self::FAILURE;
+            }
+        }
+
         return self::SUCCESS;
     }
 
-    private function alerter(string $type, string $erreur): void
+    private function alerter(string $type, string $erreur, ?string $relancer = null): void
     {
         $adresse = config('gesnotes.sauvegardes_auto.alerte');
         if (! filled($adresse)) {
@@ -74,7 +89,7 @@ class Sauvegarder extends Command
             app(UniversiteCourante::class)->pour($registre->parDefaut(), fn () => app(Courriel::class)->envoyer($adresse,
                 "⚠️ Sauvegarde $type échouée — ".config('app.name'),
                 '<p>La sauvegarde <strong>'.e($type).'</strong> du '.now()->format('d/m/Y à H:i').' a échoué :</p><p><code>'.e($erreur).'</code></p>'
-                .'<p>Vérifier le serveur, puis relancer : <code>php artisan gesnotes:sauvegarder --type='.e($type).'</code></p>', 'sauvegarde'));
+                .'<p>Vérifier le serveur, puis relancer : <code>php artisan '.e($relancer ?? 'gesnotes:sauvegarder --type='.$type).'</code></p>', 'sauvegarde'));
         } catch (Throwable $e) {
             Log::error('Alerte de sauvegarde non envoyée', ['erreur' => $e->getMessage()]);
         }

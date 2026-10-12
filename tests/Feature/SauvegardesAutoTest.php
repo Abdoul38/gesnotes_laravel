@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Services\SauvegardesAuto;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -136,6 +137,65 @@ class SauvegardesAutoTest extends TestCase
         $this->artisan('gesnotes:restaurer', ['--universite' => 'udh'])->expectsOutputToContain('incomplète')->assertFailed();
     }
 
+    public function test_copie_hors_serveur_chiffree_et_recuperation(): void
+    {
+        $rclone = 'C:\xampp00\rclone\rclone.exe';
+        if (! is_file($rclone)) {
+            $this->markTestSkipped('rclone absent.');
+        }
+        // « Drive » de test : dossier local, chiffré par un remote crypt (mots de passe obscurcis par rclone)
+        $distant = $this->dossier.'-distant';
+        $obscur = fn ($v) => trim((new Process([$rclone, 'obscure', $v]))->mustRun()->getOutput());
+        @mkdir($this->dossier, 0700, true);
+        file_put_contents($conf = $this->dossier.'-rclone.conf', "[chiffre]
+type = crypt
+remote = $distant
+password = ".$obscur('essai-1').'
+password2 = '.$obscur('essai-2').'
+');
+        config(['gesnotes.sauvegardes_auto.hors_serveur' => ['rclone' => $rclone, 'config' => $conf, 'destination' => 'chiffre:']]);
+
+        try {
+            $this->etudiant('ALPHA');
+            // La sauvegarde est suivie de la copie
+            $this->artisan('gesnotes:sauvegarder', ['--type' => 'complete', '--universite' => ['udh']])
+                ->expectsOutputToContain('Copiée hors du serveur (chiffre:)')->assertSuccessful();
+            $id = app(SauvegardesAuto::class)->catalogue()[0]['id'];
+            $this->assertSame('ok', app(SauvegardesAuto::class)->etat()['hors_serveur']['statut']);
+
+            // Chez le prestataire : noms et contenus chiffrés, rien de lisible
+            $fichiers = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($distant, \FilesystemIterator::SKIP_DOTS)));
+            $this->assertCount(2, $fichiers); // manifest.json + gesnotes_test_udh.sql.gz
+            foreach ($fichiers as $f) {
+                $chemin = substr($f->getPathname(), strlen($distant));
+                $this->assertStringNotContainsString('gesnotes', $chemin);
+                $this->assertStringNotContainsString('manifest', $chemin);
+                $this->assertStringNotContainsString('complete', $chemin);
+                $this->assertStringNotContainsString('"statut"', file_get_contents($f->getPathname()));
+            }
+
+            // Serveur perdu : dossier local vidé, sauvegardes rapatriées puis restaurées
+            $this->supprimerTout($this->dossier);
+            $this->artisan('gesnotes:copier-hors-serveur', ['--recuperer' => true])->expectsOutputToContain('rapatriées')->assertSuccessful();
+            $this->assertSame([$id], array_column(app(SauvegardesAuto::class)->catalogue(), 'id'));
+            $this->artisan('gesnotes:restaurer', ['--universite' => 'udh', '--appliquer' => true])->assertSuccessful();
+            $this->assertSame(['ALPHA'], $this->restaures());
+
+            // Rien n'est effacé à distance quand une sauvegarde disparaît du serveur
+            $this->supprimerTout($this->dossier.'/'.$id);
+            $this->artisan('gesnotes:copier-hors-serveur')->assertSuccessful();
+            $this->assertCount(2, iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($distant, \FilesystemIterator::SKIP_DOTS))));
+
+            // Destination inaccessible : échec signalé dans l'état
+            config(['gesnotes.sauvegardes_auto.hors_serveur.destination' => 'inexistant:']);
+            $this->artisan('gesnotes:copier-hors-serveur')->expectsOutputToContain('rclone a échoué')->assertFailed();
+            $this->assertSame('echec', app(SauvegardesAuto::class)->etat()['hors_serveur']['statut']);
+        } finally {
+            $this->supprimerTout($distant);
+            @unlink($conf);
+        }
+    }
+
     public function test_conservation(): void
     {
         $s = app(SauvegardesAuto::class);
@@ -163,6 +223,17 @@ class SauvegardesAutoTest extends TestCase
         // Gardées : 2 dernières complètes (octobre), première complète d'août (3 derniers mois : août à octobre), archive
         $this->assertEqualsCanonicalizing([$vieille, '2026-05-04_020000_differentielle', $aout2, $incAout2, $echecAncien], $supprimes);
         $this->assertSame([$archive, $aout1, $oct1, $echecRecent, $oct2], array_column($s->catalogue(true), 'id'));
+    }
+
+    private function supprimerTout(string $dossier): void
+    {
+        if (! is_dir($dossier)) {
+            return;
+        }
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dossier, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST) as $f) {
+            $f->isDir() ? rmdir($f->getPathname()) : unlink($f->getPathname());
+        }
+        rmdir($dossier);
     }
 
     private function supprimer(string $dossier): void

@@ -102,6 +102,9 @@ class Restaurer extends Command
             $m['type'] === 'complete' ? count($m['bases'] ?? []).' base(s)' : count($m['journaux'] ?? []).' journal(aux)',
             ! empty($m['archive']) ? 'archive' : '', $m['erreur'] ?? ''], $sauvegardes->catalogue(true));
         $this->table(['Sauvegarde', 'Type', 'Statut', 'Fin', 'Contenu', '', 'Erreur'], $lignes);
+        $copie = $sauvegardes->etat()['hors_serveur'] ?? null;
+        $this->line($copie ? 'Dernière copie hors du serveur : '.Carbon::parse($copie['date'])->format('d/m/Y H:i').' — '.$copie['statut'].($copie['erreur'] ? ' ('.$copie['erreur'].')' : '')
+            : ($sauvegardes->horsServeurConfiguree() ? 'Aucune copie hors du serveur pour l\'instant.' : 'Copie hors du serveur non configurée.'));
 
         return self::SUCCESS;
     }
