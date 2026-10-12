@@ -70,6 +70,8 @@ return [
             'rclone' => env('SAUVEGARDES_HORS_SERVEUR_RCLONE'),
             'config' => env('SAUVEGARDES_HORS_SERVEUR_CONFIG'),
             'destination' => env('SAUVEGARDES_HORS_SERVEUR_DESTINATION'),
+            // Remote chiffré de la copie sur clé USB (gesnotes:copier-usb), dossier remplacé à chaque copie
+            'remote_support' => env('SAUVEGARDES_SUPPORT_REMOTE', 'usb'),
         ],
     ],
 

@@ -476,6 +476,83 @@ class SauvegardesAuto
         $this->verrouiller(fn () => $this->rclone(['copy', $this->destinationHorsServeur(), $this->dossier()]));
     }
 
+    /**
+     * Copie sur un support amovible (clé USB, disque externe), à débrancher
+     * ensuite : chiffrée par le remote « crypt » de rclone (mêmes mots de
+     * passe que la copie en ligne), sans rien effacer sur le support, puis
+     * vérifiée fichier par fichier.
+     *
+     * @param  string  $support  lecteur (« E: ») ou dossier sur le support
+     * @return array{dossier: string, octets: int}
+     */
+    public function copierSurSupport(string $support, bool $memeDisque = false): array
+    {
+        $cible = $this->dossierSupport($support, $memeDisque);
+        $taille = 0;
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->dossier(), \FilesystemIterator::SKIP_DOTS)) as $f) {
+            $taille += $f->getSize();
+        }
+        $libre = @disk_free_space($cible);
+        if ($libre !== false && $libre < $taille) {
+            throw new RuntimeException(sprintf('Place insuffisante sur %s : %.1f Mo libres, %.1f Mo nécessaires.', $support, $libre / 1048576, $taille / 1048576));
+        }
+
+        return $this->verrouiller(function () use ($cible, $taille) {
+            $exclusions = ['--exclude', '/.tmp/**', '--exclude', '/.verrou', '--exclude', '/etat.json'];
+            try {
+                // Clés en FAT32 : dates à 2 s près (sinon tout serait recopié à chaque fois)
+                $this->rclone(['copy', $this->dossier(), $this->destinationSupport($cible), '--modify-window', '2s', ...$exclusions]);
+                // Support amovible : on relit tout (contenu déchiffré comparé aux originaux)
+                $this->rclone(['cryptcheck', $this->dossier(), $this->destinationSupport($cible), '--one-way', ...$exclusions]);
+                $this->noterEtatSupport('ok', $cible);
+            } catch (Throwable $e) {
+                $this->noterEtatSupport('echec', $cible, $e->getMessage());
+                throw $e;
+            }
+
+            return ['dossier' => $cible, 'octets' => $taille];
+        });
+    }
+
+    /** Rapatrie dans le dossier local les sauvegardes d'un support amovible. */
+    public function recupererDepuisSupport(string $support): void
+    {
+        $cible = $this->dossierSupport($support, true);
+        $this->verrouiller(fn () => $this->rclone(['copy', $this->destinationSupport($cible), $this->dossier()]));
+    }
+
+    /** Dossier des sauvegardes sur le support : <lecteur>\EDUFILE-sauvegardes. */
+    private function dossierSupport(string $support, bool $memeDisque): string
+    {
+        $support = rtrim(trim($support), '/\\');
+        if (preg_match('/^[A-Za-z]:?$/', $support)) {
+            $support = strtoupper($support[0]).':';
+        }
+        if (! is_dir($support.DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException("Support introuvable : $support (clé USB branchée ? bonne lettre de lecteur ?)");
+        }
+        if (! $memeDisque && strcasecmp(substr(realpath($support.DIRECTORY_SEPARATOR) ?: $support, 0, 2), substr(realpath($this->dossier()) ?: $this->dossier(), 0, 2)) === 0) {
+            throw new RuntimeException("$support est sur le même disque que les sauvegardes : choisir la clé USB ou le disque externe.");
+        }
+
+        return $support.DIRECTORY_SEPARATOR.'EDUFILE-sauvegardes';
+    }
+
+    /** Remote chiffré (config « usb » de rclone) pointé sur le dossier du support. */
+    private function destinationSupport(string $dossier): string
+    {
+        $remote = (string) (config('gesnotes.sauvegardes_auto.hors_serveur.remote_support') ?: 'usb');
+
+        return $remote.',remote="'.$dossier.'":';
+    }
+
+    private function noterEtatSupport(string $statut, string $dossier, ?string $erreur = null): void
+    {
+        $etat = $this->etat();
+        $etat['support'] = ['date' => now()->toIso8601String(), 'statut' => $statut, 'dossier' => $dossier, 'erreur' => $erreur];
+        file_put_contents($this->dossier().DIRECTORY_SEPARATOR.'etat.json', json_encode($etat, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
     private function destinationHorsServeur(): string
     {
         if (! $this->horsServeurConfiguree()) {
@@ -488,7 +565,7 @@ class SauvegardesAuto
     private function rclone(array $arguments): void
     {
         $c = config('gesnotes.sauvegardes_auto.hors_serveur');
-        if (! is_file($c['rclone'])) {
+        if (! filled($c['rclone'] ?? null) || ! is_file($c['rclone'])) {
             throw new RuntimeException('rclone introuvable : '.$c['rclone']);
         }
         $p = new Process([$c['rclone'], ...$arguments, ...(filled($c['config'] ?? null) ? ['--config', $c['config']] : []),

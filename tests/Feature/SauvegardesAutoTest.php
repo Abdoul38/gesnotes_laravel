@@ -196,6 +196,68 @@ password2 = '.$obscur('essai-2').'
         }
     }
 
+    public function test_copie_sur_cle_usb(): void
+    {
+        $rclone = 'C:\\xampp00\\rclone\\rclone.exe';
+        if (! is_file($rclone)) {
+            $this->markTestSkipped('rclone absent.');
+        }
+        // « Clé USB » de test : un dossier ; remote « usb » chiffré dont le dossier est fixé à chaque copie
+        $cle = $this->dossier.'-cle';
+        @mkdir($cle, 0700, true);
+        @mkdir($this->dossier, 0700, true);
+        $obscur = fn ($v) => trim((new Process([$rclone, 'obscure', $v]))->mustRun()->getOutput());
+        file_put_contents($conf = $this->dossier.'-rclone.conf', "[usb]\ntype = crypt\nremote = X:\\inutilise\npassword = ".$obscur('essai-1')."\npassword2 = ".$obscur('essai-2')."\n");
+        config(['gesnotes.sauvegardes_auto.hors_serveur' => ['rclone' => $rclone, 'config' => $conf, 'destination' => null, 'remote_support' => 'usb']]);
+
+        try {
+            // Jamais copiée : rappel ; support absent ou sur le même disque : refus
+            $this->artisan('gesnotes:copier-usb', ['--rappel' => true])->expectsOutputToContain('Aucune copie sur clé USB')->assertSuccessful();
+            $this->artisan('gesnotes:copier-usb')->expectsOutputToContain('lettre du lecteur')->assertFailed();
+            $this->artisan('gesnotes:copier-usb', ['support' => $cle.'\\absent'])->expectsOutputToContain('Support introuvable')->assertFailed();
+            $this->artisan('gesnotes:copier-usb', ['support' => $cle])->expectsOutputToContain('même disque')->assertFailed();
+
+            $this->etudiant('ALPHA');
+            $this->artisan('gesnotes:sauvegarder', ['--type' => 'complete', '--universite' => ['udh']])->assertSuccessful();
+            $id = app(SauvegardesAuto::class)->catalogue()[0]['id'];
+            $this->artisan('gesnotes:copier-usb', ['support' => $cle, '--meme-disque' => true])
+                ->expectsOutputToContain('copiées et vérifiées')->assertSuccessful();
+            $this->assertSame('ok', app(SauvegardesAuto::class)->etat()['support']['statut']);
+
+            // Sur la clé : un dossier EDUFILE-sauvegardes, contenu et noms chiffrés
+            $fichiers = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($cle.'/EDUFILE-sauvegardes', \FilesystemIterator::SKIP_DOTS)));
+            $this->assertCount(2, $fichiers);
+            foreach ($fichiers as $f) {
+                $chemin = substr($f->getPathname(), strlen($cle));
+                $this->assertStringNotContainsString('complete', $chemin);
+                $this->assertStringNotContainsString('"statut"', file_get_contents($f->getPathname()));
+            }
+            // Copie récente : pas de rappel
+            $this->artisan('gesnotes:copier-usb', ['--rappel' => true])->expectsOutputToContain('pas de rappel')->assertSuccessful();
+
+            // Clé abîmée : la relecture le détecte
+            $un = array_values(array_filter(array_map(fn ($f) => $f->getPathname(), $fichiers), fn ($f) => filesize($f) > 1000))[0];
+            // (même taille et même date : la copie ne le remplace pas, seule la relecture peut le voir)
+            $date = filemtime($un);
+            file_put_contents($un, str_repeat('x', filesize($un)));
+            touch($un, $date);
+            $this->artisan('gesnotes:copier-usb', ['support' => $cle, '--meme-disque' => true])->expectsOutputToContain('rclone a échoué')->assertFailed();
+            $this->assertSame('echec', app(SauvegardesAuto::class)->etat()['support']['statut']);
+            unlink($un);
+            $this->artisan('gesnotes:copier-usb', ['support' => $cle, '--meme-disque' => true])->assertSuccessful();
+
+            // Serveur perdu : rapatriement depuis la clé, puis restauration
+            $this->supprimerTout($this->dossier);
+            $this->artisan('gesnotes:copier-usb', ['support' => $cle, '--recuperer' => true])->expectsOutputToContain('rapatriées')->assertSuccessful();
+            $this->assertSame([$id], array_column(app(SauvegardesAuto::class)->catalogue(), 'id'));
+            $this->artisan('gesnotes:restaurer', ['--universite' => 'udh', '--appliquer' => true])->assertSuccessful();
+            $this->assertSame(['ALPHA'], $this->restaures());
+        } finally {
+            $this->supprimerTout($cle);
+            @unlink($conf);
+        }
+    }
+
     public function test_conservation(): void
     {
         $s = app(SauvegardesAuto::class);

@@ -105,6 +105,11 @@ class Restaurer extends Command
         $copie = $sauvegardes->etat()['hors_serveur'] ?? null;
         $this->line($copie ? 'Dernière copie hors du serveur : '.Carbon::parse($copie['date'])->format('d/m/Y H:i').' — '.$copie['statut'].($copie['erreur'] ? ' ('.$copie['erreur'].')' : '')
             : ($sauvegardes->horsServeurConfiguree() ? 'Aucune copie hors du serveur pour l\'instant.' : 'Copie hors du serveur non configurée.'));
+        $usb = $sauvegardes->etat()['support'] ?? null;
+        $message = $usb ? 'Dernière copie sur clé USB : '.Carbon::parse($usb['date'])->format('d/m/Y H:i').' — '.$usb['statut'].($usb['erreur'] ? ' ('.$usb['erreur'].')' : '')
+            : 'Aucune copie sur clé USB pour l\'instant (gesnotes:copier-usb E:).';
+        $ancienne = ! $usb || $usb['statut'] !== 'ok' || Carbon::parse($usb['date'])->lessThan(now()->subDays(CopierUsb::JOURS));
+        $ancienne ? $this->warn($message) : $this->line($message);
 
         return self::SUCCESS;
     }

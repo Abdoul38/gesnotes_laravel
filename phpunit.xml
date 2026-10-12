@@ -31,6 +31,14 @@
         <!-- Compte principal : le compte en lecture seule du .env n'a pas de droits sur les bases de test -->
         <env name="ESPACES_DB_USERNAME" value=""/>
         <env name="ESPACES_DB_PASSWORD" value=""/>
+        <!-- Sauvegardes : jamais la configuration réelle (compte, Google Drive, alertes) -->
+        <env name="SAUVEGARDES_AUTO" value="false"/>
+        <env name="SAUVEGARDES_AUTO_DB_USERNAME" value=""/>
+        <env name="SAUVEGARDES_AUTO_DB_PASSWORD" value=""/>
+        <env name="SAUVEGARDES_AUTO_ALERTE" value=""/>
+        <env name="SAUVEGARDES_HORS_SERVEUR_RCLONE" value=""/>
+        <env name="SAUVEGARDES_HORS_SERVEUR_CONFIG" value=""/>
+        <env name="SAUVEGARDES_HORS_SERVEUR_DESTINATION" value=""/>
         <!-- Les autres universités sont désactivées : les tableaux de bord nationaux
              (Ministère, ANAB) ne lisent ainsi que les bases de test. -->
         <env name="UNI_UDO_ACTIF" value="false"/>

@@ -15,4 +15,6 @@ if (config('gesnotes.sauvegardes_auto.planifiees')) {
     Schedule::command('gesnotes:sauvegarder --type=complete')->weeklyOn(0, '02:00')->withoutOverlapping(120);
     Schedule::command('gesnotes:sauvegarder --type=differentielle')->days([1, 2, 3, 4, 5, 6])->at('02:00')->withoutOverlapping(120);
     Schedule::command('gesnotes:sauvegarder --type=incrementielle')->hourly()->between('07:00', '20:00')->withoutOverlapping(60);
+    // Rappel par e-mail chaque lundi tant que la copie sur clé USB a plus de 28 jours
+    Schedule::command('gesnotes:copier-usb --rappel')->weeklyOn(1, '09:00');
 }

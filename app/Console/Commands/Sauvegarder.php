@@ -2,10 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Communication\Courriel;
+use App\Services\AlerteSauvegarde;
 use App\Services\SauvegardesAuto;
-use App\Universites\RegistreUniversites;
-use App\Universites\UniversiteCourante;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -80,18 +78,8 @@ class Sauvegarder extends Command
 
     private function alerter(string $type, string $erreur, ?string $relancer = null): void
     {
-        $adresse = config('gesnotes.sauvegardes_auto.alerte');
-        if (! filled($adresse)) {
-            return;
-        }
-        try {
-            $registre = app(RegistreUniversites::class);
-            app(UniversiteCourante::class)->pour($registre->parDefaut(), fn () => app(Courriel::class)->envoyer($adresse,
-                "⚠️ Sauvegarde $type échouée — ".config('app.name'),
-                '<p>La sauvegarde <strong>'.e($type).'</strong> du '.now()->format('d/m/Y à H:i').' a échoué :</p><p><code>'.e($erreur).'</code></p>'
-                .'<p>Vérifier le serveur, puis relancer : <code>php artisan '.e($relancer ?? 'gesnotes:sauvegarder --type='.$type).'</code></p>', 'sauvegarde'));
-        } catch (Throwable $e) {
-            Log::error('Alerte de sauvegarde non envoyée', ['erreur' => $e->getMessage()]);
-        }
+        app(AlerteSauvegarde::class)->envoyer("⚠️ Sauvegarde $type échouée",
+            '<p>La sauvegarde <strong>'.e($type).'</strong> du '.now()->format('d/m/Y à H:i').' a échoué :</p><p><code>'.e($erreur).'</code></p>'
+            .'<p>Vérifier le serveur, puis relancer : <code>php artisan '.e($relancer ?? 'gesnotes:sauvegarder --type='.$type).'</code></p>');
     }
 }

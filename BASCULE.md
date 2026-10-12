@@ -160,19 +160,32 @@ sans limite ; suppression après chaque complète.
    [rclone](https://rclone.org) (`C:\xampp00\rclone\rclone.exe`) ; rien n'est jamais effacé sur Drive.
    1. Autoriser rclone sur le compte Google (le navigateur s'ouvre ; droit limité aux fichiers créés par rclone) :
       ```
-      C:\xampp00\rclone\rclone.exe config create gdrive drive scope=drive.file --config C:\xampp00\rclone\rclone.conf
+      C:\xampp00\rclone\rclone.exe config create gdrive drive scope=drive.file --config C:\xampp00\rclone\config\rclone.conf
       ```
-   2. Remote chiffré par-dessus : `C:\xampp00\rclone\rclone.exe config --config C:\xampp00\rclone\rclone.conf`, puis `n` (nouveau), nom `edufile`, type `crypt`,
+   2. Remote chiffré par-dessus : `C:\xampp00\rclone\rclone.exe config --config C:\xampp00\rclone\config\rclone.conf`, puis `n` (nouveau), nom `edufile`, type `crypt`,
       remote `gdrive:EDUFILE-sauvegardes`, chiffrement des noms `standard`, des dossiers `true`, mot de passe et
       « salt » saisis (`y`). **Noter les deux mots de passe hors du serveur** : sans eux, les copies sont
       illisibles, même pour nous.
-   3. Restreindre l'accès au fichier de configuration (il donne accès au Drive) — SYSTEM et Administrateurs :
+   3. Ranger la configuration dans un dossier réservé à SYSTEM et aux administrateurs (rclone réécrit le
+      fichier à chaque renouvellement de l'accès : c'est le DOSSIER qui doit être protégé), en administrateur :
       ```
-      icacls C:\xampp00\rclone\rclone.conf /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F
+      mkdir C:\xampp00\rclone\config
+      move C:\xampp00\rclone\rclone.conf C:\xampp00\rclone\config\rclone.conf
+      icacls C:\xampp00\rclone\config /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F
+      icacls C:\xampp00\rclone\config\rclone.conf /reset
       ```
-   4. `.env` : `SAUVEGARDES_HORS_SERVEUR_RCLONE=C:\xampp00\rclone\rclone.exe`, `SAUVEGARDES_HORS_SERVEUR_CONFIG=C:\xampp00\rclone\rclone.conf`,
+      Les commandes rclone et `gesnotes:copier-*` lancées à la main se font alors en invite administrateur.
+   4. `.env` : `SAUVEGARDES_HORS_SERVEUR_RCLONE=C:\xampp00\rclone\rclone.exe`, `SAUVEGARDES_HORS_SERVEUR_CONFIG=C:\xampp00\rclone\config\rclone.conf`,
       `SAUVEGARDES_HORS_SERVEUR_DESTINATION=edufile:` ; essai : `php artisan gesnotes:copier-hors-serveur`.
-   En plus, chaque mois, une copie sur un disque débranché.
+7. **Copie mensuelle sur clé USB** (débranchée ensuite : hors de portée d'un piratage du serveur ou du compte
+   Google), chiffrée avec les mêmes mots de passe que Drive. Une fois, en administrateur, créer le remote « usb »
+   en copiant les réglages de chiffrement de « edufile » (aucun mot de passe à retaper) : lancer
+   `C:\xampp00\rclone\rclone.exe config --config C:\xampp00\rclone\config\rclone.conf`, puis `c` (Copy remote),
+   remote `edufile`, nouveau nom `usb`, puis `q`. (Le dossier de la clé est fixé à chaque copie.)
+   Puis chaque mois (un rappel par e-mail arrive le lundi quand la dernière copie a plus de 28 jours) : brancher
+   la clé, puis en administrateur `php artisan gesnotes:copier-usb E:` (lettre de la clé). La copie va dans
+   `E:\EDUFILE-sauvegardes`, n'efface rien sur la clé, puis tout est relu et comparé aux originaux. Éjecter la clé
+   et la ranger hors du bâtiment du serveur. Utiliser au moins deux clés en alternance.
 
 ### Utilisation
 
@@ -198,8 +211,8 @@ php artisan gesnotes:restaurer --universite=udh --appliquer
   (`php artisan down`), puis `php artisan up` ; une nouvelle complète est faite aussitôt.
 
 **Serveur perdu** : réinstaller l'application, MySQL et rclone, remettre `rclone.conf` (ou le recréer avec le même
-compte Google et les deux mots de passe notés), puis `php artisan gesnotes:copier-hors-serveur --recuperer` avant
-`gesnotes:restaurer`.
+compte Google et les deux mots de passe notés), puis `php artisan gesnotes:copier-hors-serveur --recuperer` (ou
+`gesnotes:copier-usb E: --recuperer` depuis une clé) avant `gesnotes:restaurer`.
 
 Les empreintes de tous les fichiers sont contrôlées avant la restauration ; une chaîne de journaux incomplète est
 refusée plutôt que de produire une base incomplète. Faire un essai de restauration à côté chaque mois.
