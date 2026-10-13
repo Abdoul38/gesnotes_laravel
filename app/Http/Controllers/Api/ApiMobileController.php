@@ -13,6 +13,7 @@ use App\Services\Pv;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -62,7 +63,8 @@ class ApiMobileController extends Controller
     private const ACTIONS = ['login', 'profil', 'inscriptions', 'resultats', 'annonces', 'messages', 'envoyer_message', 'marquer_lu',
         'statistiques', 'recu', 'check_inscription', 'carte', 'reset_password_demande', 'reset_password', 'reclamations_data',
         'matieres_pv', 'soumettre_reclamation',
-        'inscription_academique', 'inscription_academique_demarrer', 'inscription_academique_payer', 'inscription_academique_statut'];
+        'inscription_academique', 'inscription_academique_demarrer', 'inscription_academique_payer', 'inscription_academique_statut',
+        'inscription_academique_tiers'];
 
     private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
 
@@ -418,7 +420,11 @@ class ApiMobileController extends Controller
         RateLimiter::hit($cle, 600);
         $r = app(InscriptionEnLigne::class)->lancerPaiement($ins, (string) $request->input('moyen'), (string) $request->input('telephone'));
 
-        return $r['ok'] ? $this->ok($this->etatInscription(), 'Paiement lancé : validez-le sur votre téléphone.') : $this->erreur($r['message']);
+        if ($r['ok'] && (int) $ins->etudiant_id !== (int) $this->etudiant->id) {
+            Log::info("api_mobile : paiement de l'inscription d'un autre étudiant", ['par' => $this->etudiant->id, 'pour' => $ins->etudiant_id, 'inscription' => $ins->id]);
+        }
+
+        return $r['ok'] ? $this->ok($this->etatPour(app(InscriptionEnLigne::class)->trouver((int) $ins->id)), 'Paiement lancé : validez-le sur votre téléphone.') : $this->erreur($r['message']);
     }
 
     /** Suivi du paiement ; paiement validé (vérifié auprès de KomiPay) → inscription finalisée, reçu disponible. */
@@ -445,11 +451,100 @@ class ApiMobileController extends Controller
         }
 
         return $this->ok(['statut' => $statut, 'message' => $message ?? match ($statut) {
-            'valide' => 'Paiement validé : vous êtes inscrit(e).',
+            'valide' => (int) $ins->etudiant_id === (int) $this->etudiant->id ? 'Paiement validé : vous êtes inscrit(e).'
+                : 'Paiement validé : '.trim($ins->prenoms.' '.$ins->nom).' est inscrit(e).',
             'expire' => 'Le délai de paiement ('.config('komipay.expiration_minutes').' minutes) a expiré. Recommencez le paiement.',
             'echec' => 'Le paiement a échoué ou a été refusé. Vous pouvez recommencer.',
             default => 'Paiement en attente de validation sur votre téléphone.',
-        }] + $this->etatInscription());
+        }] + $this->etatPour($service->trouver((int) $ins->id)));
+    }
+
+    /**
+     * Inscription d'un autre étudiant (sans téléphone, par exemple) : l'étudiant
+     * connecté saisit son matricule ou N° dossier, vérifie son nom puis paie.
+     * Mêmes règles que le portail (qui accepte déjà le seul matricule) ;
+     * seul celui qui l'a ouverte peut la payer et la suivre (7 jours) ; essais
+     * limités (les matricules se suivent) ; trace de qui paie pour qui.
+     */
+    private function inscriptionAcademiqueTiers(Request $request): JsonResponse
+    {
+        $service = app(InscriptionEnLigne::class);
+        if (! $service->ouverte()) {
+            return $this->erreur(app(Candidatures::class)->config('message_inscription_fermee', 'Les inscriptions académiques sont actuellement fermées.'));
+        }
+        $identifiant = mb_strtoupper(trim((string) $request->input('identifiant')));
+        if ($identifiant === '') {
+            return $this->erreur("Saisissez le matricule ou le N° dossier de l'étudiant à inscrire.");
+        }
+        $et = $this->etudiant;
+        $propre = "C'est votre propre identifiant : utilisez « Mon inscription ».";
+        if (in_array($identifiant, array_filter(array_map(fn ($v) => mb_strtoupper(trim((string) $v)), [$et->numero, $et->numero_dossier, $et->numero_depot])), true)) {
+            return $this->erreur($propre);
+        }
+        $cle = 'api_mobile_tiers|'.$this->universite->get()->code.'|'.$et->id;
+        if (RateLimiter::tooManyAttempts($cle, 10)) {
+            return $this->erreur('Trop de recherches. Réessayez dans '.(int) ceil(RateLimiter::availableIn($cle) / 60).' minute(s).', 429);
+        }
+        RateLimiter::hit($cle, 3600);
+        $r = $service->identifier($identifiant, $this->sigle(), null);
+        if (isset($r['erreur'])) {
+            return $this->erreur($r['erreur']);
+        }
+        if (isset($r['deja'])) {
+            return $this->erreur("Cet étudiant est déjà inscrit pour l'année en cours.");
+        }
+        $ins = $service->trouver((int) $r['inscription']);
+        if ((int) $ins->etudiant_id === (int) $et->id) {
+            return $this->erreur($propre);
+        }
+        $acces = $this->cleTiers();
+        Cache::put($acces, array_values(array_unique([...Cache::get($acces, []), (int) $ins->id])), now()->addDays(7));
+        Log::info('api_mobile : inscription ouverte pour un autre étudiant', ['par' => $et->id, 'pour' => $ins->etudiant_id, 'inscription' => $ins->id]);
+
+        return $this->ok($this->etatTiers($ins), 'Étudiant trouvé : vérifiez son nom avant de payer.');
+    }
+
+    private function cleTiers(): string
+    {
+        return 'api_mobile_inscriptions_tiers|'.$this->universite->get()->code.'|'.$this->etudiant->id;
+    }
+
+    /** État vu par l'étudiant connecté : sa propre inscription, ou celle qu'il fait pour un autre. */
+    private function etatPour(object $ins): array
+    {
+        return (int) $ins->etudiant_id === (int) $this->etudiant->id ? $this->etatInscription() : $this->etatTiers($ins);
+    }
+
+    /** Inscription faite pour un autre étudiant : nom (à vérifier), récapitulatif, paiement — rien d'autre de son dossier. */
+    private function etatTiers(object $ins): array
+    {
+        $service = app(InscriptionEnLigne::class);
+
+        return [
+            'tiers' => true,
+            'etudiant' => ['nom' => $ins->nom, 'prenoms' => $ins->prenoms, 'identifiant' => $ins->numero ?: $ins->numero_dossier],
+            'ouverte' => $service->ouverte(),
+            'annee' => $ins->annee_lib,
+            'inscrit' => $ins->statut === 'complete',
+            'inscription_id' => null,
+            'moyens' => array_diff_key($service->moyens(), ['visa_master' => true]),
+            'carte_sur_le_web' => array_key_exists('visa_master', $service->moyens()),
+            'expiration_minutes' => (int) config('komipay.expiration_minutes'),
+            'telephone' => $this->etudiant->telephone ?? null,
+            'en_ligne' => $this->vueEnLigne($ins),
+        ];
+    }
+
+    private function vueEnLigne(object $ins): array
+    {
+        $service = app(InscriptionEnLigne::class);
+
+        return [
+            'id' => (int) $ins->id, 'statut' => $ins->statut, 'statut_paiement' => $ins->statut_paiement, 'expire' => $service->expire($ins),
+            'filiere' => $ins->filiere_lib, 'faculte' => $ins->faculte, 'niveau_code' => $ins->niveau_code, 'niveau' => $ins->niveau_lib, 'annee' => $ins->annee_lib,
+            'montant' => $service->montant((float) $ins->montant), 'moyen_paiement' => $ins->reference_paiement ? $ins->moyen_paiement : null,
+            'telephone_paiement' => $ins->telephone_paiement, 'code_achat' => $ins->code_achat_komipay, 'matricule' => $ins->matricule, 'recu_numero' => $ins->recu_numero,
+        ];
     }
 
     private function etatInscription(): array
@@ -463,6 +558,7 @@ class ApiMobileController extends Controller
         $ins = $enLigne ? $service->trouver((int) $enLigne) : null;
 
         return [
+            'tiers' => false,
             'ouverte' => $service->ouverte(),
             'annee' => $annee?->libelle,
             'inscrit' => (bool) $inscription,
@@ -472,21 +568,16 @@ class ApiMobileController extends Controller
             'carte_sur_le_web' => array_key_exists('visa_master', $service->moyens()),
             'expiration_minutes' => (int) config('komipay.expiration_minutes'),
             'telephone' => $et->telephone ?? null,
-            'en_ligne' => $ins ? [
-                'id' => (int) $ins->id, 'statut' => $ins->statut, 'statut_paiement' => $ins->statut_paiement, 'expire' => $service->expire($ins),
-                'filiere' => $ins->filiere_lib, 'faculte' => $ins->faculte, 'niveau_code' => $ins->niveau_code, 'niveau' => $ins->niveau_lib, 'annee' => $ins->annee_lib,
-                'montant' => $service->montant((float) $ins->montant), 'moyen_paiement' => $ins->reference_paiement ? $ins->moyen_paiement : null,
-                'telephone_paiement' => $ins->telephone_paiement, 'code_achat' => $ins->code_achat_komipay, 'matricule' => $ins->matricule, 'recu_numero' => $ins->recu_numero,
-            ] : null,
+            'en_ligne' => $ins ? $this->vueEnLigne($ins) : null,
         ];
     }
 
-    /** Inscription en ligne de l'étudiant connecté (jamais celle d'un autre). */
+    /** Inscription en ligne de l'étudiant connecté, ou qu'il a ouverte pour un autre étudiant ; jamais une autre. */
     private function monInscriptionEnLigne(int $id): ?object
     {
         $ins = $id ? app(InscriptionEnLigne::class)->trouver($id) : null;
 
-        return $ins && (int) $ins->etudiant_id === (int) $this->etudiant->id ? $ins : null;
+        return $ins && ((int) $ins->etudiant_id === (int) $this->etudiant->id || in_array((int) $ins->id, Cache::get($this->cleTiers(), []), true)) ? $ins : null;
     }
 
     // ── Réclamations ──────────────────────────────────────────

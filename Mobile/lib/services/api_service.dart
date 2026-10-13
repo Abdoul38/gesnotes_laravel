@@ -162,6 +162,10 @@ class ApiService {
   static Future<Map<String, dynamic>> payerInscriptionAcademique(int id, String moyen, String telephone) =>
       post('inscription_academique_payer', {'id': id, 'moyen': moyen, 'telephone': telephone});
 
+  /// Inscription d'un autre étudiant (sans téléphone) : recherche par matricule ou N° dossier.
+  static Future<Map<String, dynamic>> inscrireUnAutre(String identifiant) =>
+      post('inscription_academique_tiers', {'identifiant': identifiant});
+
   static Future<Map<String, dynamic>> statutInscriptionAcademique(int id) =>
       get('inscription_academique_statut', {'id': id.toString()});
 

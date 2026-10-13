@@ -4,6 +4,8 @@
 // Amana, Mobile Money), suivi de la validation, reçu.
 // Mêmes règles que le portail web (décision de passage, tarif du niveau,
 // frais de transaction, délai de paiement) : tout est vérifié par le serveur.
+// Mode « pour un autre étudiant » (camarade sans téléphone) : on saisit son
+// matricule ou N° dossier, on vérifie son nom, puis on paie pour lui.
 // ============================================================
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -12,7 +14,9 @@ import '../utils/constants.dart';
 import 'recu_screen.dart';
 
 class InscriptionAcademiqueScreen extends StatefulWidget {
-  const InscriptionAcademiqueScreen({super.key});
+  /// Inscription d'un autre étudiant, payée depuis ce téléphone.
+  final bool pourUnAutre;
+  const InscriptionAcademiqueScreen({super.key, this.pourUnAutre = false});
   @override
   State<InscriptionAcademiqueScreen> createState() => _InscriptionAcademiqueScreenState();
 }
@@ -25,6 +29,7 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
   String? _info;
   String? _moyen;
   final _telCtrl = TextEditingController();
+  final _identifiantCtrl = TextEditingController();
   Timer? _suivi;
   DateTime? _debutSuivi;
 
@@ -38,6 +43,7 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
   void dispose() {
     _suivi?.cancel();
     _telCtrl.dispose();
+    _identifiantCtrl.dispose();
     super.dispose();
   }
 
@@ -68,6 +74,15 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
   }
 
   Future<void> _charger() async {
+    if (widget.pourUnAutre) {
+      // Rien à charger avant la recherche ; ensuite, on rafraîchit le suivi du paiement
+      if (_enLigne != null) {
+        await _verifier();
+      } else {
+        setState(() => _chargement = false);
+      }
+      return;
+    }
     setState(() { _chargement = true; _erreur = null; });
     final res = await ApiService.getInscriptionAcademique();
     if (!mounted) return;
@@ -79,6 +94,31 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
         _erreur = res['message']?.toString() ?? 'Erreur';
       }
     });
+  }
+
+  Future<void> _rechercher() async {
+    final identifiant = _identifiantCtrl.text.trim();
+    if (identifiant.isEmpty) {
+      setState(() => _erreur = "Saisissez le matricule ou le N° dossier de l'étudiant à inscrire.");
+      return;
+    }
+    setState(() { _envoi = true; _erreur = null; _info = null; });
+    final res = await ApiService.inscrireUnAutre(identifiant);
+    if (!mounted) return;
+    setState(() {
+      _envoi = false;
+      if (res['success'] == true) {
+        _info = res['message']?.toString();
+        _appliquer(res['data'] as Map<String, dynamic>);
+      } else {
+        _erreur = res['message']?.toString();
+      }
+    });
+  }
+
+  void _autreEtudiant() {
+    _suivi?.cancel();
+    setState(() { _etat = null; _erreur = null; _info = null; _identifiantCtrl.clear(); });
   }
 
   Future<void> _demarrer() async {
@@ -104,11 +144,12 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
       return;
     }
     final total = _fcfa(_enLigne?['montant']?['total']);
+    final pour = widget.pourUnAutre ? '\nPour : ${_nomEtudiant()}' : '';
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Confirmer le paiement'),
-        content: Text('Payer $total par ${_moyens[_moyen]} depuis le $tel ?\n\n'
+        content: Text('Payer $total par ${_moyens[_moyen]} depuis le $tel ?$pour\n\n'
             'Vous devrez ensuite valider le paiement sur votre téléphone.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
@@ -168,10 +209,15 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
 
   // ── Affichage ─────────────────────────────────────────────
 
+  String _nomEtudiant() {
+    final e = _etat?['etudiant'] as Map?;
+    return e == null ? '' : '${e['prenoms'] ?? ''} ${(e['nom'] ?? '').toString().toUpperCase()} (${e['identifiant'] ?? ''})'.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Inscription académique')),
+      appBar: AppBar(title: Text(widget.pourUnAutre ? 'Inscrire un autre étudiant' : 'Inscription académique')),
       body: _chargement
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -182,6 +228,7 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
   }
 
   List<Widget> _contenu() {
+    if (widget.pourUnAutre) return _contenuPourUnAutre();
     if (_etat == null) {
       return [_message('⚠️', _erreur ?? 'Impossible de charger votre inscription.', bouton: ('Réessayer', _charger))];
     }
@@ -201,7 +248,8 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
         ..add(_message('🎉', 'Vous êtes inscrit(e) pour l\'année $annee.'
             '${e?['matricule'] != null ? '\nMatricule : ${e!['matricule']}' : ''}',
             bouton: insId != null ? ('Voir mon reçu', () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => RecuScreen(inscriptionId: insId)))) : null));
+                MaterialPageRoute(builder: (_) => RecuScreen(inscriptionId: insId)))) : null))
+        ..add(_boutonAutre());
     }
     if (_etat!['ouverte'] != true) {
       return widgets..add(_message('🔒', 'Les inscriptions académiques en ligne sont actuellement fermées.\n'
@@ -209,14 +257,95 @@ class _InscriptionAcademiqueScreenState extends State<InscriptionAcademiqueScree
     }
     if (e == null) {
       return widgets
-        ..add(_message('🎓', 'Inscrivez-vous en ligne pour l\'année $annee : vérification de votre '
+        ..add(_message('🎓', "Inscrivez-vous en ligne pour l'année $annee : vérification de votre "
             'admission, récapitulatif des frais, puis paiement depuis votre téléphone.',
-            bouton: ('Commencer mon inscription', _demarrer)));
+            bouton: ('Commencer mon inscription', _demarrer)))
+        ..add(_boutonAutre());
     }
 
     widgets.add(_recapitulatif(e));
     widgets.add(const SizedBox(height: 16));
     widgets.add(_paiementEnAttente ? _attente(e) : _formulairePaiement(e));
+    return widgets..add(_boutonAutre());
+  }
+
+  /// Accès à l'inscription d'un camarade (sans téléphone), depuis « Mon inscription ».
+  Widget _boutonAutre() => Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: OutlinedButton.icon(
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const InscriptionAcademiqueScreen(pourUnAutre: true))),
+          icon: const Icon(Icons.group_add_outlined),
+          label: const Text('Inscrire un autre étudiant (sans téléphone)'),
+        ),
+      );
+
+  List<Widget> _contenuPourUnAutre() {
+    final widgets = <Widget>[
+      _entete('Inscrire un camarade'),
+      const SizedBox(height: 12),
+      if (_erreur != null) _bandeau(_erreur!, AppConstants.errorColor, Icons.error_outline),
+      if (_info != null && _erreur == null) _bandeau(_info!, AppConstants.accentColor, Icons.info_outline),
+    ];
+    final e = _enLigne;
+    if (_etat == null || e == null) {
+      return widgets
+        ..add(Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text("Pour un étudiant qui n'a pas de téléphone : saisissez son matricule (ancien étudiant) "
+                  'ou son N° dossier (nouveau bachelier). Vous paierez depuis votre téléphone.',
+                  style: TextStyle(fontSize: 13, height: 1.4)),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _identifiantCtrl,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: "Matricule ou N° dossier de l'étudiant",
+                  prefixIcon: Icon(Icons.badge_outlined, color: AppConstants.primaryColor),
+                ),
+                onSubmitted: (_) => _rechercher(),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _envoi ? null : _rechercher,
+                  child: _envoi
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Rechercher'),
+                ),
+              ),
+            ]),
+          ),
+        ));
+    }
+
+    // Étudiant trouvé : son nom en évidence, à vérifier avant de payer
+    widgets.add(Card(
+      color: const Color(0xFFEFF6FF),
+      child: ListTile(
+        leading: const Icon(Icons.person, color: AppConstants.primaryColor, size: 32),
+        title: Text(_nomEtudiant(), style: const TextStyle(fontWeight: FontWeight.w800, color: AppConstants.primaryColor)),
+        subtitle: const Text("Vérifiez que c'est bien la bonne personne avant de payer."),
+      ),
+    ));
+    widgets.add(const SizedBox(height: 12));
+    if (_etat!['inscrit'] == true) {
+      return widgets
+        ..add(_message('🎉', "${_nomEtudiant()} est inscrit(e) pour l'année ${_etat!['annee'] ?? ''}."
+            "${e['matricule'] != null ? '\nMatricule : ${e['matricule']}' : ''}"
+            "${e['recu_numero'] != null ? '\nN° de reçu : ${e['recu_numero']}' : ''}\n\n"
+            'Il (elle) retrouvera son reçu en se connectant, ou au service de la scolarité.',
+            bouton: ('Inscrire un autre étudiant', _autreEtudiant)));
+    }
+    widgets.add(_recapitulatif(e));
+    widgets.add(const SizedBox(height: 16));
+    widgets.add(_paiementEnAttente ? _attente(e) : _formulairePaiement(e));
+    if (!_paiementEnAttente) {
+      widgets.add(TextButton(onPressed: _envoi ? null : _autreEtudiant, child: const Text("Ce n'est pas la bonne personne : changer")));
+    }
     return widgets;
   }
 

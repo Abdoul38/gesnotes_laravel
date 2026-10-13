@@ -124,6 +124,51 @@ class ApiInscriptionAcademiqueTest extends TestCase
         $this->postJson($this->url('api_mobile.php?action=inscription_academique_demarrer'))->assertUnauthorized();
     }
 
+    public function test_inscription_pour_un_autre_etudiant(): void
+    {
+        $this->komipay();
+        $aidant = $this->jeton('D123456');
+
+        // Son propre identifiant : refusé (il a « Mon inscription ») ; identifiant inconnu : erreur du portail
+        $this->api($aidant, 'inscription_academique_tiers', ['identifiant' => 'd123456'])->assertStatus(400)->assertJsonPath('message', fn ($m) => str_contains($m, 'propre identifiant'));
+        $this->api($aidant, 'inscription_academique_tiers', ['identifiant' => '99999'])->assertStatus(400)->assertJson(['message' => 'Matricule introuvable. Vérifiez votre numéro.']);
+
+        // Camarade sans téléphone : nom à vérifier, récapitulatif — rien d'autre de son dossier
+        $etat = $this->api($aidant, 'inscription_academique_tiers', ['identifiant' => '00007'])->assertOk()
+            ->assertJson(['data' => ['tiers' => true, 'etudiant' => ['nom' => 'ALPHA', 'prenoms' => 'Awa', 'identifiant' => '00007'], 'inscrit' => false,
+                'en_ligne' => ['niveau_code' => 'L2', 'statut_paiement' => 'en_attente']]])
+            ->assertJsonMissingPath('data.etudiant.date_naissance')->assertJsonMissingPath('data.etudiant.telephone')->json('data');
+        $id = $etat['en_ligne']['id'];
+        $this->assertSame(15450, (int) $etat['en_ligne']['montant']['total']);
+
+        // Un autre étudiant ne peut ni payer ni suivre cette inscription
+        DB::table('etudiants')->insert(['numero' => '00009', 'nom' => 'GAMMA', 'prenoms' => 'Ali', 'password_hash' => Hash::make('Secret123')]);
+        RateLimiter::clear('api_mobile|udh|login|127.0.0.1|00009');
+        $intrus = $this->jeton('00009');
+        $this->api($intrus, 'inscription_academique_payer', ['id' => $id, 'moyen' => 'mynita', 'telephone' => '91000000'])->assertNotFound();
+        $this->api($intrus, 'inscription_academique_statut', ['id' => $id], 'get')->assertNotFound();
+
+        // L'aidant paie depuis son téléphone, puis suit la validation
+        $this->api($aidant, 'inscription_academique_payer', ['id' => $id, 'moyen' => 'mynita', 'telephone' => '91000000'])->assertOk()
+            ->assertJson(['data' => ['tiers' => true, 'en_ligne' => ['statut_paiement' => 'en_attente', 'telephone_paiement' => '91000000']]]);
+        $this->api($aidant, 'inscription_academique_statut', ['id' => $id], 'get')->assertOk()
+            ->assertJson(['data' => ['statut' => 'valide', 'message' => 'Paiement validé : Awa ALPHA est inscrit(e).', 'tiers' => true, 'inscrit' => true,
+                'en_ligne' => ['statut' => 'complete', 'matricule' => '00007']]]);
+        $this->assertSame(1, DB::table('inscriptions')->where(['etudiant_id' => $this->ancien, 'annee_id' => $this->annee])->count());
+        // L'aidant reste non inscrit ; le camarade voit son inscription et son reçu
+        $this->api($aidant, 'inscription_academique', [], 'get')->assertJson(['data' => ['tiers' => false, 'inscrit' => false]]);
+        $insId = $this->api($this->jeton('00007'), 'inscription_academique', [], 'get')->assertJson(['data' => ['inscrit' => true]])->json('data.inscription_id');
+        $this->assertNotNull($insId);
+        // Déjà inscrit : plus rien à payer
+        $this->api($aidant, 'inscription_academique_tiers', ['identifiant' => '00007'])->assertStatus(400)->assertJsonPath('message', fn ($m) => str_contains($m, 'déjà inscrit'));
+
+        // Recherches limitées (les matricules se suivent)
+        for ($i = 0; $i < 7; $i++) {
+            $this->api($aidant, 'inscription_academique_tiers', ['identifiant' => '9999'.$i]);
+        }
+        $this->api($aidant, 'inscription_academique_tiers', ['identifiant' => '00007'])->assertStatus(429);
+    }
+
     public function test_refus_sans_decision_de_passage_ou_inscriptions_fermees(): void
     {
         $j = $this->jeton('00007');
