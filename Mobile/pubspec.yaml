@@ -1,0 +1,49 @@
+name: udh_mobile
+description: Application mobile UDH — Université Djibo Hamani de Tahoua
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # HTTP & API
+  http: ^1.2.0
+  webview_flutter: ^4.4.0
+  # Stockage local
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.2
+  path: ^1.9.0
+  
+  # UI
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.1.0
+  fl_chart: ^0.68.0
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  
+  # Utils
+  intl: ^0.19.0
+  connectivity_plus: ^5.0.2
+  url_launcher: ^6.2.5
+  share_plus: ^7.2.2
+  package_info_plus: ^5.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/edufile_icon_512.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
