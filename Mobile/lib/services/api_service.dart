@@ -1,6 +1,7 @@
 // ============================================================
 // services/api_service.dart — Appels API REST vers GesNotes
 // ============================================================
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,9 @@ import '../utils/constants.dart';
 class ApiService {
   static const _tokenKey    = 'udh_auth_token';
   static const _etudiantKey = 'udh_etudiant_data';
+
+  /// Appelé quand le serveur refuse le jeton (session expirée) : retour à la connexion.
+  static void Function()? onSessionExpiree;
 
   // ── Token ────────────────────────────────────────────────
   static Future<String?> getToken() async {
@@ -41,6 +45,8 @@ class ApiService {
   }
 
   // ── Headers avec token ───────────────────────────────────
+  // Le jeton passe UNIQUEMENT dans l'en-tête Authorization : dans l'adresse
+  // (?token=…), il finissait dans les journaux des serveurs et des proxys.
   static Future<Map<String, String>> _headers() async {
     final token = await getToken();
     final headers = <String, String>{
@@ -53,39 +59,45 @@ class ApiService {
     return headers;
   }
 
+  static Map<String, dynamic> _erreur(String message) =>
+      {'success': false, 'message': message, 'data': null};
+
+  /// Envoie la requête et décode la réponse JSON (en UTF-8 : le serveur
+  /// n'indique pas toujours le jeu de caractères, et les accents étaient
+  /// alors mal affichés).
+  static Future<Map<String, dynamic>> _envoyer(Future<http.Response> Function() requete) async {
+    try {
+      final res = await requete().timeout(const Duration(seconds: 25));
+      final Map<String, dynamic> corps;
+      try {
+        corps = json.decode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      } catch (_) {
+        return _erreur('Réponse inattendue du serveur (${res.statusCode}). Réessayez plus tard.');
+      }
+      if (res.statusCode == 401 && await isLoggedIn()) {
+        await logout();
+        onSessionExpiree?.call();
+      }
+      return corps;
+    } on TimeoutException {
+      return _erreur('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
+    } catch (_) {
+      return _erreur('Connexion au serveur impossible. Vérifiez votre connexion Internet.');
+    }
+  }
+
   // ── GET ──────────────────────────────────────────────────
   static Future<Map<String, dynamic>> get(String action, [Map<String, String>? params]) async {
-    try {
-      final token = await getToken();
-      // Ajouter le token aussi en paramètre GET (fallback)
-      final qParams = <String, String>{'action': action};
-      if (token != null && token.isNotEmpty) qParams['token'] = token;
-      if (params != null) qParams.addAll(params);
-
-      final uri = Uri.parse(AppConstants.apiUrl).replace(queryParameters: qParams);
-      final res = await http.get(uri, headers: await _headers())
-          .timeout(const Duration(seconds: 20));
-      return json.decode(res.body) as Map<String, dynamic>;
-    } catch (e) {
-      return {'success': false, 'message': 'Erreur réseau : $e', 'data': null};
-    }
+    final uri = Uri.parse(AppConstants.apiUrl).replace(queryParameters: {'action': action, ...?params});
+    final headers = await _headers();
+    return _envoyer(() => http.get(uri, headers: headers));
   }
 
   // ── POST ─────────────────────────────────────────────────
   static Future<Map<String, dynamic>> post(String action, Map<String, dynamic> body) async {
-    try {
-      final token = await getToken();
-      final uri = Uri.parse(AppConstants.apiUrl).replace(
-        queryParameters: {'action': action, if (token != null) 'token': token},
-      );
-      final res = await http.post(uri,
-        headers: await _headers(),
-        body: json.encode(body),
-      ).timeout(const Duration(seconds: 20));
-      return json.decode(res.body) as Map<String, dynamic>;
-    } catch (e) {
-      return {'success': false, 'message': 'Erreur réseau : $e', 'data': null};
-    }
+    final uri = Uri.parse(AppConstants.apiUrl).replace(queryParameters: {'action': action});
+    final headers = await _headers();
+    return _envoyer(() => http.post(uri, headers: headers, body: json.encode(body)));
   }
 
   // ── Auth ─────────────────────────────────────────────────
@@ -110,6 +122,13 @@ class ApiService {
     return token != null && token.isNotEmpty;
   }
 
+  // ── Mot de passe oublié (code envoyé par SMS ou e-mail) ──
+  static Future<Map<String, dynamic>> demanderCodeReinitialisation(String identifiant) =>
+      post('reset_password_demande', {'identifiant': identifiant});
+
+  static Future<Map<String, dynamic>> reinitialiserMotDePasse(String identifiant, String code, String nouveau) =>
+      post('reset_password', {'identifiant': identifiant, 'code': code, 'nouveau_mdp': nouveau});
+
   // ── Endpoints ────────────────────────────────────────────
   static Future<Map<String, dynamic>> getProfil()       => get('profil');
   static Future<Map<String, dynamic>> getInscriptions() => get('inscriptions');
@@ -132,6 +151,19 @@ class ApiService {
 
   static Future<Map<String, dynamic>> checkInscription() =>
       get('check_inscription');
+
+  // ── Inscription académique en ligne ──────────────────────
+  static Future<Map<String, dynamic>> getInscriptionAcademique() =>
+      get('inscription_academique');
+
+  static Future<Map<String, dynamic>> demarrerInscriptionAcademique() =>
+      post('inscription_academique_demarrer', {});
+
+  static Future<Map<String, dynamic>> payerInscriptionAcademique(int id, String moyen, String telephone) =>
+      post('inscription_academique_payer', {'id': id, 'moyen': moyen, 'telephone': telephone});
+
+  static Future<Map<String, dynamic>> statutInscriptionAcademique(int id) =>
+      get('inscription_academique_statut', {'id': id.toString()});
 
   // ── Réclamations ─────────────────────────────────────────
   static Future<Map<String, dynamic>> getReclamationsData() =>

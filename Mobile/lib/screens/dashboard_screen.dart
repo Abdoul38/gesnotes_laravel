@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../services/api_service.dart';
 import 'inscription_screen.dart';
+import 'inscription_academique_screen.dart';
 import 'recu_screen.dart';
 import 'carte_screen.dart';
 import 'resultats_screen.dart';
@@ -137,7 +138,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         MaterialPageRoute(builder: (_) => const ResultatsScreen()))),
                     _actionCard('🪪', 'Ma Carte', () => Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const CarteScreen()))),
-                    _actionCard('🎓', 'Inscription', () => Navigator.push(context,
+                    // Inscription académique de l'année (paiement en ligne) ; candidature : portail des nouveaux bacheliers
+                    _actionCard('🎓', 'Inscription académique', () async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const InscriptionAcademiqueScreen()));
+                      _load();
+                    }),
+                    _actionCard('📝', 'Candidature', () => Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const InscriptionScreen()))),
                     _actionCard('📢', 'Annonces', () => Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const AnnoncesScreen()))),

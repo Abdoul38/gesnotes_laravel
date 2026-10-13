@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Candidature;
 
 use App\Http\Controllers\Controller;
+use App\Services\Candidatures;
 use App\Services\Identite;
 use App\Services\InscriptionEnLigne;
 use App\Services\Paiement\KomiPay;
@@ -49,14 +50,14 @@ class InscriptionEnLigneController extends Controller
     public function formulaire(Request $request): View
     {
         return view('candidature.inscription', $this->commun() + ['etape' => 1, 'ins' => null,
-            'restriction' => app(\App\Services\Candidatures::class)->config('ins_type_candidat', '')]);
+            'restriction' => app(Candidatures::class)->config('ins_type_candidat', '')]);
     }
 
     public function identifier(Request $request): RedirectResponse
     {
         $retour = redirect()->route('candidature.inscription');
         if (! $this->service->ouverte()) {
-            return $retour->with('erreur', app(\App\Services\Candidatures::class)->config('message_inscription_fermee', 'Les inscriptions académiques sont actuellement fermées.'));
+            return $retour->with('erreur', app(Candidatures::class)->config('message_inscription_fermee', 'Les inscriptions académiques sont actuellement fermées.'));
         }
         $candidat = Auth::guard('candidat')->id();
         $r = $this->service->identifier((string) $request->input('identifiant'), $this->sigle(), $candidat ? (int) $candidat : null);
@@ -97,42 +98,21 @@ class InscriptionEnLigneController extends Controller
             return $ins;
         }
         $ici = redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 3]);
+        $suite = redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 4]);
         if ($ins->statut_paiement === 'valide' || $ins->statut === 'complete') {
-            return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 4]);
-        }
-        if ($ins->reference_paiement && $ins->statut_paiement === 'en_attente' && ! $this->service->expire($ins)) {
-            return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 4])
-                ->with('erreur', 'Un paiement est déjà en attente de validation : validez-le sur votre téléphone ou attendez son expiration.');
+            return $suite;
         }
         $moyen = (string) $request->input('moyen');
-        if (! in_array($moyen, config('komipay.moyens'), true)) {
-            return $ici->with('erreur', 'Moyen de paiement invalide.');
-        }
-        if ($moyen === 'visa_master') {
+        $enAttente = $ins->reference_paiement && $ins->statut_paiement === 'en_attente' && ! $this->service->expire($ins);
+        if (! $enAttente && $moyen === 'visa_master' && in_array($moyen, config('komipay.moyens'), true)) {
             return redirect()->route('candidature.inscription.carte', ['id' => $id]);
         }
-        $telephone = trim((string) $request->input('telephone'));
-        if (! preg_match('/^\+?[0-9 ]{8,16}$/', $telephone)) {
-            return $ici->with('erreur', 'Le numéro de téléphone est obligatoire (8 chiffres, ou +227…).');
-        }
-        $total = $this->service->montant((float) $ins->montant)['total'];
-        $reference = 'INS'.$id.'-'.date('ymdHis');
-        if ($moyen === 'mobile_money') {
-            $r = $this->komipay->payerMobileMoney('airtel_money', $total, preg_replace('/\D/', '', $telephone), trim($ins->nom.' '.$ins->prenoms) ?: 'Candidat', $reference);
-            $statut = 'valide'; // Mobile Money opérateur : réponse synchrone
-        } else {
-            $intl = str_starts_with($telephone, '+') ? preg_replace('/[^0-9+]/', '', $telephone) : '+227'.preg_replace('/\D/', '', $telephone);
-            $r = $this->komipay->payerSTA($moyen === 'mynita' ? 'nita_transfert' : 'amana_transfert', $total, $intl, 'NIGER', $reference);
-            $statut = 'en_attente'; // le payeur valide ensuite sur son compte
-        }
+        $r = $this->service->lancerPaiement($ins, $moyen, (string) $request->input('telephone'));
         if (! $r['ok']) {
-            return $ici->with('erreur', 'Paiement refusé : '.$r['message']);
+            return ($enAttente ? $suite : $ici)->with('erreur', $r['message']);
         }
-        DB::table('inscriptions_en_ligne')->where('id', $id)->update(['moyen_paiement' => $moyen, 'operateur' => $moyen === 'mobile_money' ? 'airtel' : null,
-            'telephone_paiement' => mb_substr($telephone, 0, 30), 'reference_paiement' => $r['reference_transaction'], 'code_achat_komipay' => $r['code_achat'] ?? null,
-            'statut_paiement' => $statut, 'date_paiement' => $statut === 'valide' ? now() : null, 'updated_at' => now()]);
 
-        return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 4]);
+        return $suite;
     }
 
     public function carte(Request $request, int $id): View|RedirectResponse
@@ -194,23 +174,9 @@ class InscriptionEnLigneController extends Controller
         if ($ins instanceof RedirectResponse) {
             return response()->json(['ok' => false, 'message' => 'Inscription introuvable.'], 404);
         }
-        if (in_array($ins->statut_paiement, ['valide', 'echec'], true)) {
-            return response()->json(['ok' => true, 'statut' => $ins->statut_paiement]);
-        }
-        if ($this->service->expire($ins)) {
-            DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'echec']);
+        $statut = $this->service->suivre($ins);
 
-            return response()->json(['ok' => true, 'statut' => 'expire', 'message' => 'Le délai de paiement a expiré.']);
-        }
-        if (! $ins->reference_paiement) {
-            return response()->json(['ok' => true, 'statut' => 'en_attente']);
-        }
-        $verif = $this->komipay->verifier($ins->reference_paiement, 15);
-        if ($verif['statut_transaction'] === 'Echec') {
-            DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'echec']);
-        }
-
-        return response()->json(['ok' => true, 'statut' => ['Success' => 'valide', 'Echec' => 'echec'][$verif['statut_transaction']] ?? 'en_attente']);
+        return response()->json(['ok' => true, 'statut' => $statut] + ($statut === 'expire' ? ['message' => 'Le délai de paiement a expiré.'] : []));
     }
 
     public function confirmer(Request $request, int $id): RedirectResponse
@@ -219,29 +185,11 @@ class InscriptionEnLigneController extends Controller
         if ($ins instanceof RedirectResponse) {
             return $ins;
         }
-        $attente = redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 4]);
-        if ($ins->statut_paiement !== 'valide') {
-            if ($this->service->expire($ins)) {
-                DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'echec']);
-
-                return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 3])
-                    ->with('erreur', 'Le délai de paiement ('.config('komipay.expiration_minutes').' minutes) a expiré. Veuillez recommencer le paiement.');
-            }
-            if (! $ins->reference_paiement) {
-                return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 3])->with('erreur', 'Aucune transaction de paiement trouvée. Veuillez recommencer.');
-            }
-            // Vérification réelle auprès de KomiPay — jamais sur la seule parole du navigateur
-            $verif = $this->komipay->verifier($ins->reference_paiement);
-            if ($verif['statut_transaction'] !== 'Success') {
-                if ($verif['statut_transaction'] === 'Echec') {
-                    DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'echec']);
-                }
-
-                return $attente->with('erreur', 'Paiement non confirmé pour le moment : '.($verif['message'] ?: 'transaction en attente ou échouée').'. Réessayez après avoir validé sur votre téléphone.');
-            }
-            DB::table('inscriptions_en_ligne')->where('id', $id)->update(['statut_paiement' => 'valide', 'date_paiement' => now()]);
+        // Vérification réelle auprès de KomiPay — jamais sur la seule parole du navigateur
+        $r = $this->service->confirmer($ins);
+        if (! $r['ok']) {
+            return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => ($r['recommencer'] ?? false) ? 3 : 4])->with('erreur', $r['message']);
         }
-        $this->service->finaliser($id);
 
         return redirect()->route('candidature.inscription.etape', ['id' => $id, 'etape' => 5]);
     }

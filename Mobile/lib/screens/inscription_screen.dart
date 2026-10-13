@@ -1,5 +1,5 @@
 // ============================================================
-// screens/inscription_screen.dart — Inscription en ligne mobile
+// screens/inscription_screen.dart — Portail des candidatures (web)
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -19,7 +19,7 @@ class _InscriptionScreenState extends State<InscriptionScreen> {
 
   final String _url =
       '${AppConstants.apiUrl.replaceAll('/api_mobile.php', '')}'
-      '/candidature/index.php';
+      '/candidature';
 
   @override
   void initState() {
@@ -42,7 +42,7 @@ class _InscriptionScreenState extends State<InscriptionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inscription en ligne'),
+        title: const Text('Candidature'),
         backgroundColor: AppConstants.primaryColor,
         foregroundColor: Colors.white,
         actions: [

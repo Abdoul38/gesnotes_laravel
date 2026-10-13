@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\Paiement\KomiPay;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,7 +17,109 @@ class InscriptionEnLigne
 {
     public const MOYENS = ['mobile_money' => 'Mobile Money', 'mynita' => 'MyNITA', 'amana' => 'Amana Microfinance', 'visa_master' => 'Carte Visa/Mastercard'];
 
-    public function __construct(private readonly Candidatures $candidatures, private readonly Matricules $matricules, private readonly Inscriptions $inscriptions) {}
+    public function __construct(private readonly Candidatures $candidatures, private readonly Matricules $matricules, private readonly Inscriptions $inscriptions,
+        private readonly KomiPay $komipay) {}
+
+    /** Moyens de paiement activés (config komipay.moyens) : [code => libellé]. */
+    public function moyens(): array
+    {
+        return array_intersect_key(self::MOYENS, array_flip(config('komipay.moyens')));
+    }
+
+    /**
+     * Lance un paiement Mobile Money, MyNITA ou Amana (la carte bancaire
+     * passe par sa propre page : authentification 3-D Secure). Partagé par
+     * le portail et l'application mobile.
+     *
+     * @return array{ok: bool, message?: string}
+     */
+    public function lancerPaiement(object $ins, string $moyen, string $telephone): array
+    {
+        if ($ins->statut_paiement === 'valide' || $ins->statut === 'complete') {
+            return ['ok' => false, 'message' => 'Le paiement de cette inscription est déjà validé.'];
+        }
+        if ($ins->reference_paiement && $ins->statut_paiement === 'en_attente' && ! $this->expire($ins)) {
+            return ['ok' => false, 'message' => 'Un paiement est déjà en attente de validation : validez-le sur votre téléphone ou attendez son expiration.'];
+        }
+        if (! in_array($moyen, config('komipay.moyens'), true) || $moyen === 'visa_master') {
+            return ['ok' => false, 'message' => 'Moyen de paiement invalide.'];
+        }
+        $telephone = trim($telephone);
+        if (! preg_match('/^\+?[0-9 ]{8,16}$/', $telephone)) {
+            return ['ok' => false, 'message' => 'Le numéro de téléphone est obligatoire (8 chiffres, ou +227…).'];
+        }
+        $total = $this->montant((float) $ins->montant)['total'];
+        $reference = 'INS'.$ins->id.'-'.date('ymdHis');
+        if ($moyen === 'mobile_money') {
+            $r = $this->komipay->payerMobileMoney('airtel_money', $total, preg_replace('/\D/', '', $telephone), trim($ins->nom.' '.$ins->prenoms) ?: 'Candidat', $reference);
+            $statut = 'valide'; // Mobile Money opérateur : réponse synchrone
+        } else {
+            $intl = str_starts_with($telephone, '+') ? preg_replace('/[^0-9+]/', '', $telephone) : '+227'.preg_replace('/\D/', '', $telephone);
+            $r = $this->komipay->payerSTA($moyen === 'mynita' ? 'nita_transfert' : 'amana_transfert', $total, $intl, 'NIGER', $reference);
+            $statut = 'en_attente'; // le payeur valide ensuite sur son compte
+        }
+        if (! $r['ok']) {
+            return ['ok' => false, 'message' => 'Paiement refusé : '.$r['message']];
+        }
+        DB::table('inscriptions_en_ligne')->where('id', $ins->id)->update(['moyen_paiement' => $moyen, 'operateur' => $moyen === 'mobile_money' ? 'airtel' : null,
+            'telephone_paiement' => mb_substr($telephone, 0, 30), 'reference_paiement' => $r['reference_transaction'], 'code_achat_komipay' => $r['code_achat'] ?? null,
+            'statut_paiement' => $statut, 'date_paiement' => $statut === 'valide' ? now() : null, 'updated_at' => now()]);
+
+        return ['ok' => true];
+    }
+
+    /** Suivi du paiement : « valide », « echec », « expire » ou « en_attente » (vérifié auprès de KomiPay). */
+    public function suivre(object $ins): string
+    {
+        if (in_array($ins->statut_paiement, ['valide', 'echec'], true)) {
+            return $ins->statut_paiement;
+        }
+        if ($this->expire($ins)) {
+            DB::table('inscriptions_en_ligne')->where('id', $ins->id)->update(['statut_paiement' => 'echec']);
+
+            return 'expire';
+        }
+        if (! $ins->reference_paiement) {
+            return 'en_attente';
+        }
+        $verif = $this->komipay->verifier($ins->reference_paiement, 15);
+        if ($verif['statut_transaction'] === 'Echec') {
+            DB::table('inscriptions_en_ligne')->where('id', $ins->id)->update(['statut_paiement' => 'echec']);
+        }
+
+        return ['Success' => 'valide', 'Echec' => 'echec'][$verif['statut_transaction']] ?? 'en_attente';
+    }
+
+    /**
+     * Confirmation : paiement vérifié auprès de KomiPay (jamais sur la seule
+     * parole du client), puis finalisation.
+     *
+     * @return array{ok: bool, message?: string, recommencer?: bool, matricule?: string}
+     */
+    public function confirmer(object $ins): array
+    {
+        if ($ins->statut_paiement !== 'valide') {
+            if ($this->expire($ins)) {
+                DB::table('inscriptions_en_ligne')->where('id', $ins->id)->update(['statut_paiement' => 'echec']);
+
+                return ['ok' => false, 'recommencer' => true, 'message' => 'Le délai de paiement ('.config('komipay.expiration_minutes').' minutes) a expiré. Veuillez recommencer le paiement.'];
+            }
+            if (! $ins->reference_paiement) {
+                return ['ok' => false, 'recommencer' => true, 'message' => 'Aucune transaction de paiement trouvée. Veuillez recommencer.'];
+            }
+            $verif = $this->komipay->verifier($ins->reference_paiement);
+            if ($verif['statut_transaction'] !== 'Success') {
+                if ($verif['statut_transaction'] === 'Echec') {
+                    DB::table('inscriptions_en_ligne')->where('id', $ins->id)->update(['statut_paiement' => 'echec']);
+                }
+
+                return ['ok' => false, 'message' => 'Paiement non confirmé pour le moment : '.($verif['message'] ?: 'transaction en attente ou échouée').'. Réessayez après avoir validé sur votre téléphone.'];
+            }
+            DB::table('inscriptions_en_ligne')->where('id', $ins->id)->update(['statut_paiement' => 'valide', 'date_paiement' => now()]);
+        }
+
+        return ['ok' => true, 'matricule' => $this->finaliser((int) $ins->id)];
+    }
 
     public function ouverte(): bool
     {

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Candidatures;
 use App\Services\Communication\Courriel;
 use App\Services\Communication\Sms;
 use App\Services\Identite;
+use App\Services\InscriptionEnLigne;
 use App\Services\Licence;
 use App\Services\Pv;
 use App\Universites\UniversiteCourante;
@@ -16,8 +18,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\Password;
 use Throwable;
 
 /**
@@ -48,12 +50,19 @@ use Throwable;
  *    ciblées par niveau prises en compte ; nouveaux mots de passe : 8
  *    caractères, lettres et chiffres ; messages en UTF-8 (la version racine,
  *    en Latin-1, produisait un JSON vide) ; licence vérifiée.
+ *
+ * Ajouts : inscription académique en ligne depuis l'application
+ * (inscription_academique*), mêmes règles et même paiement KomiPay que le
+ * portail (App\Services\InscriptionEnLigne), l'étudiant étant identifié par
+ * son jeton (plus de matricule à saisir) ; reçu complété (matricule,
+ * faculté, montant, moyen et référence du paiement en ligne).
  */
 class ApiMobileController extends Controller
 {
     private const ACTIONS = ['login', 'profil', 'inscriptions', 'resultats', 'annonces', 'messages', 'envoyer_message', 'marquer_lu',
         'statistiques', 'recu', 'check_inscription', 'carte', 'reset_password_demande', 'reset_password', 'reclamations_data',
-        'matieres_pv', 'soumettre_reclamation'];
+        'matieres_pv', 'soumettre_reclamation',
+        'inscription_academique', 'inscription_academique_demarrer', 'inscription_academique_payer', 'inscription_academique_statut'];
 
     private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
 
@@ -328,10 +337,16 @@ class ApiMobileController extends Controller
 
     private function recu(Request $request): JsonResponse
     {
-        $recu = DB::table('inscriptions as i')->leftJoin('promotions as p', 'p.id', '=', 'i.promotion_id')->leftJoin('filieres as f', 'f.id', '=', 'p.filiere_id')
+        // Champs attendus par l'écran du reçu (montant, matricule, faculté, paiement) ; paiement en ligne s'il y en a eu un
+        $recu = DB::table('inscriptions as i')->join('etudiants as e', 'e.id', '=', 'i.etudiant_id')
+            ->leftJoin('promotions as p', 'p.id', '=', 'i.promotion_id')->leftJoin('filieres as f', 'f.id', '=', 'p.filiere_id')
             ->leftJoin('niveaux as n', 'n.id', '=', 'i.niveau_id')->leftJoin('annees_academiques as a', 'a.id', '=', 'i.annee_id')
+            ->leftJoin('inscriptions_en_ligne as il', fn ($j) => $j->on('il.etudiant_id', '=', 'i.etudiant_id')->on('il.annee_id', '=', 'i.annee_id')->where('il.statut', 'complete'))
             ->where(['i.id' => (int) $request->query('ins_id'), 'i.etudiant_id' => $this->etudiant->id])
-            ->first(['i.*', 'f.libelle as filiere', 'n.code as niveau', 'a.libelle as annee']);
+            ->first(['i.*', 'f.libelle as filiere', 'f.faculte', 'n.code as niveau', 'a.libelle as annee', 'e.numero as matricule',
+                'i.montant_paye as montant', DB::raw('COALESCE(il.date_paiement, i.date_inscription) AS date_paiement'),
+                DB::raw('COALESCE(il.moyen_paiement, i.mode_paiement) AS moyen_paiement'), 'il.reference_paiement', 'il.numero_dossier',
+                DB::raw('COALESCE(i.recu_numero, il.recu_numero) AS recu_numero')]);
 
         return $recu ? $this->ok($recu) : $this->erreur('Reçu introuvable');
     }
@@ -356,6 +371,122 @@ class ApiMobileController extends Controller
 
         return $this->ok(['etudiant' => $this->etudiant, 'inscription' => $inscription, 'photo_url' => $this->urlPhoto($this->etudiant),
             'logo_url' => app(Identite::class)->logos()['gauche'], 'cachet_url' => null]);
+    }
+
+    // ── Inscription académique en ligne ───────────────────────
+
+    /** État de l'inscription de l'année active : ouverte, déjà inscrit, inscription en ligne en cours, moyens de paiement. */
+    private function inscriptionAcademique(): JsonResponse
+    {
+        return $this->ok($this->etatInscription());
+    }
+
+    /** Ouvre (ou reprend) l'inscription en ligne de l'étudiant connecté : mêmes règles que le portail. */
+    private function inscriptionAcademiqueDemarrer(): JsonResponse
+    {
+        $service = app(InscriptionEnLigne::class);
+        if (! $service->ouverte()) {
+            return $this->erreur(app(Candidatures::class)->config('message_inscription_fermee', 'Les inscriptions académiques sont actuellement fermées.'));
+        }
+        $et = $this->etudiant;
+        $identifiant = $et->numero && $et->numero !== '0' ? (string) $et->numero : (string) ($et->numero_dossier ?: $et->numero_depot);
+        if ($identifiant === '') {
+            return $this->erreur("Votre dossier n'a ni matricule ni numéro de dossier : contactez la scolarité.");
+        }
+        $r = $service->identifier($identifiant, $this->sigle(), null);
+        if (isset($r['erreur'])) {
+            return $this->erreur($r['erreur']);
+        }
+        $id = isset($r['deja']) ? (int) $r['deja']->id : (int) $r['inscription'];
+        if ((int) ($service->trouver($id)->etudiant_id ?? 0) !== (int) $et->id) {
+            return $this->erreur('Inscription introuvable. Contactez la scolarité.', 403);
+        }
+
+        return $this->ok($this->etatInscription(), 'Inscription ouverte');
+    }
+
+    private function inscriptionAcademiquePayer(Request $request): JsonResponse
+    {
+        $ins = $this->monInscriptionEnLigne((int) $request->input('id'));
+        if (! $ins) {
+            return $this->erreur('Inscription introuvable', 404);
+        }
+        $cle = 'api_mobile_paiement|'.$this->universite->get()->code.'|'.$this->etudiant->id;
+        if (RateLimiter::tooManyAttempts($cle, 5)) {
+            return $this->erreur('Trop de tentatives de paiement. Réessayez dans '.(int) ceil(RateLimiter::availableIn($cle) / 60).' minute(s).', 429);
+        }
+        RateLimiter::hit($cle, 600);
+        $r = app(InscriptionEnLigne::class)->lancerPaiement($ins, (string) $request->input('moyen'), (string) $request->input('telephone'));
+
+        return $r['ok'] ? $this->ok($this->etatInscription(), 'Paiement lancé : validez-le sur votre téléphone.') : $this->erreur($r['message']);
+    }
+
+    /** Suivi du paiement ; paiement validé (vérifié auprès de KomiPay) → inscription finalisée, reçu disponible. */
+    private function inscriptionAcademiqueStatut(Request $request): JsonResponse
+    {
+        $ins = $this->monInscriptionEnLigne((int) $request->query('id'));
+        if (! $ins) {
+            return $this->erreur('Inscription introuvable', 404);
+        }
+        $cle = 'api_mobile_statut|'.$this->universite->get()->code.'|'.$this->etudiant->id;
+        if (RateLimiter::tooManyAttempts($cle, 30)) {
+            return $this->erreur('Trop de vérifications. Patientez une minute.', 429);
+        }
+        RateLimiter::hit($cle, 60);
+        $service = app(InscriptionEnLigne::class);
+        $statut = $ins->statut === 'complete' ? 'valide' : $service->suivre($ins);
+        $message = null;
+        if ($statut === 'valide' && $ins->statut !== 'complete') {
+            $r = $service->confirmer($service->trouver((int) $ins->id));
+            if (! $r['ok']) {
+                $statut = ($r['recommencer'] ?? false) ? 'echec' : 'en_attente';
+                $message = $r['message'];
+            }
+        }
+
+        return $this->ok(['statut' => $statut, 'message' => $message ?? match ($statut) {
+            'valide' => 'Paiement validé : vous êtes inscrit(e).',
+            'expire' => 'Le délai de paiement ('.config('komipay.expiration_minutes').' minutes) a expiré. Recommencez le paiement.',
+            'echec' => 'Le paiement a échoué ou a été refusé. Vous pouvez recommencer.',
+            default => 'Paiement en attente de validation sur votre téléphone.',
+        }] + $this->etatInscription());
+    }
+
+    private function etatInscription(): array
+    {
+        $service = app(InscriptionEnLigne::class);
+        $annee = $service->anneeActive();
+        $et = $this->etudiant;
+        $inscription = $annee ? DB::table('inscriptions')->where(['etudiant_id' => $et->id, 'annee_id' => $annee->id, 'statut' => 'inscrit'])->value('id') : null;
+        $enLigne = $annee ? DB::table('inscriptions_en_ligne')->where(['etudiant_id' => $et->id, 'annee_id' => $annee->id])
+            ->orderByRaw("statut = 'complete' DESC")->orderByDesc('id')->value('id') : null;
+        $ins = $enLigne ? $service->trouver((int) $enLigne) : null;
+
+        return [
+            'ouverte' => $service->ouverte(),
+            'annee' => $annee?->libelle,
+            'inscrit' => (bool) $inscription,
+            'inscription_id' => $inscription ? (int) $inscription : null,
+            // La carte bancaire passe par la page de sa banque (3-D Secure) : sur le portail web seulement
+            'moyens' => array_diff_key($service->moyens(), ['visa_master' => true]),
+            'carte_sur_le_web' => array_key_exists('visa_master', $service->moyens()),
+            'expiration_minutes' => (int) config('komipay.expiration_minutes'),
+            'telephone' => $et->telephone ?? null,
+            'en_ligne' => $ins ? [
+                'id' => (int) $ins->id, 'statut' => $ins->statut, 'statut_paiement' => $ins->statut_paiement, 'expire' => $service->expire($ins),
+                'filiere' => $ins->filiere_lib, 'faculte' => $ins->faculte, 'niveau_code' => $ins->niveau_code, 'niveau' => $ins->niveau_lib, 'annee' => $ins->annee_lib,
+                'montant' => $service->montant((float) $ins->montant), 'moyen_paiement' => $ins->reference_paiement ? $ins->moyen_paiement : null,
+                'telephone_paiement' => $ins->telephone_paiement, 'code_achat' => $ins->code_achat_komipay, 'matricule' => $ins->matricule, 'recu_numero' => $ins->recu_numero,
+            ] : null,
+        ];
+    }
+
+    /** Inscription en ligne de l'étudiant connecté (jamais celle d'un autre). */
+    private function monInscriptionEnLigne(int $id): ?object
+    {
+        $ins = $id ? app(InscriptionEnLigne::class)->trouver($id) : null;
+
+        return $ins && (int) $ins->etudiant_id === (int) $this->etudiant->id ? $ins : null;
     }
 
     // ── Réclamations ──────────────────────────────────────────

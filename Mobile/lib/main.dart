@@ -15,8 +15,13 @@ void main() async {
     statusBarColor: AppConstants.primaryColor,
     statusBarIconBrightness: Brightness.light,
   ));
+  // Session expirée (jeton refusé par le serveur) : retour à l'écran de connexion
+  ApiService.onSessionExpiree = () => navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
   runApp(const UDHApp());
 }
+
+final navigatorKey = GlobalKey<NavigatorState>();
 
 class UDHApp extends StatelessWidget {
   const UDHApp({super.key});
@@ -25,6 +30,7 @@ class UDHApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppConstants.appName,
+      navigatorKey: navigatorKey,
       theme: AppConstants.theme,
       debugShowCheckedModeBanner: false,
       home: const SplashScreen(),
