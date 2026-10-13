@@ -81,7 +81,7 @@ class PortailEtudiantController extends Controller
         $lignes = DB::table('resultats_semestre as rs')->join('pv_sessions as ps', 'ps.id', '=', 'rs.pv_id')
             ->join('promotions as p', 'p.id', '=', 'ps.promotion_id')->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')
             ->join('semestres as s', 's.id', '=', 'ps.semestre_id')
-            ->where('rs.etudiant_id', $et->id)->when(! $personnel, fn ($q) => $q->where('ps.statut', 'publie'))
+            ->where('rs.etudiant_id', $et->id)->when(! $personnel, fn ($q) => $q->whereIn('ps.statut', Pv::CONSULTABLES))
             ->orderByDesc('a.libelle')->orderBy('s.code')->orderBy('ps.type_session')
             ->get(['ps.id as pv_id', 'ps.type_session', 'a.libelle as annee', 's.libelle as semestre', 's.code as sem_code',
                 'rs.moyenne_generale', 'rs.mention', 'rs.decision', 'rs.valide', 'rs.credits_obtenus']);

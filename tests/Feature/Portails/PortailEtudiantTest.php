@@ -44,12 +44,16 @@ class PortailEtudiantTest extends TestCase
         $this->etudiant = $this->creerUtilisateur('etudiant', ['etudiant_id' => $this->et, 'email' => 'awa@exemple.ne', 'mot_de_passe' => 'Actuel123']);
     }
 
-    public function test_etudiant_voit_ses_resultats_publies_seulement(): void
+    public function test_etudiant_voit_ses_resultats_finalises_ou_publies(): void
     {
+        // PV finalisé ou publié : visible (décision de l'université) ; en brouillon : caché
         $this->connecte($this->etudiant)->get($this->url('portail/etudiant'))->assertOk()
-            ->assertSee('ALPHA Awa')->assertSee('Semestre 1')->assertDontSee('Semestre 2')->assertDontSee('Ouvrir le dossier');
+            ->assertSee('ALPHA Awa')->assertSee('Semestre 1')->assertSee('Semestre 2')->assertDontSee('Ouvrir le dossier');
         $this->get($this->url("portail/etudiant?pv_id={$this->pvPublie}"))->assertOk()->assertSee('Microéconomie')->assertSee('14.00/ 20')->assertSee('Admis');
-        // PV seulement finalisé, autre étudiant via et_id : rien
+        $this->get($this->url("portail/etudiant?pv_id={$this->pvFinalise}"))->assertOk()->assertSee('Ajourné');
+        DB::table('pv_sessions')->where('id', $this->pvFinalise)->update(['statut' => 'brouillon']);
+        $this->get($this->url('portail/etudiant'))->assertOk()->assertDontSee('Semestre 2');
+        // PV en brouillon, autre étudiant via et_id : rien
         $this->get($this->url("portail/etudiant?pv_id={$this->pvFinalise}"))->assertOk()->assertDontSee('Ajourné');
         $autre = DB::table('etudiants')->insertGetId(['nom' => 'BETA', 'prenoms' => 'B', 'numero' => '00002']);
         $this->get($this->url("portail/etudiant?et_id=$autre"))->assertOk()->assertSee('ALPHA Awa')->assertDontSee('BETA');

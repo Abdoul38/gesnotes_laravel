@@ -24,6 +24,14 @@ class Pv
 {
     public const STATUTS = ['brouillon' => 'Brouillon', 'finalise' => 'Finalisé', 'publie' => 'Publié'];
 
+    /**
+     * PV dont l'étudiant (et ses parents) voient les notes et résultats :
+     * finalisés ou publiés (décision de l'université). La publication reste
+     * le point de départ des réclamations et la condition des documents
+     * officiels (relevé, attestation de réussite).
+     */
+    public const CONSULTABLES = ['finalise', 'publie'];
+
     /** Réclamations possibles pendant N heures après la publication du PV. */
     public const DELAI_RECLAMATION_HEURES = 72;
 

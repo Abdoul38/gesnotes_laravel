@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portails;
 
 use App\Http\Controllers\Controller;
+use App\Services\Pv;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,7 +41,7 @@ class PortailParentController extends Controller
         $resultats = DB::table('resultats_semestre as rs')->join('pv_sessions as ps', 'ps.id', '=', 'rs.pv_id')
             ->join('promotions as p', 'p.id', '=', 'ps.promotion_id')->join('semestres as s', 's.id', '=', 'ps.semestre_id')
             ->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')->join('filieres as f', 'f.id', '=', 'p.filiere_id')->join('niveaux as n', 'n.id', '=', 'p.niveau_id')
-            ->where('rs.etudiant_id', $etudiant->id)->where('ps.statut', 'publie')->whereIn('ps.type_session', ['normale', 'rattrapage'])
+            ->where('rs.etudiant_id', $etudiant->id)->whereIn('ps.statut', Pv::CONSULTABLES)->whereIn('ps.type_session', ['normale', 'rattrapage'])
             ->orderByDesc('a.libelle')->orderByDesc('s.code')
             ->get(['rs.*', 's.code as sem_code', 'a.libelle as annee', 'f.libelle as filiere', 'n.code as niveau', 'ps.type_session', 'p.id as promotion_id'])
             ->groupBy(fn ($r) => $r->promotion_id.'-'.$r->sem_code)

@@ -39,9 +39,9 @@ use Throwable;
  *    base ne donne plus des sessions utilisables ; jeton dans l'en-tête
  *    seulement (plus de ?token= dans l'adresse) ; anciens jetons acceptés
  *    jusqu'à leur expiration ;
- *  - résultats et réclamations : PV publiés seulement (les PV « finalisés »,
- *    pas encore publiés, étaient visibles, et les résultats de PV en
- *    brouillon aussi) ;
+ *  - résultats : PV finalisés ou publiés (Pv::CONSULTABLES, décision de
+ *    l'université), jamais en brouillon (leurs résultats étaient visibles) ;
+ *    réclamations : PV publiés seulement (le délai part de la publication) ;
  *  - photo servie par une adresse signée valable une heure (dossier public
  *    avant) ; cachet de l'université plus fourni (n'importe qui pouvait le
  *    télécharger pour fabriquer un faux) ;
@@ -244,9 +244,9 @@ class ApiMobileController extends Controller
             ->join('niveaux as nv', 'nv.id', '=', 'p.niveau_id')->join('unites_enseignement as ue', 'ue.promotion_id', '=', 'p.id')
             ->join('semestres as s', 's.id', '=', 'ue.semestre_id')->join('matieres as m', fn ($j) => $j->on('m.ue_id', '=', 'ue.id')->where('m.actif', 1))
             ->leftJoin('pv_sessions as ps1', fn ($j) => $j->on('ps1.promotion_id', '=', 'p.id')->on('ps1.semestre_id', '=', 'ue.semestre_id')
-                ->where('ps1.type_session', 'normale')->where('ps1.statut', 'publie'))
+                ->where('ps1.type_session', 'normale')->whereIn('ps1.statut', Pv::CONSULTABLES))
             ->leftJoin('notes as n1', fn ($j) => $j->on('n1.pv_id', '=', 'ps1.id')->on('n1.matiere_id', '=', 'm.id')->where('n1.etudiant_id', $id))
-            ->leftJoin('pv_sessions as ps2', fn ($j) => $j->on('ps2.pv_normale_id', '=', 'ps1.id')->where('ps2.type_session', 'rattrapage')->where('ps2.statut', 'publie'))
+            ->leftJoin('pv_sessions as ps2', fn ($j) => $j->on('ps2.pv_normale_id', '=', 'ps1.id')->where('ps2.type_session', 'rattrapage')->whereIn('ps2.statut', Pv::CONSULTABLES))
             ->leftJoin('notes as n2', fn ($j) => $j->on('n2.pv_id', '=', 'ps2.id')->on('n2.matiere_id', '=', 'm.id')->where('n2.etudiant_id', $id))
             ->where('i.etudiant_id', $id)->where('i.statut', 'inscrit')->when($anneeId, fn ($q) => $q->where('a.id', $anneeId))
             ->orderByDesc('a.libelle')->orderBy('s.code')->orderBy('ue.ordre')->orderBy('m.ordre')
@@ -268,7 +268,7 @@ class ApiMobileController extends Controller
         });
         $resultats = DB::table('resultats_semestre as rs')->join('pv_sessions as ps', 'ps.id', '=', 'rs.pv_id')->join('promotions as p', 'p.id', '=', 'ps.promotion_id')
             ->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')->join('niveaux as nv', 'nv.id', '=', 'p.niveau_id')->join('semestres as s', 's.id', '=', 'ps.semestre_id')
-            ->where('rs.etudiant_id', $id)->where('ps.statut', 'publie')->orderByDesc('a.libelle')->orderBy('s.code')
+            ->where('rs.etudiant_id', $id)->whereIn('ps.statut', Pv::CONSULTABLES)->orderByDesc('a.libelle')->orderBy('s.code')
             ->get(['rs.valide', 'rs.mention', 'rs.moyenne_generale', 'rs.rang', 'a.libelle as annee', 'a.id as annee_id', 'nv.code as niveau', 's.libelle as semestre', 'ps.type_session']);
 
         return $this->ok(['notes' => $notes, 'resultats' => $resultats]);

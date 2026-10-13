@@ -96,10 +96,13 @@ class ApiMobileTest extends TestCase
         DB::table('mobile_tokens')->insert(['etudiant_id' => $this->etudiant, 'token' => str_repeat('a', 64), 'expires_at' => now()->addDay()]);
         $this->api('statistiques', [], str_repeat('a', 64), 'get')->assertJson(['success' => true, 'data' => ['messages_non_lus' => 0, 'nb_annonces' => 2]]);
 
-        // Résultats : PV publiés seulement
+        // Résultats : PV finalisés ou publiés, jamais en brouillon
         $res = $this->api('resultats', [], $jeton, 'get')->assertOk()->json('data');
         $this->assertSame('12.50', $res['notes'][0]['note_finale']);
-        $this->assertSame(['12.50'], array_column($res['resultats'], 'moyenne_generale'));
+        $this->assertEqualsCanonicalizing(['12.50', '3.25'], array_column($res['resultats'], 'moyenne_generale'));
+        DB::table('pv_sessions')->where('statut', 'finalise')->update(['statut' => 'brouillon']);
+        $this->assertSame(['12.50'], array_column($this->api('resultats', [], $jeton, 'get')->json('data.resultats'), 'moyenne_generale'));
+        DB::table('pv_sessions')->where('statut', 'brouillon')->update(['statut' => 'finalise']);
 
         $annonces = array_column($this->api('annonces', [], $jeton, 'get')->json('data'), 'titre');
         $this->assertEqualsCanonicalizing(['Rentrée', 'Niveau L1'], $annonces);
