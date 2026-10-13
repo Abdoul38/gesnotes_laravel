@@ -531,11 +531,31 @@ class SauvegardesAuto
         if (! is_dir($support.DIRECTORY_SEPARATOR)) {
             throw new RuntimeException("Support introuvable : $support (clé USB branchée ? bonne lettre de lecteur ?)");
         }
-        if (! $memeDisque && strcasecmp(substr(realpath($support.DIRECTORY_SEPARATOR) ?: $support, 0, 2), substr(realpath($this->dossier()) ?: $this->dossier(), 0, 2)) === 0) {
-            throw new RuntimeException("$support est sur le même disque que les sauvegardes : choisir la clé USB ou le disque externe.");
+        if (! $memeDisque) {
+            $lecteur = strtoupper(substr(realpath($support.DIRECTORY_SEPARATOR) ?: $support, 0, 1));
+            $local = strtoupper(substr(realpath($this->dossier()) ?: $this->dossier(), 0, 1));
+            // Même lettre, ou autre partition du MÊME disque physique (ex. D: sur le SSD de C:) : aucune protection
+            $disque = self::disquePhysique($lecteur);
+            if ($lecteur === $local || ($disque !== null && $disque === self::disquePhysique($local))) {
+                throw new RuntimeException("$support est sur le même disque physique que les sauvegardes : brancher une clé USB ou un disque externe.");
+            }
         }
 
         return $support.DIRECTORY_SEPARATOR.'EDUFILE-sauvegardes';
+    }
+
+    /** Numéro du disque physique d'une lettre de lecteur (Windows), null si inconnu. */
+    private static function disquePhysique(string $lettre): ?string
+    {
+        if (PHP_OS_FAMILY !== 'Windows' || ! preg_match('/^[A-Z]$/', $lettre)) {
+            return null;
+        }
+        $p = new Process(['powershell', '-NoProfile', '-NonInteractive', '-Command', "(Get-Partition -DriveLetter $lettre -ErrorAction Stop).DiskNumber"]);
+        $p->setTimeout(30);
+        $p->run();
+        $n = trim($p->getOutput());
+
+        return $p->isSuccessful() && ctype_digit($n) ? $n : null;
     }
 
     /** Remote chiffré (config « usb » de rclone) pointé sur le dossier du support. */
