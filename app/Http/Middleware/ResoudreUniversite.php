@@ -25,6 +25,11 @@ class ResoudreUniversite
     public function handle(Request $request, Closure $next): Response
     {
         $universite = $this->registre->resoudre($request->getHost(), $request->query('uni'));
+        // API de l'application mobile appelée sans sous-domaine (domaine nu, ou localhost lors d'un essai
+        // par câble USB) : université par défaut — la page de présentation (HTML) lui serait illisible
+        if ($universite === null && $request->routeIs('api_mobile*')) {
+            $universite = $this->registre->parDefaut();
+        }
 
         if ($universite === null) {
             $espace = fn (string $code) => ($e = $this->registre->trouver($code)) && $e->actif ? $e : null;

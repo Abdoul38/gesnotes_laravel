@@ -65,6 +65,17 @@ class ApiMobileTest extends TestCase
         return $this->api('login', ['identifiant' => '00001', 'password' => 'Secret123', 'date_naissance' => '2005-04-03'])->json('data.token');
     }
 
+    public function test_sans_sous_domaine_universite_par_defaut(): void
+    {
+        // localhost (essai par câble USB) ou domaine nu : du JSON pour l'application, pas la page de présentation
+        foreach (['http://localhost/api_mobile.php?action=login', 'http://127.0.0.1/api_mobile.php?action=login'] as $adresse) {
+            $this->postJson($adresse, ['identifiant' => '00001', 'password' => 'Secret123', 'date_naissance' => '2005-04-03'])
+                ->assertOk()->assertJsonPath('data.etudiant.nom', 'ALPHA');
+        }
+        // Les pages web gardent la page de présentation
+        $this->get('http://localhost/')->assertOk()->assertSee('<h1>Cursus</h1>', false);
+    }
+
     public function test_connexion_jetons_et_donnees(): void
     {
         $this->api('login', ['identifiant' => '00001', 'password' => 'Secret123'])->assertJson(['success' => false, 'message' => 'Date de naissance requise pour votre première connexion.']);
