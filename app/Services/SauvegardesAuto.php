@@ -95,11 +95,13 @@ class SauvegardesAuto
         }
 
         return $this->verrouiller(function () use ($type, $codes, $archive) {
+            // Serveur interrogé d'abord : MySQL arrêté → aucun dossier vide laissé derrière
+            $serveur = (string) $this->connexion()->scalar('SELECT VERSION()');
             $id = $this->nouvelId($type);
             $dossier = $this->dossier().DIRECTORY_SEPARATOR.$id;
             mkdir($dossier, 0700, true);
             $manifeste = ['id' => $id, 'type' => $type, 'statut' => 'en_cours', 'debut' => now()->toIso8601String(), 'archive' => $archive,
-                'serveur' => (string) $this->connexion()->scalar('SELECT VERSION()')];
+                'serveur' => $serveur];
             try {
                 $manifeste += $type === 'complete' ? $this->complete($dossier, $codes) : $this->journaux($dossier, $type);
                 $manifeste['statut'] = 'ok';
@@ -175,11 +177,11 @@ class SauvegardesAuto
         $catalogue = $this->catalogue();
         $complete = collect($catalogue)->where('type', 'complete')->last();
         if (! $complete) {
-            throw new RuntimeException('Aucune sauvegarde complète : en faire une d\'abord (--type=complete).');
+            throw new ChaineJournauxRompue('Aucune sauvegarde complète : en faire une d\'abord (--type=complete).');
         }
         $depart = collect($complete['bases'])->pluck('journal')->filter();
         if ($depart->count() !== count($complete['bases'])) {
-            throw new RuntimeException("La dernière complète ({$complete['id']}) a été faite sans journal binaire : en refaire une.");
+            throw new ChaineJournauxRompue("La dernière complète ({$complete['id']}) a été faite sans journal binaire : en refaire une.");
         }
         $premier = $depart->map(fn ($j) => self::numero($j['fichier']))->min();
         $precedente = null;
@@ -196,7 +198,7 @@ class SauvegardesAuto
         $fermes = array_slice(array_map(fn ($l) => $l->Log_name, $db->select('SHOW BINARY LOGS')), 0, -1);
         $aCopier = array_values(array_filter($fermes, fn ($n) => self::numero($n) >= $premier));
         if (! $aCopier || self::numero($aCopier[0]) !== $premier) {
-            throw new RuntimeException("Journal binaire n° $premier introuvable sur le serveur (supprimé avant d'être copié ?) : faire une complète.");
+            throw new ChaineJournauxRompue("Journal binaire n° $premier introuvable sur le serveur (supprimé avant d'être copié ?) : faire une complète.");
         }
         $source = $this->dossierJournaux();
         $journaux = [];
@@ -262,8 +264,120 @@ class SauvegardesAuto
                 $supprimes[] = $m['id'];
             }
         }
+        // Dossiers sans manifeste (sauvegarde interrompue : arrêt du serveur, coupure…) de plus d'un jour
+        foreach (glob($this->dossier().DIRECTORY_SEPARATOR.'*', GLOB_ONLYDIR) ?: [] as $d) {
+            if (! is_file($d.DIRECTORY_SEPARATOR.'manifest.json') && filemtime($d) < $maintenant->copy()->subDay()->getTimestamp()) {
+                self::supprimerDossier($d);
+                $supprimes[] = basename($d);
+            }
+        }
 
         return $supprimes;
+    }
+
+    /**
+     * Mode automatique : la sauvegarde qui aurait déjà dû être faite, ou
+     * null. Rattrape ce qui a été manqué (ordinateur éteint ou en veille,
+     * MySQL arrêté) au lieu d'attendre le créneau suivant :
+     *  - complète : aucune depuis le dernier dimanche 2 h ;
+     *  - différentielle : aucune (ni complète) depuis la dernière nuit à 2 h ;
+     *  - incrémentielle : aucune sauvegarde depuis la dernière heure pleine
+     *    de la journée de travail (7 h – 20 h ; la nuit : 20 h la veille).
+     * Sans journal binaire : complètes seulement.
+     */
+    public function aFaire(CarbonInterface $maintenant, ?bool $binlog = null): ?string
+    {
+        $catalogue = collect($this->catalogue());
+        $complete = $catalogue->where('type', 'complete')->last();
+        $dimanche = $maintenant->copy()->setTime(2, 0);
+        if ($dimanche->greaterThan($maintenant)) {
+            $dimanche->subDay();
+        }
+        $nuit = $dimanche->copy();
+        while ($dimanche->dayOfWeek !== 0) {
+            $dimanche->subDay();
+        }
+        $avant = fn (?array $m, CarbonInterface $creneau) => ! $m || Carbon::parse($m['debut'])->lessThan($creneau);
+        if ($avant($complete, $dimanche)) {
+            return 'complete';
+        }
+        $binlog ??= $this->journalBinaireActif();
+        if (! $binlog) {
+            return null;
+        }
+        if (collect($complete['bases'] ?? [])->pluck('journal')->contains(null)) {
+            return 'complete'; // complète faite sans journal binaire : pas de chaîne possible
+        }
+        $chaine = $catalogue->filter(fn ($m) => $m['id'] === $complete['id'] || ($m['complete'] ?? null) === $complete['id']);
+        if ($avant($chaine->whereIn('type', ['complete', 'differentielle'])->last(), $nuit)) {
+            return 'differentielle';
+        }
+        $heure = $maintenant->copy()->startOfHour();
+        if ($heure->hour > 20) {
+            $heure->setTime(20, 0);
+        } elseif ($heure->hour < 7) {
+            $heure->subDay()->setTime(20, 0);
+        }
+
+        return $avant($chaine->last(), $heure) ? 'incrementielle' : null;
+    }
+
+    /** Message d'erreur si le serveur MySQL ne répond pas, sinon null. */
+    public function serveurInjoignable(): ?string
+    {
+        try {
+            $this->connexion()->scalar('SELECT 1');
+
+            return null;
+        } catch (Throwable $e) {
+            DB::purge('sauvegardes');
+
+            return $e->getMessage();
+        }
+    }
+
+    /** Note une panne du serveur MySQL ; vrai si elle commence (première tentative manquée). */
+    public function noterPanne(string $erreur): bool
+    {
+        $etat = $this->etat();
+        $nouvelle = ! isset($etat['panne']);
+        $etat['panne'] = ['depuis' => $etat['panne']['depuis'] ?? now()->toIso8601String(), 'derniere' => now()->toIso8601String(),
+            'tentatives' => ($etat['panne']['tentatives'] ?? 0) + 1, 'erreur' => Str::limit($erreur, 300)];
+        $this->ecrireEtat($etat);
+
+        return $nouvelle;
+    }
+
+    /** Fin de panne : la panne qui vient de se terminer (pour la signaler), ou null. */
+    public function finPanne(): ?array
+    {
+        $etat = $this->etat();
+        $panne = $etat['panne'] ?? null;
+        if ($panne) {
+            unset($etat['panne']);
+            $this->ecrireEtat($etat);
+        }
+
+        return $panne;
+    }
+
+    /** Vrai si une alerte de ce sujet peut partir (au plus une toutes les $heures heures) ; la note envoyée. */
+    public function alertePermise(string $sujet, int $heures = 3): bool
+    {
+        $etat = $this->etat();
+        $derniere = $etat['alertes'][$sujet] ?? null;
+        if ($derniere && Carbon::parse($derniere)->greaterThan(now()->subHours($heures))) {
+            return false;
+        }
+        $etat['alertes'][$sujet] = now()->toIso8601String();
+        $this->ecrireEtat($etat);
+
+        return true;
+    }
+
+    private function ecrireEtat(array $etat): void
+    {
+        file_put_contents($this->dossier().DIRECTORY_SEPARATOR.'etat.json', json_encode($etat, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 
     /**

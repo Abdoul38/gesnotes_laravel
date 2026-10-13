@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\AlerteSauvegarde;
 use App\Services\SauvegardesAuto;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -256,6 +257,80 @@ password2 = '.$obscur('essai-2').'
             $this->supprimerTout($cle);
             @unlink($conf);
         }
+    }
+
+    public function test_mode_automatique_rattrape_les_creneaux_manques(): void
+    {
+        $s = app(SauvegardesAuto::class);
+        @mkdir($this->dossier, 0700, true);
+        $faux = function (string $date, string $type, ?string $complete = null, bool $journal = true) {
+            $id = Carbon::parse($date)->format('Y-m-d_His').'-000_'.$type;
+            @mkdir($this->dossier.'/'.$id, 0700, true);
+            file_put_contents($this->dossier.'/'.$id.'/manifest.json', json_encode(['id' => $id, 'type' => $type, 'statut' => 'ok',
+                'debut' => Carbon::parse($date)->toIso8601String(), 'fin' => Carbon::parse($date)->toIso8601String(), 'complete' => $complete,
+                'bases' => $type === 'complete' ? ['b' => ['journal' => $journal ? ['fichier' => 'mysql-bin.000001', 'position' => 4] : null]] : [], 'journaux' => []]));
+
+            return $id;
+        };
+        $a = fn (string $quand) => $s->aFaire(Carbon::parse($quand), true);
+
+        // Rien : complète
+        $this->assertSame('complete', $a('2026-10-14 10:00'));
+        // Complète du dimanche 11/10 à 2 h : lundi 12 à 10 h, la différentielle de la nuit manque
+        $c = $faux('2026-10-11 02:00:05', 'complete');
+        $this->assertSame('incrementielle', $a('2026-10-11 09:30'));  // dimanche 9 h 30 : rien depuis 2 h
+        $faux('2026-10-11 09:30:03', 'incrementielle', $c);
+        $this->assertNull($a('2026-10-11 09:30'));
+        $this->assertSame('incrementielle', $a('2026-10-11 10:01'));
+        $this->assertSame('differentielle', $a('2026-10-12 10:00'));  // nuit du lundi manquée (ordinateur éteint)
+        $faux('2026-10-12 10:00:30', 'differentielle', $c);
+        $this->assertNull($a('2026-10-12 10:40'));
+        $this->assertSame('incrementielle', $a('2026-10-12 11:00'));  // heure suivante
+        $faux('2026-10-12 11:00:20', 'incrementielle', $c);
+        // Soir puis nuit : l'incrémentielle de 20 h manquée est rattrapée à 23 h, rien entre 20 h et 7 h ensuite
+        $this->assertSame('incrementielle', $a('2026-10-12 23:00'));
+        $faux('2026-10-12 23:00:10', 'incrementielle', $c);
+        $this->assertNull($a('2026-10-13 01:30'));
+        $this->assertSame('differentielle', $a('2026-10-13 02:00'));
+        // Ordinateur éteint du mardi au lundi suivant : complète d'abord
+        $this->assertSame('complete', $a('2026-10-19 08:00'));
+        // Sans journal binaire : complètes seulement ; complète sans position de journal : nouvelle complète
+        $this->assertNull($s->aFaire(Carbon::parse('2026-10-13 15:00'), false));
+        $faux('2026-10-13 15:30', 'complete', null, false);
+        $this->assertSame('complete', $a('2026-10-13 15:40'));
+    }
+
+    public function test_panne_du_serveur_mysql_notee_puis_signalee(): void
+    {
+        $alertes = new \ArrayObject;
+        $this->app->instance(AlerteSauvegarde::class, new class($alertes) extends AlerteSauvegarde
+        {
+            public function __construct(private \ArrayObject $liste) {}
+
+            public function envoyer(string $sujet, string $corpsHtml): bool
+            {
+                $this->liste[] = $sujet;
+
+                return true;
+            }
+        });
+        $port = config('database.connections.universite.port');
+        config(['database.connections.universite.port' => 1]); // aucun serveur sur ce port
+        $this->artisan('gesnotes:sauvegarder', ['--auto' => true])->expectsOutputToContain('injoignable')->assertFailed();
+        $this->artisan('gesnotes:sauvegarder', ['--auto' => true])->assertFailed();
+        $panne = app(SauvegardesAuto::class)->etat()['panne'];
+        $this->assertSame(2, $panne['tentatives']);
+        $this->assertCount(0, $alertes);                       // e-mail impossible pendant la panne
+        $this->assertSame([], glob($this->dossier.'/*', GLOB_ONLYDIR));   // aucun dossier vide
+        $this->artisan('gesnotes:restaurer', ['--liste' => true])->expectsOutputToContain('Serveur MySQL injoignable depuis')->assertSuccessful();
+
+        // Retour du serveur : panne signalée, sauvegarde due faite (ici une complète)
+        config(['database.connections.universite.port' => $port]);
+        DB::purge('sauvegardes');
+        $this->artisan('gesnotes:sauvegarder', ['--auto' => true, '--universite' => ['udh']])
+            ->expectsOutputToContain('de nouveau joignable')->expectsOutputToContain('✔ Sauvegarde complete')->assertSuccessful();
+        $this->assertSame(['⚠️ Sauvegardes interrompues : serveur MySQL arrêté'], $alertes->getArrayCopy());
+        $this->assertArrayNotHasKey('panne', app(SauvegardesAuto::class)->etat());
     }
 
     public function test_conservation(): void

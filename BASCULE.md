@@ -127,6 +127,11 @@ Trois types, pour toutes les bases de production (universités actives et base d
 | différentielle | journaux binaires depuis la dernière complète | lundi à samedi 2 h | complète + dernière différentielle |
 | incrémentielle | journaux binaires depuis la dernière sauvegarde | chaque heure, 7 h – 20 h | complète + différentielle + incrémentielles suivantes |
 
+La planification (`gesnotes:sauvegarder --auto`, toutes les 5 minutes) fait la sauvegarde **due** : un créneau
+manqué (ordinateur éteint ou en veille, MySQL arrêté) est rattrapé dès que possible, sans attendre le suivant ; une
+chaîne de journaux rompue repart d'une complète. MySQL injoignable : la panne est notée (`--liste`) et signalée par
+e-mail à son retour (pendant la panne, l'e-mail est impossible : ses réglages sont en base).
+
 Conservation : les 5 dernières complètes (`SAUVEGARDES_AUTO_GARDER`) avec leurs différentielles et
 incrémentielles, la première complète de chacun des 12 derniers mois (`SAUVEGARDES_AUTO_GARDER_MOIS`), les archives
 sans limite ; suppression après chaque complète.
@@ -151,11 +156,16 @@ sans limite ; suppression après chaque complète.
    `php artisan config:cache`.
 4. **Premier essai** : `php artisan gesnotes:sauvegarder --type=complete`, puis `--type=incrementielle`.
 5. **Planificateur de tâches Windows** (invite de commandes administrateur) : lance le planificateur Laravel chaque
-   minute, qui déclenche les sauvegardes aux heures prévues :
+   minute, qui déclenche les sauvegardes dues :
    ```
    schtasks /create /tn "EDUFILE planificateur" /sc minute /mo 1 /ru SYSTEM /tr "C:\xampp00\php\php.exe C:\xampp00\gesnotes-laravel\artisan schedule:run"
    ```
-   Contrôle : `php artisan schedule:list`.
+   Sur un portable, autoriser la tâche sur batterie et au réveil (PowerShell administrateur) :
+   ```
+   Set-ScheduledTask -TaskName "EDUFILE planificateur" -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun)
+   ```
+   Et faire démarrer MySQL avec Windows : panneau XAMPP en administrateur, case « Svc » de MySQL.
+   Contrôle : `php artisan schedule:list` ; `php artisan gesnotes:restaurer --liste` signale une sauvegarde en retard.
 6. **Copie hors du serveur (Google Drive, chiffrée)** — faite automatiquement après chaque sauvegarde avec
    [rclone](https://rclone.org) (`C:\xampp00\rclone\rclone.exe`) ; rien n'est jamais effacé sur Drive.
    1. Autoriser rclone sur le compte Google (le navigateur s'ouvre ; droit limité aux fichiers créés par rclone) :

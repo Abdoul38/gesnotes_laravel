@@ -9,12 +9,11 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Sauvegardes automatiques (SAUVEGARDES_AUTO=true ; le Planificateur de tâches Windows lance
-// « php artisan schedule:run » chaque minute, voir BASCULE.md) : complète le dimanche, différentielle
-// les autres nuits, incrémentielle chaque heure pendant la journée de travail
+// « php artisan schedule:run » chaque minute, voir BASCULE.md). Toutes les 5 minutes, la sauvegarde due
+// est faite : complète chaque dimanche 2 h, différentielle chaque nuit 2 h, incrémentielle chaque heure
+// de 7 h à 20 h — et rattrapée dès que possible si l'ordinateur dormait ou si MySQL était arrêté.
 if (config('gesnotes.sauvegardes_auto.planifiees')) {
-    Schedule::command('gesnotes:sauvegarder --type=complete')->weeklyOn(0, '02:00')->withoutOverlapping(120);
-    Schedule::command('gesnotes:sauvegarder --type=differentielle')->days([1, 2, 3, 4, 5, 6])->at('02:00')->withoutOverlapping(120);
-    Schedule::command('gesnotes:sauvegarder --type=incrementielle')->hourly()->between('07:00', '20:00')->withoutOverlapping(60);
+    Schedule::command('gesnotes:sauvegarder --auto')->everyFiveMinutes()->withoutOverlapping(180);
     // Rappel par e-mail chaque lundi tant que la copie sur clé USB a plus de 28 jours
     Schedule::command('gesnotes:copier-usb --rappel')->weeklyOn(1, '09:00');
 }

@@ -102,6 +102,11 @@ class Restaurer extends Command
             $m['type'] === 'complete' ? count($m['bases'] ?? []).' base(s)' : count($m['journaux'] ?? []).' journal(aux)',
             ! empty($m['archive']) ? 'archive' : '', $m['erreur'] ?? ''], $sauvegardes->catalogue(true));
         $this->table(['Sauvegarde', 'Type', 'Statut', 'Fin', 'Contenu', '', 'Erreur'], $lignes);
+        if ($panne = $sauvegardes->etat()['panne'] ?? null) {
+            $this->error('Serveur MySQL injoignable depuis le '.Carbon::parse($panne['depuis'])->format('d/m/Y H:i').' ('.$panne['tentatives'].' tentative(s)) : '.$panne['erreur']);
+        }
+        $aFaire = $panne ? null : $sauvegardes->aFaire(now());
+        $this->line($aFaire ? "Sauvegarde en retard : $aFaire (faite automatiquement dans les 5 minutes si la planification tourne)." : 'Sauvegardes à jour.');
         $copie = $sauvegardes->etat()['hors_serveur'] ?? null;
         $this->line($copie ? 'Dernière copie hors du serveur : '.Carbon::parse($copie['date'])->format('d/m/Y H:i').' — '.$copie['statut'].($copie['erreur'] ? ' ('.$copie['erreur'].')' : '')
             : ($sauvegardes->horsServeurConfiguree() ? 'Aucune copie hors du serveur pour l\'instant.' : 'Copie hors du serveur non configurée.'));
