@@ -166,12 +166,15 @@ class PvDetailController extends Controller
         $credits = $matieres->pluck('credits', 'id');
         // UE où une case est vide : « Déf. » plutôt que « Elim »
         $vides = $notes->filter(fn ($n, $mat) => isset($matieres[$mat]) && Resultats::caseVide($n, $matieres[$mat]))->map(fn ($n, $mat) => $matieres[$mat]->ue_id)->flip();
+        $seuil = (float) $this->resultats->regle('seuil_validation', (int) $pv->annee_id, '10');
 
         return response()->json(['ok' => true,
             'matieres' => $notes->map(fn ($n, $mat) => ['finale' => $n->note_finale, 'obs' => $n->observation,
                 'credits' => in_array($n->observation, ['AV', 'AC'], true) ? (int) ($credits[$mat] ?? 0) : 0]),
             'ues' => $ues->map(fn ($r) => ['total' => $r->total_points, 'moyenne' => $r->moyenne_20, 'credits' => (int) $r->credits_obtenus,
-                'max' => $ueMax[$r->ue_id] ?? 0, 'valide' => (bool) $r->valide, 'defaillant' => (bool) $r->defaillant, 'vide' => isset($vides[$r->ue_id])]),
+                'max' => $ueMax[$r->ue_id] ?? 0, 'valide' => (bool) $r->valide, 'defaillant' => (bool) $r->defaillant, 'vide' => isset($vides[$r->ue_id]),
+                // Observation complète (Déf. / Elim / NV / AC / AV), même règle que l'affichage du PV
+                'obs' => Resultats::observationUe($r, isset($vides[$r->ue_id]), $seuil)]),
             'semestre' => $semestre ? ['moyenne' => $semestre->moyenne_generale, 'credits' => (int) $semestre->credits_obtenus,
                 'decision' => $semestre->decision, 'mention' => $semestre->mention, 'valide' => (bool) $semestre->valide] : null,
         ]);

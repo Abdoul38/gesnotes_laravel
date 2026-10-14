@@ -58,12 +58,15 @@
         });
         Object.keys(d.ues).forEach(function (ue) {
           var u = d.ues[ue];
-          // Déf. : une note manque dans l'UE ; Elim : note ou moyenne d'UE éliminatoire
-          var obs = u.defaillant ? (u.vide ? 'Déf.' : 'Elim') : (!u.valide ? 'NV' : null);
+          // Observation calculée par le serveur (Déf. : note manquante ; Elim : note ou moyenne
+          // éliminatoire ; NV, AC, AV) : elle change aussi dans l'autre sens (Elim → AV…)
+          var obs = u.obs || (u.defaillant ? (u.vide ? 'Déf.' : 'Elim') : (!u.valide ? 'NV' : null));
           cellule(tr, 'ue-total-' + ue, f2(u.total));
           cellule(tr, 'ue-moy-' + ue, f2(u.moyenne), u.valide ? 'var(--green-700)' : 'var(--amber-600)');
           cellule(tr, 'ue-cred-' + ue, u.credits + '/' + u.max, u.credits >= u.max ? 'var(--green-700)' : 'var(--red-600)');
-          cellule(tr, 'ue-val-' + ue, u.valide ? 'OUI' : 'NON');
+          cellule(tr, 'ue-val-' + ue, u.valide ? 'OUI' : 'NON', u.valide ? '#166534' : (u.defaillant ? '#991b1b' : '#92400e'));
+          var val = tr.querySelector('.ue-val-' + ue);
+          if (val) val.style.background = u.valide ? '#dcfce7' : (u.defaillant ? '#fee2e2' : '#fef3c7');
           if (obs) cellule(tr, 'ue-obs-' + ue, obs, couleurs[obs]);
         });
         if (d.semestre) {

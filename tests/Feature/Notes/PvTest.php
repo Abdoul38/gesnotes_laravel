@@ -132,6 +132,12 @@ class PvTest extends TestCase
         // M1 8/20 compensée dans l'UE : (24 + 18) / 80 = 10,5
         $this->assertSame('AC', $simulation['matieres'][$this->m1]['obs']);
         $this->assertSame('AC', DB::table('notes')->where(['etudiant_id' => $a, 'matiere_id' => $this->m1])->value('observation'));
+
+        // Observation de l'UE fournie complète : elle doit aussi pouvoir revenir de « Elim » / « Déf. » à AV
+        $obsUe = fn (array $n) => array_values($this->postJson($this->url("pv/{$this->pv}/simuler"), ['etudiant_id' => $a, 'notes' => $n])->json('ues'))[0]['obs'];
+        $this->assertSame('AV', $obsUe($notes));
+        $this->assertSame('Elim', $obsUe([$this->m1 => ['exam' => '16', 'cc' => '8'], $this->m2 => ['exam' => '3']]));
+        $this->assertSame('Déf.', $obsUe([$this->m1 => ['exam' => '', 'cc' => '8'], $this->m2 => ['exam' => '18']]));
     }
 
     public function test_creation_normale_et_rattrapage(): void
