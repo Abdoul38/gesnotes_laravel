@@ -10,7 +10,13 @@
 // change, et peut être remplacé par UNI_<CODE>_DB (ex. UNI_UDH_DB=gesnotes).
 // ============================================================
 
+// Couleur de la plateforme, la même pour toutes les universités (décision du
+// projet). Une université peut en choisir une autre dans Paramètres → Couleur
+// de marque ; les espaces nationaux gardent la leur.
+$couleurParDefaut = '#1A3A5C';
+
 $universite = fn (string $code, array $infos) => $infos + [
+    'couleur' => $couleurParDefaut,
     'code' => $code,
     'base' => env('UNI_'.strtoupper($code).'_DB', 'edufile_'.$code),
     'actif' => (bool) env('UNI_'.strtoupper($code).'_ACTIF', true),
@@ -33,15 +39,15 @@ return [
     'autoriser_parametre_uni' => (bool) env('UNIVERSITES_PARAMETRE_UNI', false),
 
     'liste' => [
-        'udh' => $universite('udh', ['nom' => 'Université Djibo Hamani de Tahoua', 'sigle' => 'UDH', 'ville' => 'Tahoua', 'couleur' => '#1A3A5C', 'logo' => 'logo_udh.png', 'base' => env('UNI_UDH_DB', 'edufile_gesnotes')]),
-        'uam' => $universite('uam', ['nom' => 'Université Abdou Moumouni de Niamey', 'sigle' => 'UAM', 'ville' => 'Niamey', 'couleur' => '#166534', 'logo' => 'logo_uam.png']),
-        'udo' => $universite('udo', ['nom' => 'Université de Dosso', 'sigle' => 'UDO', 'ville' => 'Dosso', 'couleur' => '#166534', 'logo' => 'logo_udo.png']),
-        'uda' => $universite('uda', ['nom' => 'Université de Diffa', 'sigle' => 'UDA', 'ville' => 'Diffa', 'couleur' => '#166534', 'logo' => 'logo_udi.png']),
-        'uddm' => $universite('uddm', ['nom' => 'Université de Maradi', 'sigle' => 'UDDM', 'ville' => 'Maradi', 'couleur' => '#166534', 'logo' => 'logo_uddm.png']),
-        'uas' => $universite('uas', ['nom' => 'Université de Zinder', 'sigle' => 'UAS', 'ville' => 'Zinder', 'couleur' => '#166534', 'logo' => 'logo_udz.png']),
-        'ubb' => $universite('ubb', ['nom' => 'Université de Tillaberi', 'sigle' => 'UBB', 'ville' => 'Tillaberi', 'couleur' => '#166534', 'logo' => 'logo_ubb.png']),
-        'uaz' => $universite('uaz', ['nom' => "Université d'Agadez", 'sigle' => 'UAZ', 'ville' => 'Agadez', 'couleur' => '#166534', 'logo' => 'logo_uaz.png']),
-        'uim' => $universite('uim', ['nom' => 'Université Islamique de Niamey', 'sigle' => 'UIM', 'ville' => 'Niamey', 'couleur' => '#166534', 'logo' => 'logo_uaz.png']),
+        'udh' => $universite('udh', ['nom' => 'Université Djibo Hamani de Tahoua', 'sigle' => 'UDH', 'ville' => 'Tahoua', 'logo' => 'logo_udh.png', 'base' => env('UNI_UDH_DB', 'edufile_gesnotes')]),
+        'uam' => $universite('uam', ['nom' => 'Université Abdou Moumouni de Niamey', 'sigle' => 'UAM', 'ville' => 'Niamey', 'logo' => 'logo_uam.png']),
+        'udo' => $universite('udo', ['nom' => 'Université de Dosso', 'sigle' => 'UDO', 'ville' => 'Dosso', 'logo' => 'logo_udo.png']),
+        'uda' => $universite('uda', ['nom' => 'Université de Diffa', 'sigle' => 'UDA', 'ville' => 'Diffa', 'logo' => 'logo_udi.png']),
+        'uddm' => $universite('uddm', ['nom' => 'Université de Maradi', 'sigle' => 'UDDM', 'ville' => 'Maradi', 'logo' => 'logo_uddm.png']),
+        'uas' => $universite('uas', ['nom' => 'Université de Zinder', 'sigle' => 'UAS', 'ville' => 'Zinder', 'logo' => 'logo_udz.png']),
+        'ubb' => $universite('ubb', ['nom' => 'Université de Tillaberi', 'sigle' => 'UBB', 'ville' => 'Tillaberi', 'logo' => 'logo_ubb.png']),
+        'uaz' => $universite('uaz', ['nom' => "Université d'Agadez", 'sigle' => 'UAZ', 'ville' => 'Agadez', 'logo' => 'logo_uaz.png']),
+        'uim' => $universite('uim', ['nom' => 'Université Islamique de Niamey', 'sigle' => 'UIM', 'ville' => 'Niamey', 'logo' => 'logo_uaz.png']),
 
         // Espaces nationaux : pas de base propre, ils lisent les bases des
         // universités (leurs comptes sont dans la base UDH, voir
