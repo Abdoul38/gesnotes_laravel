@@ -142,5 +142,11 @@ class SessionEtAccesTest extends TestCase
     public function test_page_de_presentation_sur_le_domaine_nu(): void
     {
         $this->get('http://localhost/')->assertOk()->assertSee('Universités partenaires')->assertSee('//ministere.localhost/ministere/connexion', false);
+        // En ligne : liens vers le domaine par lequel on arrive, même si UNIVERSITES_DOMAINE est resté à « localhost »
+        config(['universites.domaine' => 'localhost']);
+        $this->get('https://cursus-niger.net/')->assertOk()->assertSee('//udh.cursus-niger.net/connexion', false)->assertDontSee('localhost/connexion');
+        $this->get('https://www.cursus-niger.net/')->assertOk()->assertSee('//udh.cursus-niger.net/connexion', false);
+        // Par adresse IP : le réglage
+        $this->get('http://127.0.0.1/')->assertOk()->assertSee('//udh.localhost/connexion', false);
     }
 }

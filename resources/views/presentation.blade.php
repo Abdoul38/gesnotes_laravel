@@ -1,7 +1,12 @@
 {{-- Page de présentation du projet Cursus (domaine nu) — portage de pages/landing.php --}}
 @php
   $port = request()->getPort() && ! in_array(request()->getPort(), [80, 443]) ? ':'.request()->getPort() : '';
-  $lien = fn (string $code, string $chemin) => '//'.$code.'.'.config('universites.domaine').$port.'/'.$chemin;
+  // Domaine des liens : celui par lequel on arrive sur cette page (domaine nu, ex. cursus-niger.net),
+  // sinon le réglage UNIVERSITES_DOMAINE (accès par adresse IP) — avant : toujours le réglage, resté
+  // à « localhost » en ligne, d'où des liens vers udh.localhost
+  $hote = preg_replace('/^www\./', '', request()->getHost());
+  $domaine = filter_var($hote, FILTER_VALIDATE_IP) ? config('universites.domaine') : $hote;
+  $lien = fn (string $code, string $chemin) => '//'.$code.'.'.$domaine.$port.'/'.$chemin;
 @endphp
 <!DOCTYPE html>
 <html lang="fr">

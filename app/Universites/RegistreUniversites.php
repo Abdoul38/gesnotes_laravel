@@ -41,7 +41,8 @@ class RegistreUniversites
      */
     public function codeDepuisHote(string $hote): ?string
     {
-        $hote = strtolower($hote);
+        // « www. » : domaine nu (www.cursus-niger.net → page de présentation, pas une université « www »)
+        $hote = preg_replace('/^www\./', '', strtolower($hote));
 
         // 127.0.0.1 : pas de sous-domaine possible → présentation
         if (str_contains($hote, '127.0.0.1')) {
