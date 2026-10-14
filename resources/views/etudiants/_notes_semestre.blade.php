@@ -46,18 +46,18 @@
       $obs1 = $n->observation ?? '';
       $obs2 = $n->observation_s2 ?? '';
       $noteValide = in_array($obs1, ['AV', 'AC'], true) || in_array($obs2, ['AV', 'AC'], true) || $valideS1 || $valideS2 || $parComp;
-      // Meilleure observation entre les deux sessions : AV > AC > NV
-      $rang = ['AV' => 3, 'AC' => 2, 'NV' => 1];
+      // Meilleure observation entre les deux sessions : AV > AC > NV > Elim (note éliminatoire)
+      $rang = ['AV' => 4, 'AC' => 3, 'NV' => 2, 'Elim' => 1];
       $meilleure = ($rang[$obs1] ?? 0) >= ($rang[$obs2] ?? 0) ? $obs1 : $obs2;
       $obsAff = match (true) {
-        in_array($meilleure, ['AV', 'AC', 'NV'], true) => $meilleure,
+        in_array($meilleure, ['AV', 'AC', 'NV', 'Elim'], true) => $meilleure,
         $valideS2, $valideS1 => 'AV',
         $parComp => 'AC',
         (bool) $n->defaillant => 'Déf.',
         $note1 !== null || $note2 !== null => 'NV',
         default => '',
       };
-      $couleurObs = ['AV' => '#16a34a', 'AC' => '#2563eb', 'NV' => '#dc2626', 'Déf.' => '#854d0e'][$obsAff] ?? '#6b7280';
+      $couleurObs = ['AV' => '#16a34a', 'AC' => '#2563eb', 'NV' => '#dc2626', 'Elim' => '#dc2626', 'Déf.' => '#854d0e'][$obsAff] ?? '#6b7280';
     @endphp
     <tr style="background:{{ $i % 2 ? '#DEEAF1' : '#fff' }};border-bottom:1px solid #9DC3E6">
       <td style="padding:6px 14px;border:1px solid #9DC3E6;font-size:12px;color:#1A3A5C;font-family:monospace;white-space:nowrap">{{ $n->ue_code }}</td>

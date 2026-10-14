@@ -29,7 +29,10 @@ use Throwable;
  *  - décision d'un semestre non validé avec défaillance : « Défaillant » si
  *    une note manque (case vide), sinon « Elim » (note ou moyenne d'UE
  *    éliminatoire) ; même distinction pour l'observation d'UE (« Déf. » /
- *    « Elim », voir observationUe()).
+ *    « Elim », voir observationUe()) ;
+ *  - observation d'une matière : AV, AC, NV, « Déf. » (case vide) ou
+ *    « Elim » (note sous la note éliminatoire) — seules AV et AC donnent
+ *    des crédits.
  */
 class Resultats
 {
@@ -231,13 +234,14 @@ class Resultats
                     }
                 }
                 $dejaValidee = isset($validesNormale[$mat['matiere_id']]);
-                $etat = self::matiereDefaillante($note, $mat, $elimMatiere, $dejaValidee);
+                // Note finale tout juste calculée prise en compte (sinon une note éliminatoire saisie sans note finale passait inaperçue)
+                $etat = self::matiereDefaillante($note ? ['note_finale' => $val] + $note : null, $mat, $elimMatiere, $dejaValidee);
                 $def = $etat['defaillant'];
                 $moy20 = ($val !== null && $mat['note_max_totale'] > 0) ? round(($val / $mat['note_max_totale']) * 20, 4) : null;
                 $mats[$mat['matiere_id']] = [
                     'note_max' => $mat['note_max_totale'], 'm_credits' => $mat['m_credits'],
                     'obs_origine' => $dejaValidee ? $validesNormale[$mat['matiere_id']] : null,
-                    'defaillant' => $def, 'moy20' => $moy20,
+                    'defaillant' => $def, 'moy20' => $moy20, 'motif' => $etat['motif'],
                     'valide' => $dejaValidee || ($moy20 !== null && $moy20 >= $seuil && ! $def),
                     'compense' => false,
                 ];
@@ -329,6 +333,9 @@ class Resultats
                     $m['moy20'] === null => 'Déf.',
                     $m['compense'] => 'AC',
                     $m['valide'] => 'AV',
+                    // Note sous la note éliminatoire : « Elim » (et non « NV ») ; case vide malgré une note enregistrée : « Déf. »
+                    $m['motif'] === 'note_eliminatoire' => 'Elim',
+                    in_array($m['motif'], ['examen_manquant', 'td_manquant'], true) => 'Déf.',
                     default => 'NV',
                 };
                 $n = $notes[$matId] ?? null;

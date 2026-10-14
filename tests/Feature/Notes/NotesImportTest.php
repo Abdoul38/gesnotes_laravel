@@ -251,7 +251,7 @@ class NotesImportTest extends TestCase
         $zip->close();
         $this->assertNotFalse((new \DOMDocument)->loadXML($calculs));
         // Feuille PV, ligne de CHARLIE (7) : observation, crédits, validation de l'UE et décision en formules
-        foreach (['<f>IF(NOT(ISNUMBER(I7)),&quot;Déf.&quot;,IF(Calculs!I7,&quot;AC&quot;,IF(Calculs!H7,&quot;AV&quot;,&quot;NV&quot;)))</f><v>NV</v>',
+        foreach (['<f>IF(NOT(ISNUMBER(I7)),&quot;Déf.&quot;,IF(Calculs!I7,&quot;AC&quot;,IF(Calculs!H7,&quot;AV&quot;,IF(Calculs!G7,&quot;Elim&quot;,&quot;NV&quot;))))</f><v>Elim</v>',
             '<f>IF(OR(K7=&quot;AV&quot;,K7=&quot;AC&quot;),3,0)</f><v>0</v>', '<f>Calculs!O7&amp;&quot;/6&quot;</f><v>3/6</v>',
             // Note éliminatoire sans case vide : « Elim » pour l'UE et le semestre
             '<f>IF(Calculs!J7,IF(OR(NOT(ISNUMBER(PV!D7)),NOT(ISNUMBER(PV!E7)),NOT(ISNUMBER(PV!I7))),&quot;Déf.&quot;,&quot;Elim&quot;),IF(NOT(Calculs!N7),&quot;NV&quot;,IF(M7&lt;10,&quot;AC&quot;,&quot;AV&quot;)))</f><v>Elim</v>',

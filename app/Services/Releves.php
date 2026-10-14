@@ -25,7 +25,7 @@ class Releves
                 && ! in_array((int) $m->id, $choix[$etudiantId][$ue->id] ?? [], true));
             $lignes[] = ['ue' => $ue, 'matieres' => $mats->map(function ($m) use ($notes) {
                 $n = $notes->get($m->id);
-                $obs = in_array($n->observation ?? null, ['AV', 'AC', 'NV', 'Déf.'], true) ? $n->observation : '—';
+                $obs = in_array($n->observation ?? null, ['AV', 'AC', 'NV', 'Elim', 'Déf.'], true) ? $n->observation : '—';
                 $finale = $n?->note_finale ?? ($n && $n->note_examen !== null ? $n->note_examen + ($n->note_cc ?? 0) : null);
                 $moy20 = $obs !== 'Déf.' && $finale !== null && $m->note_max_totale > 0 ? round($finale / $m->note_max_totale * 20, 2) : null;
 

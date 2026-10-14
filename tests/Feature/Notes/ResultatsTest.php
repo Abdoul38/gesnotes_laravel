@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Notes;
 
+use App\Services\Maquette;
 use App\Services\Resultats;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -122,10 +123,11 @@ class ResultatsTest extends TestCase
         $et = $this->etudiant(['M1' => [38, 18], 'M2' => [38, 18], 'M3' => [4, null]]);
         $r = $this->resultat($et);
         $this->assertSame(['Elim', 'Elim', 1, null], [$r->decision, $r->mention, (int) $r->defaillant, $r->rang]);
-        $this->assertSame('NV', $this->obs($et, 'M3'));
+        // La matière elle-même : « Elim » (et non « NV »), sans crédits
+        $this->assertSame('Elim', $this->obs($et, 'M3'));
         $ru = DB::table('resultats_ue')->where(['etudiant_id' => $et, 'ue_id' => $this->ue['UE2']])->first();
-        $this->assertSame('Elim', \App\Services\Resultats::observationUe($ru, false, 10));
-        $this->assertSame('Déf.', \App\Services\Resultats::observationUe($ru, true, 10));
+        $this->assertSame('Elim', Resultats::observationUe($ru, false, 10));
+        $this->assertSame('Déf.', Resultats::observationUe($ru, true, 10));
 
         // Une case vide l'emporte sur la note éliminatoire : « Défaillant »
         $vide = $this->etudiant(['M1' => [38, null], 'M2' => [38, 18], 'M3' => [4, null]]);
@@ -152,16 +154,20 @@ class ResultatsTest extends TestCase
         $this->resultat($elim);
         $this->resultat($vide);
         DB::table('resultats_semestre')->update(['decision' => 'Défaillant', 'mention' => 'Défaillant']);
+        DB::table('notes')->where('observation', 'Elim')->update(['observation' => 'NV']); // M3 à 4/20 des deux premiers
 
         $this->artisan('gesnotes:distinguer-elimines', ['--universite' => ['udh']])
-            ->expectsOutputToContain('1 résultat(s) « Défaillant » à passer en « Elim »')->assertSuccessful();
+            ->expectsOutputToContain('1 résultat(s) « Défaillant » et 2 matière(s) « NV » à passer en « Elim »')->assertSuccessful();
         $this->assertSame(0, DB::table('resultats_semestre')->where('decision', 'Elim')->count());
+        $this->assertSame(0, DB::table('notes')->where('observation', 'Elim')->count());
 
         $this->artisan('gesnotes:distinguer-elimines', ['--universite' => ['udh'], '--appliquer' => true])->assertSuccessful();
         $decision = fn ($et) => DB::table('resultats_semestre')->where('etudiant_id', $et)->first(['decision', 'mention']);
         $this->assertEquals((object) ['decision' => 'Elim', 'mention' => 'Elim'], $decision($elim));
         $this->assertEquals((object) ['decision' => 'Défaillant', 'mention' => 'Défaillant'], $decision($vide));
         $this->assertEquals((object) ['decision' => 'Défaillant', 'mention' => 'Défaillant'], $decision($tdVide));
+        $this->assertSame(['Elim', 'Elim'], array_values(DB::table('notes')->where('matiere_id', $this->m['M3'])->whereIn('etudiant_id', [$elim, $vide])->pluck('observation')->all()));
+        $this->assertSame('AV', $this->obs($tdVide, 'M3'));
     }
 
     public function test_rattrapage_conserve_les_matieres_acquises(): void
@@ -210,7 +216,7 @@ class ResultatsTest extends TestCase
         $filiere = DB::table('promotions')->where('id', $this->promo)->value('filiere_id');
         $niveau = DB::table('promotions')->where('id', $this->promo)->value('niveau_id');
         $promo2 = DB::table('promotions')->insertGetId(['filiere_id' => $filiere, 'niveau_id' => $niveau, 'annee_id' => $nouvelleAnnee]);
-        app(\App\Services\Maquette::class)->copierUEs($promo2, $this->promo);
+        app(Maquette::class)->copierUEs($promo2, $this->promo);
         $pv2 = DB::table('pv_sessions')->insertGetId(['promotion_id' => $promo2, 'semestre_id' => $this->sem, 'type_session' => 'normale', 'libelle' => 'PV 2']);
 
         // M1 validée (15/20), M2 non validée (6/20), M3 TD absent n'existe pas : 16/20 validée

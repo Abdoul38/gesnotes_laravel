@@ -181,7 +181,7 @@
           @foreach ($l['matieres'] as $ligne)
           @php
               $m = $ligne['m']; $n = $ligne['n'];
-              $coulObs = match ($ligne['obs']) { 'AV' => 'var(--green-700)', 'AC' => 'var(--blue-600)', 'Déf.' => 'var(--red-600)', default => 'var(--amber-600)' };
+              $coulObs = match ($ligne['obs']) { 'AV' => 'var(--green-700)', 'AC' => 'var(--blue-600)', 'Déf.', 'Elim' => 'var(--red-600)', default => 'var(--amber-600)' };
           @endphp
           <tr>
             <td>{{ $m->libelle }}</td>

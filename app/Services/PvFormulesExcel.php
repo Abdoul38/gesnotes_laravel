@@ -263,7 +263,7 @@ class PvFormulesExcel
         foreach ($s['mat'] as &$m) {
             $u = $s['ue'][$m['ue']];
             $m['comp'] = ! $m['val'] && ! $m['def'] && $m['n'] !== null && ($u['cintra'] || ($inter && ! $u['vraw']));
-            $m['obs'] = $m['n'] === null ? 'Déf.' : ($m['comp'] ? 'AC' : ($m['val'] ? 'AV' : 'NV'));
+            $m['obs'] = $m['n'] === null ? 'Déf.' : ($m['comp'] ? 'AC' : ($m['val'] ? 'AV' : ($m['def'] ? 'Elim' : 'NV')));
         }
         unset($m);
 
@@ -333,7 +333,7 @@ class PvFormulesExcel
                 // Feuille PV : observation et crédits de la matière
                 foreach ($cols as $i => $col) {
                     if (self::cle($col) === "obs_mat-{$ue->id}-{$m->id}") {
-                        $cellules[$i] = ['f' => 'IF(NOT(ISNUMBER('.$this->pos[self::cleNote($ue, $m)].$ligne.')),"Déf.",IF('.$ca("comp-{$ue->id}-{$m->id}").',"AC",IF('.$ca("val-{$ue->id}-{$m->id}").',"AV","NV")))',
+                        $cellules[$i] = ['f' => 'IF(NOT(ISNUMBER('.$this->pos[self::cleNote($ue, $m)].$ligne.')),"Déf.",IF('.$ca("comp-{$ue->id}-{$m->id}").',"AC",IF('.$ca("val-{$ue->id}-{$m->id}").',"AV",IF('.$ca("def-{$ue->id}-{$m->id}").',"Elim","NV"))))',
                             'v' => $cellules[$i]['v'], 'style' => $cellules[$i]['style']];
                     } elseif (self::cle($col) === "cr_mat-{$ue->id}-{$m->id}") {
                         $obs = $this->pos["obs_mat-{$ue->id}-{$m->id}"].$ligne;
