@@ -10,8 +10,10 @@ use App\Services\Resultats;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 use Throwable;
 
@@ -38,6 +40,8 @@ use Throwable;
  *  - suppression refusée pour un PV verrouillé ou qui n'est plus en
  *    brouillon (elle effaçait notes et résultats en cascade) ; message
  *    technique d'erreur non affiché.
+ *
+ * Ajout : repêchage par le jury, tracé (voir repecher()).
  */
 class PvDetailController extends Controller
 {
@@ -99,6 +103,9 @@ class PvDetailController extends Controller
             'peutModifier' => $this->pvs->peutModifier($u, $pv),
             'gestionnaire' => $this->pvs->gestionnaire($u),
             'admin' => $u->aRole('admin'),
+            'repechages' => $this->repechages($pv),
+            'repechagesDisponibles' => $this->repechagesDisponibles(),
+            'etudiantsPv' => $tous,
         ]);
     }
 
@@ -254,6 +261,120 @@ class PvDetailController extends Controller
         }
 
         return redirect($retour);
+    }
+
+    /**
+     * Repêchage par le jury : des points sont ajoutés à la note d'examen d'une
+     * matière pour qu'un étudiant valide. Chaque repêchage est enregistré
+     * (notes et décision avant / après, points, motif, auteur, date) et
+     * journalisé ; il peut être annulé (la note d'origine est rétablie, la
+     * trace reste, marquée annulée).
+     */
+    public function repecher(Request $request, int $id): RedirectResponse
+    {
+        $pv = $this->pvModifiable($request, $id);
+        $retour = redirect()->route('pv_detail', ['id' => $id, 'ppage' => (int) $request->input('ppage', 1)]);
+        if (! $pv) {
+            return $retour->with('erreur', 'Ce PV est verrouillé ou vous ne pouvez pas le modifier.');
+        }
+        if (! $this->repechagesDisponibles()) {
+            return $retour->with('erreur', 'Repêchage indisponible : la table « repechages » manque (php artisan gesnotes:completer-schema --appliquer).');
+        }
+        $et = (int) $request->input('etudiant_id');
+        $mat = (int) $request->input('matiere_id');
+        $points = round((float) str_replace(',', '.', (string) $request->input('points')), 2);
+        $motif = trim((string) $request->input('motif'));
+        $etudiant = $this->pvs->etudiants($pv)->where('e.id', $et)->first(['e.id', 'e.nom', 'e.prenoms']);
+        $m = $this->pvs->ues($pv)->pluck('matieres')->flatten(1)->firstWhere('id', $mat);
+        if (! $etudiant || ! $m) {
+            return $retour->with('erreur', 'Choisissez un étudiant et une matière de ce PV.');
+        }
+        if ($points <= 0) {
+            return $retour->with('erreur', 'Indiquez le nombre de points accordés (supérieur à 0).');
+        }
+        if (mb_strlen($motif) < 5) {
+            return $retour->with('erreur', 'Le motif du repêchage est obligatoire (décision du jury, par exemple).');
+        }
+        if (($this->cellules($pv, [$et])[$et][$mat]['etat'] ?? '') !== 'saisie') {
+            return $retour->with('erreur', "Cette matière est déjà acquise ou n'a pas été choisie par l'étudiant : pas de repêchage possible.");
+        }
+        $note = DB::table('notes')->where(['pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mat])->first();
+        if (! $note || $note->note_examen === null) {
+            return $retour->with('erreur', "L'étudiant n'a pas de note d'examen dans cette matière : saisissez d'abord sa note.");
+        }
+        $nouvelle = round((float) $note->note_examen + $points, 2);
+        if ($nouvelle > (float) $m->note_max_examen) {
+            return $retour->with('erreur', "Avec +$points point(s), la note d'examen ($nouvelle) dépasserait le maximum (".(float) $m->note_max_examen.').');
+        }
+
+        $r = DB::transaction(function () use ($pv, $et, $mat, $m, $note, $points, $nouvelle, $motif, $request) {
+            $avant = DB::table('resultats_semestre')->where(['pv_id' => $pv->id, 'etudiant_id' => $et])->value('decision');
+            $finale = $nouvelle + ((float) $m->note_max_cc > 0 ? (float) ($note->note_cc ?? 0) : 0);
+            DB::table('notes')->where('id', $note->id)->update(['note_examen' => $nouvelle, 'note_finale' => $finale,
+                'saisie_par' => $request->user()->id, 'updated_at' => now()]);
+            $this->resultats->recalculer($pv->id, $et);
+            $apres = DB::table('resultats_semestre')->where(['pv_id' => $pv->id, 'etudiant_id' => $et])->value('decision');
+            DB::table('repechages')->insert(['pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mat, 'points' => $points,
+                'note_examen_avant' => $note->note_examen, 'note_examen_apres' => $nouvelle, 'note_finale_avant' => $note->note_finale, 'note_finale_apres' => $finale,
+                'decision_avant' => $avant, 'decision_apres' => $apres, 'motif' => mb_substr($motif, 0, 500), 'fait_par' => $request->user()->id, 'created_at' => now()]);
+            $this->resultats->recalculerRangs($pv->id);
+
+            return ['avant' => $avant, 'apres' => $apres];
+        });
+        $qui = trim($etudiant->nom.' '.$etudiant->prenoms);
+        $this->journal->action('repecher', 'notes', "Repêchage — {$pv->libelle} — $qui — {$m->libelle} : examen "
+            .(float) $note->note_examen." → $nouvelle (+$points) ; décision « {$r['avant']} » → « {$r['apres']} » ; motif : $motif", $pv->id);
+
+        return $retour->with('succes', "🛟 $qui repêché(e) en {$m->libelle} : examen ".(float) $note->note_examen." → $nouvelle (+$points). Décision : ".($r['apres'] ?? '—').'.');
+    }
+
+    /** Annulation d'un repêchage : note d'origine rétablie, trace conservée (marquée annulée). */
+    public function annulerRepechage(Request $request, int $id, int $repechage): RedirectResponse
+    {
+        $pv = $this->pvModifiable($request, $id);
+        $retour = redirect()->route('pv_detail', ['id' => $id]);
+        if (! $pv || ! $this->repechagesDisponibles()) {
+            return $retour->with('erreur', 'Ce PV est verrouillé ou vous ne pouvez pas le modifier.');
+        }
+        $r = DB::table('repechages')->where(['id' => $repechage, 'pv_id' => $pv->id, 'annule' => 0])->first();
+        if (! $r) {
+            return $retour->with('erreur', 'Repêchage introuvable ou déjà annulé.');
+        }
+        $note = DB::table('notes')->where(['pv_id' => $pv->id, 'etudiant_id' => $r->etudiant_id, 'matiere_id' => $r->matiere_id])->first();
+        if (! $note || abs((float) $note->note_examen - (float) $r->note_examen_apres) > 0.001) {
+            return $retour->with('erreur', "La note a été modifiée depuis le repêchage : corrigez-la directement dans le tableau (le repêchage n'a pas été annulé).");
+        }
+        DB::transaction(function () use ($pv, $r, $note, $request) {
+            $mat = DB::table('matieres')->find($r->matiere_id);
+            DB::table('notes')->where('id', $note->id)->update(['note_examen' => $r->note_examen_avant,
+                'note_finale' => (float) $r->note_examen_avant + ((float) $mat->note_max_cc > 0 ? (float) ($note->note_cc ?? 0) : 0),
+                'saisie_par' => $request->user()->id, 'updated_at' => now()]);
+            $this->resultats->recalculer($pv->id, (int) $r->etudiant_id);
+            $this->resultats->recalculerRangs($pv->id);
+            DB::table('repechages')->where('id', $r->id)->update(['annule' => 1, 'annule_par' => $request->user()->id, 'annule_le' => now()]);
+        });
+        $this->journal->action('repecher', 'notes', "Annulation du repêchage #{$r->id} — {$pv->libelle} — étudiant #{$r->etudiant_id}, matière #{$r->matiere_id} : examen rétabli à ".(float) $r->note_examen_avant, $pv->id);
+
+        return $retour->with('succes', 'Repêchage annulé : la note d\'origine est rétablie (la trace est conservée).');
+    }
+
+    private function repechagesDisponibles(): bool
+    {
+        return Schema::hasTable('repechages');
+    }
+
+    /** Repêchages du PV (actifs et annulés), avec étudiant, matière et auteurs. */
+    private function repechages(object $pv): Collection
+    {
+        if (! $this->repechagesDisponibles()) {
+            return collect();
+        }
+
+        return DB::table('repechages as r')->join('etudiants as e', 'e.id', '=', 'r.etudiant_id')->join('matieres as m', 'm.id', '=', 'r.matiere_id')
+            ->leftJoin('utilisateurs as u', 'u.id', '=', 'r.fait_par')->leftJoin('utilisateurs as ua', 'ua.id', '=', 'r.annule_par')
+            ->where('r.pv_id', $pv->id)->orderByDesc('r.created_at')->orderByDesc('r.id')
+            ->get(['r.*', 'e.nom', 'e.prenoms', 'e.numero', 'm.libelle as matiere', DB::raw("TRIM(CONCAT(COALESCE(u.prenoms, ''), ' ', COALESCE(u.nom, ''))) AS auteur"),
+                DB::raw("TRIM(CONCAT(COALESCE(ua.prenoms, ''), ' ', COALESCE(ua.nom, ''))) AS annule_par_nom")]);
     }
 
     /** Recalcul progressif (ancien ajax_recalcul_queue.php). */

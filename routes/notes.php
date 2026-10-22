@@ -36,6 +36,8 @@ Route::middleware('page:pv_detail')->controller(PvDetailController::class)->grou
     Route::post('/pv/{id}/simuler', 'simuler')->whereNumber('id')->name('pv_detail.simuler');
     Route::post('/pv/{id}/action', 'action')->whereNumber('id')->name('pv_detail.action');
     Route::post('/pv/{id}/recalcul', 'file')->whereNumber('id')->name('pv_detail.file');
+    Route::post('/pv/{id}/repechages', 'repecher')->whereNumber('id')->name('pv_detail.repecher');
+    Route::post('/pv/{id}/repechages/{repechage}/annuler', 'annulerRepechage')->whereNumber(['id', 'repechage'])->name('pv_detail.repechage.annuler');
 });
 
 Route::get('/notes', SaisieNotesController::class)->middleware('page:notes')->name('notes');

@@ -1313,6 +1313,33 @@ CREATE TABLE `releves_emis` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `repechages` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `pv_id` int(10) unsigned NOT NULL,
+  `etudiant_id` int(10) unsigned NOT NULL,
+  `matiere_id` int(10) unsigned NOT NULL,
+  `points` decimal(6,2) NOT NULL COMMENT 'points ajoutés à la note d''examen',
+  `note_examen_avant` decimal(6,2) NOT NULL,
+  `note_examen_apres` decimal(6,2) NOT NULL,
+  `note_finale_avant` decimal(6,2) DEFAULT NULL,
+  `note_finale_apres` decimal(6,2) DEFAULT NULL,
+  `decision_avant` varchar(100) DEFAULT NULL,
+  `decision_apres` varchar(100) DEFAULT NULL,
+  `motif` varchar(500) NOT NULL,
+  `fait_par` int(10) unsigned DEFAULT NULL,
+  `annule` tinyint(1) NOT NULL DEFAULT 0,
+  `annule_par` int(10) unsigned DEFAULT NULL,
+  `annule_le` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `repechages_pv_et` (`pv_id`,`etudiant_id`),
+  CONSTRAINT `repechages_pv` FOREIGN KEY (`pv_id`) REFERENCES `pv_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `repechages_etudiant` FOREIGN KEY (`etudiant_id`) REFERENCES `etudiants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `repechages_matiere` FOREIGN KEY (`matiere_id`) REFERENCES `matieres` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `resultats_semestre` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `pv_id` int(10) unsigned NOT NULL,

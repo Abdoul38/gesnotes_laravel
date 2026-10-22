@@ -197,6 +197,15 @@ body.mesure-impression .td-name{min-width:90px !important}
 </div>
 </div>
 
+@if ($repechages->isNotEmpty())
+<div style="margin-top:8px;font-size:8px;page-break-inside:avoid">
+  <strong>Repêchages accordés par le jury</strong> (points ajoutés à la note d'examen) :
+  @foreach ($repechages as $r)
+  {{ $r->nom }} {{ $r->prenoms }} ({{ $r->numero }}) — {{ $r->matiere }} : {{ number_format((float) $r->note_examen_avant, 2) }} → {{ number_format((float) $r->note_examen_apres, 2) }} (+{{ rtrim(rtrim(number_format((float) $r->points, 2, '.', ''), '0'), '.') }}){{ $loop->last ? '.' : ' ;' }}
+  @endforeach
+</div>
+@endif
+
 <div class="pied-page">
   <div>
     <div style="text-align:center;font-style:italic;margin-bottom:2px">Fait à {{ $ville }}, le {{ $pv->date_pv ? Format::dateFR($pv->date_pv) : '........................' }}</div>

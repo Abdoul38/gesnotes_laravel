@@ -8,6 +8,8 @@
     $couleurObs = fn ($o) => ['AV' => 'var(--green-700)', 'AC' => 'var(--blue-600)', 'NV' => 'var(--amber-600)', 'Déf.' => 'var(--red-600)', 'Elim' => 'var(--red-600)'][$o] ?? 'var(--text-muted)';
     $creditsTotal = $ues->sum('credits_total');
     $f2 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
+    // Repêchages en vigueur, par étudiant et matière (le plus récent) : marque « R » sur la note
+    $repechesActifs = $repechages->where('annule', 0)->sortBy('id')->keyBy(fn ($r) => $r->etudiant_id.'-'.$r->matiere_id);
 @endphp
 
 @section('contenu')
@@ -197,6 +199,7 @@
                   $saisie = $peutModifier && $etat === 'saisie';
                   $finale = $note?->note_finale ?? (($note && ($note->note_examen !== null || $note->note_cc !== null)) ? (float) $note->note_examen + (float) $note->note_cc : null);
                   $obs = $note?->observation;
+                  $rep = $repechesActifs[$et->id.'-'.$m->id] ?? null;
                   $marque = ['session1' => '<sup style="font-size:8px" title="Validé en 1ère session">🔒</sup>', 'reportee' => '<sup style="font-size:8px" title="Note reportée d\'une année précédente">📥</sup>'][$etat] ?? '';
               @endphp
               @if ($etat === 'nc')
@@ -206,8 +209,9 @@
                 @if ($saisie)
                 <input type="number" class="note-input" name="notes[{{ $et->id }}][{{ $m->id }}][exam]" value="{{ $note?->note_examen }}"
                   min="0" max="{{ (float) $m->note_max_examen }}" step="0.01" data-decimales="2" placeholder="—" aria-label="Examen {{ $m->libelle }} — {{ $et->nom }}">
+                @if ($rep)<sup style="font-size:9px;color:#7c3aed;font-weight:800" title="Repêché : {{ $f2($rep->note_examen_avant) }} → {{ $f2($rep->note_examen_apres) }} — {{ $rep->motif }}">R</sup>@endif
                 @else
-                <span style="font-size:11px;font-weight:600;color:{{ $etat !== 'saisie' ? 'var(--green-600)' : 'inherit' }}">{{ $f2($note?->note_examen) }}{!! $marque !!}</span>
+                <span style="font-size:11px;font-weight:600;color:{{ $etat !== 'saisie' ? 'var(--green-600)' : 'inherit' }}">{{ $f2($note?->note_examen) }}{!! $marque !!}</span>@if ($rep)<sup style="font-size:9px;color:#7c3aed;font-weight:800" title="Repêché : {{ $f2($rep->note_examen_avant) }} → {{ $f2($rep->note_examen_apres) }} — {{ $rep->motif }}">R</sup>@endif
                 @endif
               </td>
               @if ($avecTd)
@@ -255,7 +259,7 @@
     </table>
   </div>
   <div class="card-footer no-print">
-    <span class="text-muted text-xs">AV = Acquis par validation · AC = Acquis par compensation · NV = Non validé · Déf. = Défaillant (note manquante) · Elim = Note éliminatoire · NC = option non choisie &nbsp;|&nbsp; 📥 = Note reportée · 🔒 = Validée en 1ère session · <em>en italique : résultat provisoire pendant la saisie</em></span>
+    <span class="text-muted text-xs">AV = Acquis par validation · AC = Acquis par compensation · NV = Non validé · Déf. = Défaillant (note manquante) · Elim = Note éliminatoire · NC = option non choisie &nbsp;|&nbsp; 📥 = Note reportée · 🔒 = Validée en 1ère session · <span style="color:#7c3aed;font-weight:800">R</span> = Repêché par le jury · <em>en italique : résultat provisoire pendant la saisie</em></span>
     @if ($peutModifier)<button type="submit" class="btn btn-primary btn-sm" style="margin-left:auto">💾 Enregistrer les notes</button>@endif
   </div>
 </div>
@@ -267,6 +271,87 @@
 </div>
 <div style="height:64px"></div>
 </form>
+@endif
+
+@if ($repechagesDisponibles && ($peutModifier || $repechages->isNotEmpty()))
+<div class="card no-print" id="repechages" style="margin-top:16px">
+  <div class="card-header">
+    <span class="card-title">🛟 Repêchages du jury — {{ $repechages->where('annule', 0)->count() }} accordé(s)</span>
+  </div>
+  <div class="card-body">
+    @if ($peutModifier)
+    <form method="post" action="{{ route('pv_detail.repecher', ['id' => $pv->id]) }}" class="flex gap-8" style="flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+      @csrf
+      <input type="hidden" name="ppage" value="{{ $page }}">
+      <div class="form-group" style="min-width:220px;flex:1">
+        <label for="rep-etudiant" class="text-xs">Étudiant</label>
+        <select name="etudiant_id" id="rep-etudiant" class="form-control" required>
+          <option value="">— choisir —</option>
+          @foreach ($etudiantsPv as $e)
+          @php $dec = $resultats[$e->id]->decision ?? null; @endphp
+          <option value="{{ $e->id }}">{{ $e->nom }} {{ $e->prenoms }} ({{ $e->numero }}){{ $dec && $dec !== 'Admis' ? ' — '.$dec : '' }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="form-group" style="min-width:200px;flex:1">
+        <label for="rep-matiere" class="text-xs">Matière (note d'examen)</label>
+        <select name="matiere_id" id="rep-matiere" class="form-control" required>
+          <option value="">— choisir —</option>
+          @foreach ($ues as $ue)
+          <optgroup label="{{ $ue->code }} — {{ $ue->libelle }}">
+            @foreach ($ue->matieres as $m)<option value="{{ $m->id }}">{{ $m->libelle }} (examen /{{ (float) $m->note_max_examen }})</option>@endforeach
+          </optgroup>
+          @endforeach
+        </select>
+      </div>
+      <div class="form-group" style="width:110px">
+        <label for="rep-points" class="text-xs">Points ajoutés</label>
+        <input type="number" name="points" id="rep-points" class="form-control" min="0.01" step="0.01" required placeholder="ex. 1.5">
+      </div>
+      <div class="form-group" style="min-width:220px;flex:2">
+        <label for="rep-motif" class="text-xs">Motif (obligatoire)</label>
+        <input type="text" name="motif" id="rep-motif" class="form-control" minlength="5" maxlength="500" required placeholder="ex. Décision du jury du 22/10/2026">
+      </div>
+      <button type="submit" class="btn btn-primary" data-confirm="Confirmer le repêchage ? Les points seront ajoutés à la note d'examen et les résultats recalculés.">🛟 Repêcher</button>
+    </form>
+    @endif
+
+    @if ($repechages->isEmpty())
+    <p class="text-muted text-xs">Aucun repêchage pour ce PV. Chaque repêchage est enregistré ici avec la note d'origine, les points accordés, la décision avant et après, le motif et son auteur.</p>
+    @else
+    <div class="table-wrap">
+      <table class="table" style="font-size:12px">
+        <thead><tr><th>Date</th><th>Étudiant</th><th>Matière</th><th style="text-align:center">Examen</th><th style="text-align:center">Note</th><th style="text-align:center">Décision</th><th>Motif</th><th>Par</th>@if ($peutModifier)<th></th>@endif</tr></thead>
+        <tbody>
+        @foreach ($repechages as $r)
+        <tr style="{{ $r->annule ? 'opacity:.55' : '' }}">
+          <td style="white-space:nowrap">{{ \Illuminate\Support\Carbon::parse($r->created_at)->format('d/m/Y H:i') }}</td>
+          <td><strong style="{{ $r->annule ? 'text-decoration:line-through' : '' }}">{{ $r->nom }} {{ $r->prenoms }}</strong><br><span class="text-muted">{{ $r->numero }}</span></td>
+          <td>{{ $r->matiere }}</td>
+          <td style="text-align:center;white-space:nowrap">{{ $f2($r->note_examen_avant) }} → <strong>{{ $f2($r->note_examen_apres) }}</strong><br><span style="color:#7c3aed;font-weight:700">+{{ rtrim(rtrim(number_format((float) $r->points, 2, '.', ''), '0'), '.') }}</span></td>
+          <td style="text-align:center;white-space:nowrap">{{ $f2($r->note_finale_avant) }} → {{ $f2($r->note_finale_apres) }}</td>
+          <td style="text-align:center">{{ $r->decision_avant ?? '—' }} → <strong>{{ $r->decision_apres ?? '—' }}</strong></td>
+          <td>{{ $r->motif }}@if ($r->annule)<br><em style="color:var(--red-600)">Annulé le {{ \Illuminate\Support\Carbon::parse($r->annule_le)->format('d/m/Y H:i') }}{{ $r->annule_par_nom ? ' par '.$r->annule_par_nom : '' }}</em>@endif</td>
+          <td>{{ $r->auteur ?: '—' }}</td>
+          @if ($peutModifier)
+          <td>
+            @unless ($r->annule)
+            <form method="post" action="{{ route('pv_detail.repechage.annuler', ['id' => $pv->id, 'repechage' => $r->id]) }}">
+              @csrf
+              <button type="submit" class="btn btn-secondary btn-sm" data-confirm="Annuler ce repêchage ? La note d'origine sera rétablie ; la trace sera conservée.">Annuler</button>
+            </form>
+            @endunless
+          </td>
+          @endif
+        </tr>
+        @endforeach
+        </tbody>
+      </table>
+    </div>
+    @endif
+  </div>
+</div>
+@if ($peutModifier)<div style="height:64px"></div>@endif
 @endif
 @endsection
 

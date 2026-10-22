@@ -4,6 +4,7 @@ namespace Tests\Feature\Notes;
 
 use App\Events\PvPublie;
 use App\Models\Utilisateur;
+use App\Services\Parametres;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
@@ -140,6 +141,61 @@ class PvTest extends TestCase
         $this->assertSame('Déf.', $obsUe([$this->m1 => ['exam' => '', 'cc' => '8'], $this->m2 => ['exam' => '18']]));
     }
 
+    public function test_repechage_trace_et_annulation(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $b = $this->etudiant('BRAVO');
+        // M2 3/20 : note éliminatoire → « Elim » ; UE à (36 + 3) / 80 = 9,75
+        $this->saisir([$a => [$this->m1 => ['exam' => '24', 'cc' => '12'], $this->m2 => ['exam' => '3']],
+            $b => [$this->m1 => ['exam' => '30', 'cc' => '15']]]);
+        $decision = fn () => DB::table('resultats_semestre')->where(['pv_id' => $this->pv, 'etudiant_id' => $a])->value('decision');
+        $this->assertSame('Elim', $decision());
+        $url = $this->url("pv/{$this->pv}/repechages");
+        $ok = ['etudiant_id' => $a, 'matiere_id' => $this->m2, 'points' => '2', 'motif' => 'Décision du jury du 22/10'];
+
+        // Garde-fous : points, motif, maximum, note d'examen absente, étudiant ou matière hors du PV
+        $this->post($url, ['points' => '0'] + $ok)->assertSessionHas('erreur', fn ($m) => str_contains($m, 'points'));
+        $this->post($url, ['motif' => 'non'] + $ok)->assertSessionHas('erreur', fn ($m) => str_contains($m, 'motif'));
+        $this->post($url, ['points' => '18'] + $ok)->assertSessionHas('erreur', fn ($m) => str_contains($m, 'maximum'));
+        $this->post($url, ['etudiant_id' => $b] + $ok)->assertSessionHas('erreur', fn ($m) => str_contains($m, "pas de note d'examen"));
+        $this->post($url, ['etudiant_id' => 999999] + $ok)->assertSessionHas('erreur');
+        $this->assertSame(0, DB::table('repechages')->count());
+
+        // Repêchage : 3 → 5, plus éliminatoire, compensé dans l'UE ((36 + 5) / 80 = 10,25) → Admis ; tout est tracé
+        $this->post($url, $ok)->assertSessionHas('succes', fn ($m) => str_contains($m, '3 → 5'));
+        $this->assertSame('Admis', $decision());
+        $this->assertSame(['5.00', '5.00'], array_values((array) DB::table('notes')->where(['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m2])->first(['note_examen', 'note_finale'])));
+        $r = DB::table('repechages')->first();
+        $this->assertSame(['2.00', '3.00', '5.00', 'Elim', 'Admis', 'Décision du jury du 22/10', $this->admin->id, 0],
+            [$r->points, $r->note_examen_avant, $r->note_examen_apres, $r->decision_avant, $r->decision_apres, $r->motif, (int) $r->fait_par, (int) $r->annule]);
+        $this->assertDatabaseHas('audit_log', ['action' => 'repecher', 'module' => 'notes']);
+        // Visible sur le PV (liste et marque « R ») et sur le PV imprimé
+        $this->get($this->url("pv/{$this->pv}"))->assertOk()->assertSee('Repêchages du jury — 1 accordé(s)')->assertSee('Décision du jury du 22/10')
+            ->assertSee('Repêché : 3.00 → 5.00', false);
+        $this->get($this->url("pv/impression?id={$this->pv}"))->assertOk()->assertSee('Repêchages accordés par le jury')->assertSee('3.00 → 5.00 (+2)', false);
+
+        // Annulation : note d'origine rétablie, trace conservée (marquée annulée)
+        $this->post($this->url("pv/{$this->pv}/repechages/{$r->id}/annuler"))->assertSessionHas('succes');
+        $this->assertSame('Elim', $decision());
+        $this->assertSame('3.00', DB::table('notes')->where(['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m2])->value('note_examen'));
+        $this->assertSame([1, 1], [(int) DB::table('repechages')->value('annule'), DB::table('repechages')->count()]);
+        $this->post($this->url("pv/{$this->pv}/repechages/{$r->id}/annuler"))->assertSessionHas('erreur');
+        $this->get($this->url("pv/impression?id={$this->pv}"))->assertDontSee('Repêchages accordés par le jury');
+
+        // Note modifiée après un repêchage : l'annulation est refusée (pas d'écrasement)
+        $this->post($url, $ok);
+        $nouveau = (int) DB::table('repechages')->max('id');
+        $this->saisir([$a => [$this->m1 => ['exam' => '24', 'cc' => '12'], $this->m2 => ['exam' => '12']]]);
+        $this->post($this->url("pv/{$this->pv}/repechages/$nouveau/annuler"))->assertSessionHas('erreur', fn ($m) => str_contains($m, 'modifiée'));
+
+        // PV verrouillé, ou utilisateur sans droit de gestion : refusé
+        DB::table('pv_sessions')->where('id', $this->pv)->update(['verrouille' => 1]);
+        $this->post($url, $ok)->assertSessionHas('erreur', fn ($m) => str_contains($m, 'verrouillé'));
+        DB::table('pv_sessions')->where('id', $this->pv)->update(['verrouille' => 0]);
+        $this->connecte($this->creerUtilisateur('enseignant', ['email' => 'prof@test.local']))->post($url, $ok);
+        $this->assertSame(2, DB::table('repechages')->count());
+    }
+
     public function test_creation_normale_et_rattrapage(): void
     {
         DB::table('pv_sessions')->delete();
@@ -225,7 +281,7 @@ class PvTest extends TestCase
         DB::table('inscriptions_pedagogiques')->insert(['etudiant_id' => $avance, 'inscription_id' => $ins, 'semestre_id' => $this->sem, 'annee_id' => $this->annee]);
         $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']]]);
         DB::table('parametres')->updateOrInsert(['cle' => 'institution_ville'], ['valeur' => 'Maradi']);
-        $this->app->forgetInstance(\App\Services\Parametres::class);
+        $this->app->forgetInstance(Parametres::class);
         DB::table('pv_sessions')->update(['date_pv' => '2026-02-10']);
 
         $this->connecte($this->admin)->get($this->url("pv/impression?id={$this->pv}"))->assertOk()
