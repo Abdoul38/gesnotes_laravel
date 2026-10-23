@@ -96,7 +96,7 @@
     </div>
     <div class="v-right">
       <div class="v-qr" data-qr="{{ $k['urlVerification'] }}" data-qr-cellule="2"></div>
-      <div class="v-cap">Scanner pour vérifier<br>l'authenticité<br><strong>{{ \App\Services\CleVerification::site($k['urlVerification']) }}</strong></div>
+      <div class="v-cap">Scanner pour vérifier<br>l'authenticité<br><strong>{{ \App\Services\CleVerification::site($k['urlVerification']) }}</strong><br>Code {{ app(\App\Services\CleVerification::class)->code($k['numero']) }}</div>
     </div>
   </div>
   <div class="v-foot">

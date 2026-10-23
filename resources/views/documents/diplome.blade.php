@@ -173,7 +173,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
     <div data-qr="{{ $urlVerification }}" data-qr-cellule="2" style="width:16mm;height:16mm"></div>
     <span class="qr-txt">Scanner pour vérifier l'authenticité<br>et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong></span>
   </div>
-  <div class="numero-diplome">Diplôme enregistré sous le N° {{ $numero }}</div>
+  <div class="numero-diplome">Diplôme enregistré sous le N° {{ $numero }}<br>Code de vérification : {{ app(\App\Services\CleVerification::class)->code($numero) }}</div>
 </div>
 <script src="{{ asset('assets/js/qrcode.js') }}"></script>
 <script src="{{ asset('assets/js/impression.js') }}"></script>

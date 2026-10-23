@@ -48,9 +48,11 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
 .entete-v .inst { font-size:13px; letter-spacing:1px; text-transform:uppercase; opacity:.75; }
 .entete-v .titre { font-size:20px; font-weight:bold; margin-top:6px; }
 .corps-v { padding:28px; }
-.form-verif { display:flex; gap:8px; margin-bottom:20px; }
-.form-verif input { flex:1; min-width:0; padding:10px 12px; border:1.5px solid #ddd; border-radius:6px; font-size:14px; font-family:inherit; }
-.form-verif button { background:#0F2942; color:#fff; border:none; padding:10px 18px; border-radius:6px; font-weight:600; cursor:pointer; font-family:inherit; }
+.form-verif-v { display:flex; flex-direction:column; gap:4px; margin-bottom:20px; }
+.form-verif-v label { font-size:12.5px; font-weight:600; color:#333; margin-top:6px; }
+.form-verif-v .aide-v { font-weight:normal; color:#888; }
+.form-verif-v input { min-width:0; padding:10px 12px; border:1.5px solid #ddd; border-radius:6px; font-size:14px; font-family:inherit; }
+.form-verif-v button { background:#0F2942; color:#fff; border:none; padding:11px 18px; border-radius:6px; font-weight:600; cursor:pointer; font-family:inherit; margin-top:10px; }
 .resultat-ok { background:#eafaf0; border:1.5px solid #16a34a; border-radius:8px; padding:20px; text-align:center; }
 .resultat-ok .icone, .resultat-ko .icone { font-size:36px; margin-bottom:8px; }
 .resultat-ok .msg { color:#16a34a; font-weight:bold; font-size:15px; margin-bottom:16px; }
@@ -90,10 +92,17 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
   </div>
 
   <div class="corps-v">
-    <form method="get" action="{{ route('verifier_diplome') }}" class="form-verif">
-      <input type="text" name="num" value="{{ $numero }}" maxlength="30" placeholder="Numéro du diplôme (ex: D26-LI-000001)" aria-label="Numéro du document" autofocus>
+    @unless ($qr)
+    <form method="get" action="{{ route('verifier_diplome') }}" class="form-verif-v">
+      <label for="v-num">Numéro du document</label>
+      <input type="text" name="num" id="v-num" value="{{ $numero }}" maxlength="30" placeholder="ex : D26-LI-000001" required @if ($numero === '') autofocus @endif>
+      <label for="v-code">Code de vérification <span class="aide-v">(imprimé sur le document, ex : 3F9A-C21B)</span></label>
+      <input type="text" name="code" id="v-code" value="{{ $code }}" maxlength="20" placeholder="XXXX-XXXX" autocomplete="off" @if ($numero !== '' && $code === '') autofocus @endif>
+      <label for="v-nom">ou nom du titulaire <span class="aide-v">(documents sans code de vérification)</span></label>
+      <input type="text" name="nom" id="v-nom" value="{{ $nom }}" maxlength="100" placeholder="Nom de famille">
       <button type="submit">Vérifier</button>
     </form>
+    @endunless
 
     @if ($attente)
       <div class="resultat-ko">
@@ -102,7 +111,14 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
         <p style="color:#991b1b;font-size:12.5px;margin-top:6px">Réessayez dans {{ $attente }} minute(s).</p>
       </div>
     @elseif ($numero === '')
-      <p style="color:#777;font-size:13.5px;text-align:center">Saisissez le numéro inscrit sur le diplôme, ou scannez son QR code directement.</p>
+      <p style="color:#777;font-size:13.5px;text-align:center">Scannez le QR code du document, ou saisissez son numéro et son code de vérification.</p>
+    @elseif ($preuveManquante)
+      <div class="resultat-ko" style="background:#fffbeb;border-color:#f59e0b">
+        <div class="icone">🔑</div>
+        <div class="msg" style="color:#92400e">Code de vérification requis</div>
+        <p style="color:#92400e;font-size:12.5px;margin-top:6px">Le numéro seul ne suffit pas : saisissez aussi le code de vérification imprimé sur le document,
+          ou à défaut le nom du titulaire. Le plus simple : scanner le QR code du document.</p>
+      </div>
     @elseif ($resultat)
       @php if (! $complet) { $lignes = array_intersect_key($lignes, array_flip(['Titulaire', 'Document', 'Année académique', 'Session'])); } @endphp
       <div class="resultat-ok">
@@ -152,17 +168,18 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
           </p>
         </div>
         @endif
-        @unless ($complet)<p style="font-size:12px;color:#555;margin-top:12px">Vérification par numéro : détail masqué. Scannez le QR code du document pour afficher le détail complet.</p>@endunless
+        @unless ($complet)<p style="font-size:12px;color:#555;margin-top:12px">Vérification par le nom du titulaire : détail masqué. Scannez le QR code ou saisissez le code de vérification pour afficher le détail complet.</p>@endunless
       </div>
     @else
       <div class="resultat-ko">
         <div class="icone">❌</div>
-        <div class="msg">Numéro introuvable</div>
+        <div class="msg">Document non vérifié</div>
         <p style="color:#991b1b;font-size:12.5px;margin-top:6px">
           @if ($invalide)
             Le numéro saisi n'a pas un format valide.
           @else
-            Aucun diplôme enregistré ne correspond à « {{ $numero }} ». Vérifiez le numéro, ou contactez l'établissement.
+            Aucun document enregistré ne correspond à ce numéro et à ce {{ $code !== '' ? 'code de vérification' : 'nom' }}.
+            Vérifiez votre saisie, ou contactez l'établissement.
           @endif
         </p>
       </div>

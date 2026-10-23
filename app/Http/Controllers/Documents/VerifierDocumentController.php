@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 /**
  * Vérification publique d'un document (diplôme, attestation, relevé,
@@ -25,8 +26,14 @@ use Illuminate\Support\Facades\RateLimiter;
  *  - numéro contrôlé (lettres, chiffres, tirets, 30 caractères) ;
  *  - page exclue des moteurs de recherche (noindex) ;
  *  - plus de création de tables à l'exécution (elles sont dans le schéma) ;
- *  - détail (nom complet, mention, filière…) seulement avec la clé du QR code
- *    ou pour le personnel connecté ; sinon : authenticité, type, initiales, année.
+ *  - détail (nom complet, mention, filière…) seulement avec la clé du QR code,
+ *    le code de vérification imprimé sur le document, ou pour le personnel
+ *    connecté ;
+ *  - numéro seul : AUCUNE réponse (ni « authentique », ni « introuvable ») —
+ *    il faut aussi le code de vérification, ou le nom du titulaire (documents
+ *    imprimés avant le code : authenticité, type, initiales, année). On ne
+ *    peut donc plus parcourir les numéros, qui se suivent, pour savoir
+ *    lesquels existent.
  *
  * Ajout : pour un relevé de notes, les notes (par UE et matière) et le
  * résultat du semestre, tels qu'imprimés — mêmes conditions que le détail.
@@ -49,9 +56,13 @@ class VerifierDocumentController extends Controller
     public function __invoke(Request $request, Parametres $parametres, UniversiteCourante $universite, CleVerification $cles): Response
     {
         $numero = mb_substr(trim((string) $request->query('num', '')), 0, 60);
+        $code = mb_substr(trim((string) $request->query('code', '')), 0, 20);
+        $nom = mb_substr(trim((string) $request->query('nom', '')), 0, 100);
         $personnel = $request->user() && $request->user()->role !== 'etudiant';
-        $donnees = ['numero' => $numero, 'resultat' => null, 'type' => null, 'attente' => 0, 'invalide' => false, 'notesReleve' => null,
-            'complet' => $personnel || $cles->valide($numero, (string) $request->query('cle', '')),
+        $qr = $cles->valide($numero, (string) $request->query('cle', ''));
+        $donnees = ['numero' => $numero, 'code' => $code, 'nom' => $nom, 'qr' => $qr, 'resultat' => null, 'type' => null, 'attente' => 0, 'invalide' => false,
+            'notesReleve' => null, 'preuveManquante' => false,
+            'complet' => $personnel || $qr || $cles->codeValide($numero, $code),
             'institution' => $parametres->valeur('institution_nom', 'EDUFILE')];
         $statut = 200;
 
@@ -72,6 +83,12 @@ class VerifierDocumentController extends Controller
                             break;
                         }
                     }
+                    // Sans code ni QR code : réponse seulement si le nom du titulaire correspond — sinon rien,
+                    // que le numéro existe ou non (pas de parcours des numéros)
+                    if (! $donnees['complet'] && ! ($donnees['resultat'] && $nom !== '' && self::memeNom($donnees['resultat'], $nom))) {
+                        [$donnees['resultat'], $donnees['type']] = [null, null];
+                        $donnees['preuveManquante'] = $code === '' && $nom === '';
+                    }
                     // Relevé : ses notes, seulement avec la clé du QR code (ou pour le personnel)
                     if ($donnees['type'] === 'releve' && $donnees['complet']) {
                         $donnees['notesReleve'] = app(RelevesEmis::class)->contenuPourVerification($donnees['resultat']);
@@ -81,5 +98,14 @@ class VerifierDocumentController extends Controller
         }
 
         return response()->view('documents.verifier', $donnees, $statut)->header('X-Robots-Tag', 'noindex, nofollow');
+    }
+
+    /** Nom saisi = nom de famille du titulaire, ou nom et prénoms (dans un ordre ou l'autre) ; sans accents ni casse. */
+    private static function memeNom(object $r, string $saisi): bool
+    {
+        $n = fn (string $v) => preg_replace('/[^a-z]/', '', strtolower(Str::ascii($v)));
+        $saisi = $n($saisi);
+
+        return $saisi !== '' && in_array($saisi, [$n($r->nom), $n($r->nom.$r->prenoms), $n($r->prenoms.$r->nom)], true);
     }
 }

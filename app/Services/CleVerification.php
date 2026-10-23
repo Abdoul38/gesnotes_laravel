@@ -30,6 +30,23 @@ class CleVerification
         return $cle !== null && $cle !== '' && hash_equals($this->cle($numero), $cle);
     }
 
+    /**
+     * Code de vérification imprimé en clair sur le document (« 3F9A-C21B »),
+     * exigé avec le numéro pour une vérification sans QR code : sans lui, on
+     * ne peut pas parcourir les numéros, qui se suivent.
+     */
+    public function code(string $numero): string
+    {
+        return implode('-', str_split(strtoupper(substr($this->cle($numero), 0, 8)), 4));
+    }
+
+    public function codeValide(string $numero, ?string $code): bool
+    {
+        $saisi = strtoupper(preg_replace('/[^0-9a-fA-F]/', '', (string) $code));
+
+        return strlen($saisi) === 8 && hash_equals(str_replace('-', '', $this->code($numero)), $saisi);
+    }
+
     /** Adresse à mettre dans le QR code du document. */
     public function url(string $numero): string
     {

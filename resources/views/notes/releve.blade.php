@@ -198,7 +198,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
     <div class="t1">ANNEE ACADEMIQUE {{ $pv->annee }}</div>
     <div class="t1">RELEVE DE NOTES</div>
     <div class="t2">{{ $pv->niveau_libelle }} {{ $pv->filiere }} — {{ $pv->sem_libelle }} / {{ \App\Support\Format::session($pv->type_session) }}</div>
-    <div class="t3">Relevé enregistré sous le N° <strong>{{ $r['numero'] }}</strong></div>
+    <div class="t3">Relevé enregistré sous le N° <strong>{{ $r['numero'] }}</strong> · Code de vérification : <strong>{{ app(\App\Services\CleVerification::class)->code($r['numero']) }}</strong></div>
   </div>
 
   <div class="et-info">
@@ -258,7 +258,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
       </ul>
       <div style="display:flex;align-items:center;gap:2mm;margin-top:2mm">
         <div data-qr="{{ $r['urlVerification'] }}" data-qr-cellule="2" style="width:11mm;height:11mm"></div>
-        <span style="font-size:6.5pt;color:#8B6F1F;line-height:1.2">Scanner pour vérifier l'authenticité<br>et comparer les notes affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($r['urlVerification']) }}</strong><br>N° {{ $r['numero'] }}</span>
+        <span style="font-size:6.5pt;color:#8B6F1F;line-height:1.2">Scanner pour vérifier l'authenticité<br>et comparer les notes affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($r['urlVerification']) }}</strong><br>N° {{ $r['numero'] }} · Code {{ app(\App\Services\CleVerification::class)->code($r['numero']) }}</span>
       </div>
     </div>
     <div class="sig-zone">

@@ -383,7 +383,7 @@ class PvTest extends TestCase
         $releve = $this->connecte($this->admin)->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertOk();
         $numero = DB::table('releves_emis')->value('numero');
         // Adresse officielle de vérification imprimée en clair sous le QR code
-        $releve->assertSee('Relevé enregistré sous le N° <strong>'.$numero.'</strong>', false)->assertSee('comparer les notes affichées')->assertSee('Site officiel')->assertSee('/verification')->assertSee("N° $numero");
+        $releve->assertSee('Relevé enregistré sous le N° <strong>'.$numero.'</strong> · Code de vérification : <strong>'.app(CleVerification::class)->code($numero).'</strong>', false)->assertSee('comparer les notes affichées')->assertSee('Site officiel')->assertSee('/verification')->assertSee("N° $numero");
         $this->assertNotNull(DB::table('releves_emis_contenu')->where('numero', $numero)->value('contenu'));
         $this->post($this->url('deconnexion'));
         RateLimiter::clear('verification|udh|127.0.0.1');
@@ -393,7 +393,9 @@ class PvTest extends TestCase
         $this->get($qr)->assertOk()->assertSee('Notes du relevé')->assertSee('UE1 — UE 1')->assertSee('Microéconomie')
             ->assertSee('45,00')->assertSee('15,00')->assertSee('6/6')->assertSee("telles qu'imprimées", false);
         // Numéro tapé à la main (sans la clé du QR code) : pas de notes
-        $this->get($this->url("verification?num=$numero"))->assertOk()->assertSee('authentique')->assertDontSee('Notes du relevé')->assertDontSee('Microéconomie');
+        $this->get($this->url("verification?num=$numero&nom=ALPHA"))->assertOk()->assertSee('authentique')->assertDontSee('Notes du relevé')->assertDontSee('Microéconomie');
+        // Code de vérification imprimé : comme le QR code
+        $this->get($this->url("verification?num=$numero&code=".app(CleVerification::class)->code($numero)))->assertOk()->assertSee('Notes du relevé');
 
         // Note corrigée après l'impression : la vérification montre toujours le relevé imprimé
         $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '12']]]);

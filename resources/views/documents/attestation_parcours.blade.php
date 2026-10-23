@@ -216,7 +216,7 @@ body {
         <div data-qr="{{ $urlVerification }}" data-qr-cellule="2" style="width:11mm;height:11mm"></div>
         <span class="qr-txt">Scanner pour vérifier l'authenticité et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong></span>
       </div>
-      <div class="numero">{{ $numero }}</div>
+      <div class="numero">{{ $numero }}<br><span style="font-size:.85em">Code : {{ app(\App\Services\CleVerification::class)->code($numero) }}</span></div>
     </div>
 
   </div>

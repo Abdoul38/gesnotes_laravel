@@ -24,13 +24,27 @@ class VerifierDocumentTest extends TestCase
 
     public function test_page_publique_et_resultats(): void
     {
-        $this->get($this->url('verification'))->assertOk()->assertSee('Saisissez le numéro')
+        $this->get($this->url('verification'))->assertOk()->assertSee('saisissez son numéro et son code de vérification')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
-        // Numéro seul (tapé, ou document imprimé avant la clé) : authenticité, type, initiales, année
-        $this->get($this->url('verification?num=R26-000001'))->assertOk()
+        // Numéro seul : aucune réponse, qu'il existe ou non (on ne parcourt pas les numéros)
+        foreach (['R26-000001', 'R26-999999'] as $num) {
+            $this->get($this->url("verification?num=$num"))->assertOk()->assertSee('Code de vérification requis')
+                ->assertDontSee('authentique')->assertDontSee('A. A.')->assertDontSee('2025-2026')->assertDontSee('non vérifié');
+        }
+        $this->get($this->url('verification?num=R26-000001&cle=0000000000000000'))->assertOk()->assertDontSee('ALPHA')->assertDontSee('authentique');
+        // Numéro + code de vérification imprimé : détail complet ; mauvais code ou code d'un autre document : rien
+        $code = app(CleVerification::class)->code('R26-000001');
+        $this->assertMatchesRegularExpression('/^[0-9A-F]{4}-[0-9A-F]{4}$/', $code);
+        $this->get($this->url('verification?num=R26-000001&code='.strtolower(str_replace('-', ' ', $code))))->assertOk()
+            ->assertSee('Ce document est authentique')->assertSee('ALPHA Awa')->assertSee('Semestre 1')->assertDontSee('détail masqué');
+        $this->get($this->url('verification?num=R26-000001&code=0000-0000'))->assertOk()->assertSee('Document non vérifié')->assertDontSee('ALPHA');
+        $this->get($this->url('verification?num=D26-LI-000001&code='.$code))->assertOk()->assertDontSee('Économie')->assertDontSee('authentique');
+        // Numéro + nom du titulaire (documents sans code) : authenticité, type, initiales, année
+        $this->get($this->url('verification?num=R26-000001&nom=alpha'))->assertOk()
             ->assertSee('Ce document est authentique')->assertSee('A. A.')->assertSee('Relevé de notes')->assertSee('2025-2026')
-            ->assertDontSee('ALPHA')->assertDontSee('Bien')->assertDontSee('Semestre 1')->assertSee('détail masqué');
-        $this->get($this->url('verification?num=R26-000001&cle=0000000000000000'))->assertOk()->assertDontSee('ALPHA');
+            ->assertDontSee('Bien')->assertDontSee('Semestre 1')->assertSee('détail masqué');
+        $this->get($this->url('verification?num=R26-000001&nom=Awa+Alpha'))->assertOk()->assertSee('authentique');
+        $this->get($this->url('verification?num=R26-000001&nom=BRAVO'))->assertOk()->assertSee('Document non vérifié')->assertDontSee('A. A.');
         // Adresse du QR code (clé valide) : détail complet
         $this->get(app(CleVerification::class)->url('R26-000001'))->assertOk()
             ->assertSee('ALPHA Awa')->assertSee('Semestre 1')->assertSee('Bien')->assertDontSee('détail masqué');
@@ -41,7 +55,7 @@ class VerifierDocumentTest extends TestCase
         // Personnel connecté : détail complet
         $this->connecte($this->creerUtilisateur('secretaire'))->get($this->url('verification?num=R26-000001'))->assertOk()->assertSee('ALPHA Awa');
         $this->post($this->url('deconnexion'));
-        $this->get($this->url('verification?num=R26-999999'))->assertOk()->assertSee('Numéro introuvable');
+        $this->get($this->url('verification?num=R26-999999&code=0000-0000'))->assertOk()->assertSee('Document non vérifié');
         $this->get($this->url('verification?num='.urlencode('<script>x</script>')))->assertOk()
             ->assertSee("n'a pas un format valide", false)->assertDontSee('<script>x', false);
     }
@@ -58,6 +72,6 @@ class VerifierDocumentTest extends TestCase
 
     public function test_etudiant_connecte_peut_verifier(): void
     {
-        $this->connecte($this->creerUtilisateur('etudiant'))->get($this->url('verification?num=R26-000001'))->assertOk()->assertSee('authentique');
+        $this->connecte($this->creerUtilisateur('etudiant'))->get($this->url('verification?num=R26-000001&nom=ALPHA'))->assertOk()->assertSee('authentique');
     }
 }

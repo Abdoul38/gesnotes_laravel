@@ -175,7 +175,7 @@ body { font-family: Georgia, 'Times New Roman', Times, serif; background: #e8e5d
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:4mm;padding-top:2mm">
     <div style="display:flex;align-items:center;gap:2mm">
       <div data-qr="{{ $urlVerification }}" data-qr-cellule="2" style="width:12mm;height:12mm"></div>
-      <span style="font-size:7pt;color:#666;line-height:1.2">Scanner pour vérifier l'authenticité<br>et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong><br>N° {{ $numero }}</span>
+      <span style="font-size:7pt;color:#666;line-height:1.2">Scanner pour vérifier l'authenticité<br>et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong><br>N° {{ $numero }} · Code {{ app(\App\Services\CleVerification::class)->code($numero) }}</span>
     </div>
     <div class="signature-bloc" style="margin-top:0;padding-top:0">
       <div class="signature-lieu">Fait à {{ $p('institution_ville', 'Tahoua') }}, le {{ date('d/m/Y') }}</div>
