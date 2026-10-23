@@ -93,7 +93,9 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 
 .pied { margin-top:6mm; padding-top:3mm; border-top:0.5pt solid #d8cfb8; display:flex; justify-content:space-between; align-items:flex-start; }
 .pied .avis { font-size:6.5pt; color:#8a8a8a; max-width:75%; line-height:1.5; font-style:italic; }
-.pied .numero { font-size:7pt; color:#8B6F1F; white-space:nowrap; font-family:Georgia,serif; }
+.pied .numero { font-size:7pt; color:#8B6F1F; white-space:nowrap; font-family:Georgia,serif; text-align:right; }
+.pied .qr-auth { display:flex; align-items:center; gap:1.5mm; flex-shrink:0; margin-left:3mm; }
+.pied .qr-auth .qr-txt { font-size:5.5pt; color:#8B6F1F; line-height:1.25; max-width:30mm; overflow-wrap:anywhere; }
 
 @page { size: A4; margin: 0; }
 @media print {
@@ -189,7 +191,12 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 
     <div class="pied">
       <div class="avis"><strong>Avis important —</strong> Il n'est délivré qu'une seule attestation. Le titulaire devra en faire établir des copies certifiées conformes par les autorités compétentes. Cette attestation ne doit comporter ni rature ni surcharge, sous peine de nullité.</div>
-      <div class="numero">N° {{ $numeros[$et->id] }}</div>
+      @php $urlVerification = app(\App\Services\CleVerification::class)->url($numeros[$et->id]); @endphp
+      <div class="qr-auth">
+        <div data-qr="{{ $urlVerification }}" data-qr-cellule="2" style="width:11mm;height:11mm"></div>
+        <span class="qr-txt">Scanner pour vérifier l'authenticité et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong></span>
+      </div>
+      <div class="numero">N° {{ $numeros[$et->id] }}<br><span style="font-size:.85em">Code : {{ app(\App\Services\CleVerification::class)->code($numeros[$et->id]) }}</span></div>
     </div>
 
   </div>
@@ -197,6 +204,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 @empty
 <div class="page"><div class="content" style="text-align:center;padding-top:60mm;font-style:italic;color:#888">Aucun étudiant admis dans ce PV.</div></div>
 @endforelse
+<script src="{{ asset('assets/js/qrcode.js') }}"></script>
 <script src="{{ asset('assets/js/impression.js') }}"></script>
 </body>
 </html>

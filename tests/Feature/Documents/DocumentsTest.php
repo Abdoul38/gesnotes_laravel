@@ -89,7 +89,9 @@ class DocumentsTest extends TestCase
         $numero = DB::table('attestations_emises')->where(['etudiant_id' => $this->alpha, 'type' => "reussite_$pvS3"])->value('numero');
         $this->assertMatchesRegularExpression('/^AR\d{2}-000001$/', $numero);
         $this->assertSame(1, DB::table('attestations_emises')->count());
-        $this->get($this->url("attestations/reussite?pv_id=$pvS3&et_id={$this->alpha}"))->assertSee("N° $numero")->assertDontSee('ANM/DepD');
+        $this->get($this->url("attestations/reussite?pv_id=$pvS3&et_id={$this->alpha}"))->assertSee("N° $numero")->assertDontSee('ANM/DepD')
+            // QR code, adresse officielle et code de vérification, comme les autres documents
+            ->assertSee(e(app(CleVerification::class)->url($numero)), false)->assertSee('Site officiel')->assertSee('Code : '.app(CleVerification::class)->code($numero));
         $this->post($this->url('deconnexion'));
         $this->get($this->url('verification?num='.$numero.'&code='.app(CleVerification::class)->code($numero)))->assertOk()->assertSee('Attestation de réussite (semestre)');
 
