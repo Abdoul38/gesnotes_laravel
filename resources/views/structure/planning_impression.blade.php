@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Planning — {{ $pv->libelle }}</title>
+<title>Planning — {{ $cible->libelle }}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Times New Roman',serif;font-size:9.5pt}
 .no-print{padding:10px}.no-print button{background:#1A3A5C;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700}
@@ -24,12 +24,12 @@ td{border:0.5px solid #aaa;padding:3px 5px;vertical-align:middle}
 <div class="page">
   <div class="header">
     <img src="{{ $logos['gauche'] }}" alt="" data-onerror-hide="1">
-    <div class="header-center"><strong>REPUBLIQUE DU NIGER</strong><br>{{ $institution }}<br>{{ $pv->faculte }}</div>
+    <div class="header-center"><strong>REPUBLIQUE DU NIGER</strong><br>{{ $institution }}<br>{{ $cible->faculte }}</div>
     <img src="{{ $logos['droite'] }}" alt="" data-onerror-hide="1">
   </div>
   <div class="divider"></div>
-  <div class="titre">Planning des examens — {{ $pv->libelle }}</div>
-  <p style="text-align:center;font-size:9pt;font-style:italic;margin-bottom:4mm">{{ $pv->niveau_libelle }} {{ $pv->filiere }} — {{ $pv->sem_libelle }} — {{ $pv->annee }}</p>
+  <div class="titre">Planning des examens{{ $cible->session === 'rattrapage' ? ' — Rattrapage' : '' }}</div>
+  <p style="text-align:center;font-size:9pt;font-style:italic;margin-bottom:4mm">{{ $cible->niveau_libelle }} {{ $cible->filiere }} — {{ $cible->sem_libelle }} — {{ $cible->annee }}</p>
   <table>
     <thead><tr><th class="left" style="width:28%">Matière</th><th style="width:12%">Date</th><th style="width:9%">Début</th><th style="width:9%">Fin</th><th style="width:12%">Salle</th><th class="left" style="width:15%">Surveillant 1</th><th class="left" style="width:15%">Surveillant 2</th></tr></thead>
     <tbody>

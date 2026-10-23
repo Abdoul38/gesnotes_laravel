@@ -1221,6 +1221,37 @@ CREATE TABLE `presences` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `planning_examens` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `promotion_id` int(10) unsigned NOT NULL,
+  `semestre_id` int(10) unsigned NOT NULL,
+  `session` enum('normale','rattrapage') NOT NULL DEFAULT 'normale',
+  `matiere_id` int(10) unsigned NOT NULL,
+  `date_examen` date NOT NULL,
+  `heure_debut` time NOT NULL,
+  `heure_fin` time NOT NULL,
+  `salle` varchar(100) DEFAULT NULL,
+  `salle_id` int(10) unsigned DEFAULT NULL,
+  `surveillant_1` int(10) unsigned DEFAULT NULL,
+  `surveillant_2` int(10) unsigned DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_planning_examen` (`promotion_id`,`semestre_id`,`session`,`matiere_id`),
+  KEY `semestre_id` (`semestre_id`),
+  KEY `matiere_id` (`matiere_id`),
+  KEY `date_examen` (`date_examen`),
+  KEY `surveillant_1` (`surveillant_1`),
+  KEY `surveillant_2` (`surveillant_2`),
+  CONSTRAINT `planning_examens_ibfk_1` FOREIGN KEY (`promotion_id`) REFERENCES `promotions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `planning_examens_ibfk_2` FOREIGN KEY (`semestre_id`) REFERENCES `semestres` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `planning_examens_ibfk_3` FOREIGN KEY (`matiere_id`) REFERENCES `matieres` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `planning_examens_ibfk_4` FOREIGN KEY (`surveillant_1`) REFERENCES `enseignants` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `planning_examens_ibfk_5` FOREIGN KEY (`surveillant_2`) REFERENCES `enseignants` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='planning des examens par promotion, semestre et session (sans PV : avant les inscriptions pédagogiques)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `presidents_jury` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `promotion_id` int(10) unsigned NOT NULL,

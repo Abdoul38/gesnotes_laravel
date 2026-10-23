@@ -16,10 +16,21 @@ use Throwable;
  *
  * Sans --appliquer : simple liste. Avec : uniquement des
  * CREATE TABLE IF NOT EXISTS — aucune table existante n'est modifiée ni
- * supprimée, aucune donnée n'est touchée.
+ * supprimée. Une table qui en remplace une ancienne reçoit, à sa création
+ * seulement, une copie des données de celle-ci (REPRISES), laissée intacte.
  */
 class CompleterSchema extends Command
 {
+    /** Copie des données d'une ancienne table dans la nouvelle, juste après sa création. */
+    private const REPRISES = [
+        // Planning des examens : par PV avant, par promotion, semestre et session maintenant
+        'planning_examens' => "INSERT IGNORE INTO planning_examens (promotion_id, semestre_id, session, matiere_id, date_examen, heure_debut, heure_fin,
+                salle, salle_id, surveillant_1, surveillant_2, notes)
+            SELECT ps.promotion_id, ps.semestre_id, ps.type_session, ep.matiere_id, ep.date_examen, ep.heure_debut, ep.heure_fin,
+                ep.salle, ep.salle_id, ep.surveillant_1, ep.surveillant_2, ep.notes
+            FROM examens_planning ep JOIN pv_sessions ps ON ps.id = ep.pv_id WHERE ps.type_session IN ('normale', 'rattrapage')",
+    ];
+
     protected $signature = 'gesnotes:completer-schema
         {--universite=* : code(s) d\'université (toutes les actives par défaut)}
         {--appliquer : crée vraiment les tables manquantes}';
@@ -56,6 +67,9 @@ class CompleterSchema extends Command
                         try {
                             DB::statement(preg_replace('/^CREATE TABLE /', 'CREATE TABLE IF NOT EXISTS ', $creations[$table]));
                             $this->line("    créée : $table");
+                            if (isset(self::REPRISES[$table])) {
+                                $this->line('      reprise : '.DB::affectingStatement(self::REPRISES[$table]).' ligne(s)');
+                            }
                         } catch (Throwable $e) {
                             $echecs++;
                             $this->line("    <fg=red>échec : $table</> — ".$e->getMessage());

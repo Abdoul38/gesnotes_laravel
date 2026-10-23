@@ -15,7 +15,7 @@ use Illuminate\View\View;
 /**
  * Convocations aux examens — portage de pages/documents/convocations.php
  * (admin, secrétaire, sc_centrale, sc_entite) : choix du PV, puis une page
- * A4 par étudiant avec le calendrier des épreuves (examens_planning).
+ * A4 par étudiant avec le calendrier des épreuves (planning_examens).
  *
  * Différences voulues :
  *  - étudiants convoqués = étudiants du PV (App\Services\Pv) : en
@@ -47,7 +47,7 @@ class ConvocationsController extends Controller
         $masse = $request->has('masse');
         $etudiants = $pvs->etudiants($pv)->when(! $masse, fn ($q) => $q->where('e.id', (int) $request->query('et_id')))->get();
         if (! $masse && $etudiants->isEmpty()) {
-            return redirect()->route('convocations')->with('erreur', "Cet étudiant ne compose pas dans ce PV.");
+            return redirect()->route('convocations')->with('erreur', 'Cet étudiant ne compose pas dans ce PV.');
         }
         $libelles = DB::table('filieres as f')->leftJoin('facultes as fac', 'fac.id', '=', 'f.faculte_id')->leftJoin('departements as d', 'd.id', '=', 'f.departement_id')
             ->where('f.id', $pv->filiere_id)->first([DB::raw('COALESCE(fac.libelle, f.faculte) AS faculte'), DB::raw('COALESCE(d.libelle, f.departement) AS departement')]);
@@ -60,7 +60,9 @@ class ConvocationsController extends Controller
             'masse' => $masse,
             'etudiants' => $etudiants,
             'matieres' => DB::table('matieres as m')->join('unites_enseignement as ue', 'ue.id', '=', 'm.ue_id')
-                ->leftJoin('examens_planning as ep', fn ($j) => $j->on('ep.matiere_id', '=', 'm.id')->where('ep.pv_id', $pv->id))
+                // Planning de la promotion, du semestre et de la session du PV
+                ->leftJoin('planning_examens as ep', fn ($j) => $j->on('ep.matiere_id', '=', 'm.id')->where(['ep.promotion_id' => $pv->promotion_id,
+                    'ep.semestre_id' => $pv->semestre_id, 'ep.session' => $pv->type_session === 'rattrapage' ? 'rattrapage' : 'normale']))
                 ->where(['ue.promotion_id' => $pv->promotion_id, 'ue.semestre_id' => $pv->semestre_id, 'm.actif' => 1])
                 ->orderBy('ue.ordre')->orderBy('m.ordre')
                 ->get(['m.libelle', 'ue.libelle as ue', 'ep.date_examen', 'ep.heure_debut', 'ep.heure_fin', 'ep.salle']),

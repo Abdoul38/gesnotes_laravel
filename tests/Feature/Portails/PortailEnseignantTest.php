@@ -174,9 +174,9 @@ class PortailEnseignantTest extends TestCase
     public function test_mes_examens_matieres_et_surveillances(): void
     {
         $autre = DB::table('enseignants')->insertGetId(['nom' => 'AUTRE', 'prenoms' => 'Prof']);
-        DB::table('examens_planning')->insert([
-            ['pv_id' => $this->pv, 'matiere_id' => $this->m1, 'date_examen' => '2026-01-12', 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'salle' => 'Amphi A', 'surveillant_1' => $autre, 'surveillant_2' => null],
-            ['pv_id' => $this->pv, 'matiere_id' => $this->m2, 'date_examen' => '2026-01-13', 'heure_debut' => '14:00', 'heure_fin' => '16:00', 'salle' => 'Salle 3', 'surveillant_1' => $this->td->enseignant_id, 'surveillant_2' => null],
+        DB::table('planning_examens')->insert([
+            ['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'session' => 'normale', 'matiere_id' => $this->m1, 'date_examen' => '2026-01-12', 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'salle' => 'Amphi A', 'surveillant_1' => $autre, 'surveillant_2' => null],
+            ['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'session' => 'rattrapage', 'matiere_id' => $this->m2, 'date_examen' => '2026-01-13', 'heure_debut' => '14:00', 'heure_fin' => '16:00', 'salle' => 'Salle 3', 'surveillant_1' => $this->td->enseignant_id, 'surveillant_2' => null],
         ]);
 
         // Enseignant de cours : l'examen de sa matière, pas celui des Statistiques
@@ -185,7 +185,7 @@ class PortailEnseignantTest extends TestCase
             ->assertSee('AUTRE Prof')->assertSee('Enseignant de la matière')->assertDontSee('Statistiques');
         // Enseignant de TD : sa matière et sa surveillance
         $this->connecte($this->td)->get($this->url('portail/enseignant/examens'))->assertOk()->assertSee('Microéconomie')->assertSee('Statistiques')
-            ->assertSee('Salle 3')->assertSee('Surveillant');
+            ->assertSee('Salle 3')->assertSee('Surveillant')->assertSee('Rattrapage');
         // Sans fiche enseignant
         $this->connecte($this->creerUtilisateur('enseignant', ['email' => 'sans@test.local']))->get($this->url('portail/enseignant/examens'))
             ->assertSessionHas('erreur', 'Aucun dossier enseignant lié à votre compte.');

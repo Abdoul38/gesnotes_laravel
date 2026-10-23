@@ -493,10 +493,15 @@ class PvTest extends TestCase
     {
         $a = $this->etudiant('ALPHA');
         $hors = DB::table('etudiants')->insertGetId(['nom' => 'HORSPV', 'prenoms' => 'Z', 'numero' => '55555']);
-        DB::table('examens_planning')->insert(['pv_id' => $this->pv, 'matiere_id' => $this->m1, 'date_examen' => '2026-01-15', 'heure_debut' => '08:00:00', 'heure_fin' => '10:00:00', 'salle' => 'Amphi A']);
+        DB::table('planning_examens')->insert(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'session' => 'normale', 'matiere_id' => $this->m1,
+            'date_examen' => '2026-01-15', 'heure_debut' => '08:00:00', 'heure_fin' => '10:00:00', 'salle' => 'Amphi A']);
+        // Planning du rattrapage : pas sur la convocation de la session normale
+        DB::table('planning_examens')->insert(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'session' => 'rattrapage', 'matiere_id' => $this->m2,
+            'date_examen' => '2026-03-20', 'heure_debut' => '08:00:00', 'heure_fin' => '10:00:00', 'salle' => 'Amphi R']);
         $this->connecte($this->admin)->get($this->url('convocations'))->assertOk()->assertSee('PV S1 Éco');
         $this->get($this->url("convocations?pv_id={$this->pv}&masse=1"))->assertOk()
-            ->assertSee('Convocation aux Examens')->assertSee('ALPHA X')->assertSee('15/01/2026')->assertSee('Amphi A')->assertSee('Microéconomie');
+            ->assertSee('Convocation aux Examens')->assertSee('ALPHA X')->assertSee('15/01/2026')->assertSee('Amphi A')->assertSee('Microéconomie')
+            ->assertDontSee('Amphi R');
         $this->get($this->url("convocations?pv_id={$this->pv}&et_id=$a"))->assertOk()->assertSee('Convocation individuelle');
         // Numéro enregistré une fois par étudiant et par PV, repris à la réimpression
         $numero = DB::table('convocations_emises')->where(['etudiant_id' => $a, 'pv_id' => $this->pv])->value('numero');

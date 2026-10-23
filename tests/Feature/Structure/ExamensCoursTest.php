@@ -76,24 +76,41 @@ class ExamensCoursTest extends TestCase
 
     public function test_planning_des_examens(): void
     {
+        // Sans PV ni inscription pédagogique : par promotion, semestre et session
+        DB::table('pv_sessions')->delete();
         $this->donnerPermissions('doyen', ['etudiants_voir']);
         $doyenA = $this->creerUtilisateur('doyen', ['faculte_id' => $this->facA]);
-        $this->connecte($doyenA)->get($this->url("planning?pv_id={$this->pv['B']}"))->assertRedirect($this->url('planning'));
-        $this->post($this->url('planning'), ['pv_id' => $this->pv['B'], 'planning' => []])->assertSessionHas('erreur');
+        $cible = fn (string $x, string $session = 'normale') => ['promo_id' => $this->promo[$x], 'sem_id' => $this->sem, 'session' => $session];
+        $this->connecte($doyenA)->get($this->url('planning'))->assertOk()->assertSee('Filière A')->assertDontSee('Filière B');
+        $this->get($this->url('planning?'.http_build_query($cible('B'))))->assertRedirect($this->url('planning'));
+        $this->post($this->url('planning'), $cible('B') + ['planning' => []])->assertSessionHas('erreur');
 
-        $ligne = fn (array $v = []) => ['pv_id' => $this->pv['A'], 'planning' => [$this->mat['A'] => $v + ['date' => '2027-01-10', 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'salle_id' => $this->salle]]];
-        $this->get($this->url("planning?pv_id={$this->pv['A']}"))->assertOk()->assertSee('Matière A');
+        $ligne = fn (array $v = [], string $session = 'normale') => $cible('A', $session) + ['planning' => [$this->mat['A'] => $v + ['date' => '2027-01-10', 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'salle_id' => $this->salle]]];
+        $this->get($this->url('planning?'.http_build_query($cible('A'))))->assertOk()->assertSee('Matière A');
         $this->post($this->url('planning'), $ligne(['heure_fin' => '07:00']))->assertSessionHas('erreur');
         $this->post($this->url('planning'), $ligne())->assertSessionHas('succes');
-        $this->assertSame('Amphi 1', DB::table('examens_planning')->value('salle'));
-        // Même salle, même créneau, autre PV : refusé
-        $this->connecte($this->admin)->post($this->url('planning'), ['pv_id' => $this->pv['B'], 'planning' => [$this->mat['B'] => ['date' => '2027-01-10', 'heure_debut' => '09:00', 'heure_fin' => '11:00', 'salle_id' => $this->salle]]])
+        $this->assertSame(['Amphi 1', 'normale'], [DB::table('planning_examens')->value('salle'), DB::table('planning_examens')->value('session')]);
+        // Rattrapage : planning distinct
+        $this->post($this->url('planning'), $ligne(['date' => '2027-03-01'], 'rattrapage'))->assertSessionHas('succes');
+        $this->assertSame(2, DB::table('planning_examens')->count());
+        // Même salle, même créneau, autre promotion : refusé
+        $this->connecte($this->admin)->post($this->url('planning'), $cible('B') + ['planning' => [$this->mat['B'] => ['date' => '2027-01-10', 'heure_debut' => '09:00', 'heure_fin' => '11:00', 'salle_id' => $this->salle]]])
             ->assertSessionHas('erreur');
         $this->getJson($this->url('planning/disponibilite?date=2027-01-10&heure_debut=09:00&heure_fin=11:00'))->assertJson(['occupees' => [$this->salle]]);
-        $this->get($this->url("planning?pv_id={$this->pv['A']}&imprimer=1"))->assertOk()->assertSee('Planning des examens')->assertSee('10/01/2027');
-        // Date vidée : ligne retirée
+        $this->get($this->url('planning?'.http_build_query($cible('A') + ['imprimer' => 1])))->assertOk()->assertSee('Planning des examens')->assertSee('10/01/2027');
+        // Date vidée : ligne retirée (la session de rattrapage reste)
         $this->post($this->url('planning'), $ligne(['date' => '']))->assertSessionHas('succes');
-        $this->assertSame(0, DB::table('examens_planning')->count());
+        $this->assertSame(['rattrapage'], DB::table('planning_examens')->pluck('session')->all());
+    }
+
+    public function test_reprise_de_l_ancien_planning_par_pv(): void
+    {
+        DB::table('examens_planning')->insert(['pv_id' => $this->pv['A'], 'matiere_id' => $this->mat['A'], 'date_examen' => '2027-01-10',
+            'heure_debut' => '08:00', 'heure_fin' => '10:00', 'salle' => 'Amphi 1', 'salle_id' => $this->salle]);
+        DB::statement('DROP TABLE planning_examens');
+        $this->artisan('gesnotes:completer-schema', ['--universite' => ['udh'], '--appliquer' => true])->expectsOutputToContain('reprise : 1 ligne(s)')->assertSuccessful();
+        $this->assertSame([$this->promo['A'], $this->sem, 'normale', 'Amphi 1'],
+            array_values((array) DB::table('planning_examens')->first(['promotion_id', 'semestre_id', 'session', 'salle'])));
     }
 
     public function test_emploi_du_temps(): void
