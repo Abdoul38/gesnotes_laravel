@@ -52,8 +52,9 @@ class VerifierDocumentTest extends TestCase
         // La clé d'un document ne vaut pas pour un autre
         $cle = app(CleVerification::class)->cle('R26-000001');
         $this->get($this->url("verification?num=D26-LI-000001&cle=$cle"))->assertOk()->assertDontSee('Économie');
-        // Personnel connecté : détail complet
-        $this->connecte($this->creerUtilisateur('secretaire'))->get($this->url('verification?num=R26-000001'))->assertOk()->assertSee('ALPHA Awa');
+        // Personnel connecté : même règle (numéro seul : rien)
+        $this->connecte($this->creerUtilisateur('secretaire'))->get($this->url('verification?num=R26-000001'))->assertOk()
+            ->assertSee('Code de vérification requis')->assertDontSee('ALPHA');
         $this->post($this->url('deconnexion'));
         $this->get($this->url('verification?num=R26-999999&code=0000-0000'))->assertOk()->assertSee('Document non vérifié');
         $this->get($this->url('verification?num='.urlencode('<script>x</script>')))->assertOk()

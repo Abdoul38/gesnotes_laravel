@@ -26,9 +26,9 @@ use Illuminate\Support\Str;
  *  - numéro contrôlé (lettres, chiffres, tirets, 30 caractères) ;
  *  - page exclue des moteurs de recherche (noindex) ;
  *  - plus de création de tables à l'exécution (elles sont dans le schéma) ;
- *  - détail (nom complet, mention, filière…) seulement avec la clé du QR code,
- *    le code de vérification imprimé sur le document, ou pour le personnel
- *    connecté ;
+ *  - détail (nom complet, mention, filière…) seulement avec la clé du QR code
+ *    ou le code de vérification imprimé sur le document — y compris pour le
+ *    personnel connecté (il retrouve les documents dans le registre) ;
  *  - numéro seul : AUCUNE réponse (ni « authentique », ni « introuvable ») —
  *    il faut aussi le code de vérification, ou le nom du titulaire (documents
  *    imprimés avant le code : authenticité, type, initiales, année). On ne
@@ -58,11 +58,10 @@ class VerifierDocumentController extends Controller
         $numero = mb_substr(trim((string) $request->query('num', '')), 0, 60);
         $code = mb_substr(trim((string) $request->query('code', '')), 0, 20);
         $nom = mb_substr(trim((string) $request->query('nom', '')), 0, 100);
-        $personnel = $request->user() && $request->user()->role !== 'etudiant';
         $qr = $cles->valide($numero, (string) $request->query('cle', ''));
         $donnees = ['numero' => $numero, 'code' => $code, 'nom' => $nom, 'qr' => $qr, 'resultat' => null, 'type' => null, 'attente' => 0, 'invalide' => false,
             'notesReleve' => null, 'preuveManquante' => false,
-            'complet' => $personnel || $qr || $cles->codeValide($numero, $code),
+            'complet' => $qr || $cles->codeValide($numero, $code),
             'institution' => $parametres->valeur('institution_nom', 'EDUFILE')];
         $statut = 200;
 
@@ -89,7 +88,7 @@ class VerifierDocumentController extends Controller
                         [$donnees['resultat'], $donnees['type']] = [null, null];
                         $donnees['preuveManquante'] = $code === '' && $nom === '';
                     }
-                    // Relevé : ses notes, seulement avec la clé du QR code (ou pour le personnel)
+                    // Relevé : ses notes, seulement avec la clé du QR code ou le code de vérification
                     if ($donnees['type'] === 'releve' && $donnees['complet']) {
                         $donnees['notesReleve'] = app(RelevesEmis::class)->contenuPourVerification($donnees['resultat']);
                     }

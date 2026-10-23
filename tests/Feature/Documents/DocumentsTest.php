@@ -177,7 +177,7 @@ class DocumentsTest extends TestCase
         $this->get($this->url("attestations?et_id={$this->alpha}&type=validation_l2"))->assertOk();
         $this->get($this->url('diplomes/registre'))->assertOk()->assertSee('A'.date('y').'-VA-000001')->assertSee('Attestation validation');
         $this->get($this->url('diplomes/registre?type_doc=diplome'))->assertOk()->assertDontSee('A'.date('y').'-VA-000001');
-        $this->get($this->url('verification?num=A'.date('y').'-VA-000001'))->assertOk()->assertSee('authentique');
+        $this->get($this->url('verification?num=A'.date('y').'-VA-000001&code='.app(CleVerification::class)->code('A'.date('y').'-VA-000001')))->assertOk()->assertSee('authentique');
 
         $agent = $this->agentAutreFaculte();
         $this->connecte($agent)->get($this->url('diplomes'))->assertOk()->assertDontSee('ALPHA Awa');
@@ -196,7 +196,7 @@ class DocumentsTest extends TestCase
         $this->get($this->url("certificat-scolarite?ins_id=$insB"))->assertOk()->assertSee('BETA Bio');
         $this->get($this->url("certificat-scolarite?et_id={$this->alpha}"))->assertOk();
         $this->assertEquals([$this->alpha, $this->beta], DB::table('certificats_emis')->orderBy('id')->pluck('etudiant_id')->all());
-        $this->get($this->url('verification?num=C'.date('y').'-000001'))->assertSee('ALPHA Awa')->assertDontSee('BETA');
+        $this->get($this->url('verification?num=C'.date('y').'-000001&code='.app(CleVerification::class)->code('C'.date('y').'-000001')))->assertSee('ALPHA Awa')->assertDontSee('BETA');
 
         // Inscription annulée : pas de certificat
         DB::table('inscriptions')->where('id', $insB)->update(['statut' => 'annule']);
