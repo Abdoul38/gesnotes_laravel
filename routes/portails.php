@@ -4,6 +4,7 @@
 // routes/web.php.
 
 use App\Http\Controllers\Candidature\CandidaturesAdminController;
+use App\Http\Controllers\Portails\EmploiTempsEnseignantController;
 use App\Http\Controllers\Portails\ExamensEnseignantController;
 use App\Http\Controllers\Portails\GestionParentsController;
 use App\Http\Controllers\Portails\PortailEnseignantController;
@@ -28,6 +29,7 @@ Route::middleware(['page:gestion_parents', 'roles:admin,secretaire,sc_centrale,s
 // Portail enseignant (permission notes_saisir ; modes et périmètres dans le contrôleur)
 // Planning des examens de l'enseignant (lecture seule)
 Route::get('/portail/enseignant/examens', ExamensEnseignantController::class)->middleware('page:mes_examens')->name('mes_examens');
+Route::get('/portail/enseignant/emploi-du-temps', EmploiTempsEnseignantController::class)->middleware('page:mon_emploi_temps')->name('mon_emploi_temps');
 Route::middleware('page:portail_enseignant')->controller(PortailEnseignantController::class)->group(function () {
     Route::get('/portail/enseignant', 'index')->name('portail_enseignant');
     Route::get('/portail/enseignant/modele', 'modele')->name('portail_enseignant.modele');

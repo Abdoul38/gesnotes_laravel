@@ -191,6 +191,24 @@ class PortailEnseignantTest extends TestCase
             ->assertSessionHas('erreur', 'Aucun dossier enseignant lié à votre compte.');
     }
 
+    public function test_mon_emploi_du_temps(): void
+    {
+        $promo2 = $this->creerPromotion($this->annee, ['filiere_id' => DB::table('filieres')->value('id'), 'niveau_id' => $this->insererMinimal('niveaux', ['code' => 'L2', 'libelle' => 'Licence 2'])]);
+        $e1 = $this->cours->enseignant_id;
+        DB::table('emploi_temps')->insert([
+            ['promotion_id' => $this->promo, 'annee_id' => $this->annee, 'semestre_id' => $this->sem, 'jour' => 'Mardi', 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'matiere_id' => $this->m1, 'enseignant_id' => $e1, 'salle' => 'Amphi A', 'type_seance' => 'cours'],
+            ['promotion_id' => $promo2, 'annee_id' => $this->annee, 'semestre_id' => $this->sem, 'jour' => 'Mardi', 'heure_debut' => '09:00', 'heure_fin' => '11:00', 'matiere_id' => null, 'enseignant_id' => $e1, 'salle' => 'Salle 2', 'type_seance' => 'td'],
+            ['promotion_id' => $this->promo, 'annee_id' => $this->annee, 'semestre_id' => $this->sem, 'jour' => 'Jeudi', 'heure_debut' => '14:00', 'heure_fin' => '16:00', 'matiere_id' => $this->m2, 'enseignant_id' => $this->td->enseignant_id, 'salle' => 'Salle 9', 'type_seance' => 'cours'],
+        ]);
+
+        $this->connecte($this->cours)->get($this->url('portail/enseignant'))->assertSee('Emploi du temps');
+        $this->get($this->url('portail/enseignant/emploi-du-temps'))->assertOk()->assertSee('Microéconomie')->assertSee('08:00 – 10:00')->assertSee('Amphi A')
+            ->assertSee('Salle 2')->assertSee('L2')->assertSee('Chevauche une autre séance')->assertSee('2 séance(s) par semaine · 4 h')
+            ->assertDontSee('Salle 9');
+        $this->connecte($this->creerUtilisateur('enseignant', ['email' => 'sans@test.local']))->get($this->url('portail/enseignant/emploi-du-temps'))
+            ->assertSessionHas('erreur', 'Aucun dossier enseignant lié à votre compte.');
+    }
+
     public function test_perimetres_lecture_seule_et_volume(): void
     {
         $a = $this->etudiant('00001', 'ALPHA');

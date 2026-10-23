@@ -20,7 +20,10 @@
       @endif
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-      @if ($mode === 'enseignant')<a href="{{ route('mes_examens', ['annee_id' => $anneeId]) }}" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4)">📅 Mes examens</a>@endif
+      @if ($mode === 'enseignant')
+      <a href="{{ route('mon_emploi_temps', ['annee_id' => $anneeId]) }}" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4)">🗓️ Emploi du temps</a>
+      <a href="{{ route('mes_examens', ['annee_id' => $anneeId]) }}" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4)">📅 Mes examens</a>
+      @endif
       <select class="form-control" aria-label="Année académique" data-navigate="{{ route('portail_enseignant') }}?annee_id=">
         @foreach ($annees as $a)<option value="{{ $a->id }}" @selected($a->id == $anneeId)>{{ $a->libelle }}</option>@endforeach
       </select>

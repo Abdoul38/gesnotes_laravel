@@ -74,6 +74,7 @@ return [
         'portail_etudiant' => ['🎒', 'Portail étudiant', 'portail_etudiant'],
         'portail_enseignant' => ['📝', 'Portail enseignant', 'notes_saisir'],
         'mes_examens' => ['📅', 'Mes examens', 'notes_saisir'],
+        'mon_emploi_temps' => ['🗓️', 'Mon emploi du temps', 'notes_saisir'],
         'jury' => ['⚖️', 'Mes jurys', 'notes_saisir'],
     ],
     'Système' => [
