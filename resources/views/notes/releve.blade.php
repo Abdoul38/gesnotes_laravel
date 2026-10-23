@@ -67,6 +67,7 @@ html,body{background:#e8e5df;font-family:Georgia,'Times New Roman',Times,serif}
 }
 .titre .t1{font-family:'Palatino Linotype','Book Antiqua',Georgia,serif; font-weight:bold; font-size:11.5pt; text-transform:uppercase; letter-spacing:.5px; color:#0F2942}
 .titre .t2{font-size:9pt; font-style:italic; color:#8B6F1F; margin-top:.5mm}
+.titre .t3{font-size:8.5pt; color:#0F2942; margin-top:.8mm; letter-spacing:.3px}
 .et-info{font-size:9.5pt; line-height:1.6; margin:2mm 0}
 .et-info strong{font-weight:bold; color:#0F2942}
 
@@ -107,7 +108,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
    toujours sur une seule page A4, même pour une filière chargée. */
 .releve.compact .titre{padding:1.8mm 4mm; margin:1.5mm 0}
 .releve.compact .titre .t1{font-size:10pt}
-.releve.compact .titre .t2{font-size:8pt}
+.releve.compact .titre .t2,.releve.compact .titre .t3{font-size:8pt}
 .releve.compact .et-info{font-size:8.5pt; line-height:1.4; margin:1.3mm 0}
 .releve.compact table.tn{font-size:7.6pt; margin:1.3mm 0}
 .releve.compact table.tn th{padding:1.3mm 1.2mm; font-size:7pt}
@@ -120,7 +121,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
 
 .releve.tres-compact .titre{padding:1.2mm 3mm; margin:1mm 0}
 .releve.tres-compact .titre .t1{font-size:9pt}
-.releve.tres-compact .titre .t2{font-size:7pt}
+.releve.tres-compact .titre .t2,.releve.tres-compact .titre .t3{font-size:7pt}
 .releve.tres-compact .et-info{font-size:7.5pt; line-height:1.25; margin:1mm 0}
 .releve.tres-compact table.tn{font-size:6.6pt; margin:1mm 0}
 .releve.tres-compact table.tn th{padding:0.9mm 1mm; font-size:6.2pt}
@@ -197,6 +198,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
     <div class="t1">ANNEE ACADEMIQUE {{ $pv->annee }}</div>
     <div class="t1">RELEVE DE NOTES</div>
     <div class="t2">{{ $pv->niveau_libelle }} {{ $pv->filiere }} — {{ $pv->sem_libelle }} / {{ \App\Support\Format::session($pv->type_session) }}</div>
+    <div class="t3">Relevé enregistré sous le N° <strong>{{ $r['numero'] }}</strong></div>
   </div>
 
   <div class="et-info">

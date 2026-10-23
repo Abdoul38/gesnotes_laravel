@@ -383,7 +383,7 @@ class PvTest extends TestCase
         $releve = $this->connecte($this->admin)->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertOk();
         $numero = DB::table('releves_emis')->value('numero');
         // Adresse officielle de vérification imprimée en clair sous le QR code
-        $releve->assertSee('comparer les notes affichées')->assertSee('Site officiel')->assertSee('/verification')->assertSee("N° $numero");
+        $releve->assertSee('Relevé enregistré sous le N° <strong>'.$numero.'</strong>', false)->assertSee('comparer les notes affichées')->assertSee('Site officiel')->assertSee('/verification')->assertSee("N° $numero");
         $this->assertNotNull(DB::table('releves_emis_contenu')->where('numero', $numero)->value('contenu'));
         $this->post($this->url('deconnexion'));
         RateLimiter::clear('verification|udh|127.0.0.1');
