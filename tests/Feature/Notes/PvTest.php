@@ -4,9 +4,11 @@ namespace Tests\Feature\Notes;
 
 use App\Events\PvPublie;
 use App\Models\Utilisateur;
+use App\Services\CleVerification;
 use App\Services\Parametres;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 /**
@@ -372,6 +374,33 @@ class PvTest extends TestCase
 
         // Enseignant sans matière dans ce PV : refusé
         $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertRedirect($this->url('pv'));
+    }
+
+    public function test_verification_du_releve_affiche_ses_notes(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '15']]]);
+        $this->connecte($this->admin)->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertOk();
+        $numero = DB::table('releves_emis')->value('numero');
+        $this->assertNotNull(DB::table('releves_emis_contenu')->where('numero', $numero)->value('contenu'));
+        $this->post($this->url('deconnexion'));
+        RateLimiter::clear('verification|udh|127.0.0.1');
+        $qr = app(CleVerification::class)->url($numero);
+
+        // QR code : notes telles qu'imprimées (M1 45/60 → 15/20 ; M2 15/20), résultat du semestre
+        $this->get($qr)->assertOk()->assertSee('Notes du relevé')->assertSee('UE1 — UE 1')->assertSee('Microéconomie')
+            ->assertSee('45,00')->assertSee('15,00')->assertSee('6/6')->assertSee("telles qu'imprimées", false);
+        // Numéro tapé à la main (sans la clé du QR code) : pas de notes
+        $this->get($this->url("verification?num=$numero"))->assertOk()->assertSee('authentique')->assertDontSee('Notes du relevé')->assertDontSee('Microéconomie');
+
+        // Note corrigée après l'impression : la vérification montre toujours le relevé imprimé
+        $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '12']]]);
+        $this->post($this->url('deconnexion'));
+        $this->get($qr)->assertOk()->assertSee('15,00')->assertDontSee('12,00');
+
+        // Relevé imprimé avant cette fonction (sans contenu conservé) : notes actuelles, signalées comme telles
+        DB::table('releves_emis_contenu')->delete();
+        $this->get($qr)->assertOk()->assertSee('12,00')->assertSee('actuellement enregistrées');
     }
 
     public function test_releves_liste_et_apercu(): void

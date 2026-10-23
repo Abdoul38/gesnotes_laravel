@@ -62,11 +62,28 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
 .details-v .lbl { color:#777; }
 .details-v .val { font-weight:bold; color:#0F2942; text-align:right; }
 .pied-v { text-align:center; padding:16px; font-size:11px; color:#999; border-top:1px solid #eee; }
+.carte-verif.large { max-width:760px; }
+.carte-verif { min-width:0; }
+.notes-v { margin-top:18px; text-align:left; overflow-x:auto; }
+.notes-v .titre-notes { font-weight:bold; color:#0F2942; font-size:14px; margin-bottom:8px; }
+.notes-v table { width:100%; border-collapse:collapse; font-size:12.5px; background:#fff; }
+.notes-v th { background:#0F2942; color:#fff; font-weight:normal; padding:6px 8px; text-align:center; }
+.notes-v td { padding:5px 8px; border-bottom:1px solid #eee; text-align:center; }
+.notes-v tr.ue td { background:#f3f6fa; font-weight:bold; color:#0F2942; text-align:left; }
+.notes-v .resultat-notes { margin-top:10px; padding:10px 12px; background:#f3f6fa; border-radius:6px; font-size:13px; }
+.notes-v .note-origine { margin-top:8px; font-size:11.5px; color:#555; }
+@media (max-width:560px) {
+  body { padding:10px; }
+  .corps-v { padding:16px; }
+  .notes-v table { font-size:11px; }
+  .notes-v td, .notes-v th { padding:4px 3px; }
+  .notes-v .bareme { display:none; }
+}
 </style>
 </head>
 <body>
 
-<div class="carte-verif">
+<div class="carte-verif{{ $notesReleve ? ' large' : '' }}">
   <div class="entete-v">
     <div class="inst">{{ $institution }}</div>
     <div class="titre">🔍 Vérification de diplôme</div>
@@ -96,6 +113,45 @@ body { font-family:Georgia,'Times New Roman',serif; background:#f0ede4; color:#2
           <div class="ligne"><span class="lbl">{{ $libelle }}</span><span class="val">{{ $valeur }}</span></div>
           @endforeach
         </div>
+        @if ($notesReleve)
+        @php
+            $n2 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2, ',', ' ');
+            $couleurObs = ['AV' => '#16a34a', 'AC' => '#2563eb', 'NV' => '#d97706', 'Elim' => '#dc2626', 'Déf.' => '#dc2626'];
+            $res = $notesReleve['resultat'] ?? [];
+        @endphp
+        <div class="notes-v">
+          <div class="titre-notes">Notes du relevé</div>
+          <table>
+            <thead><tr><th style="text-align:left">Matière</th><th>Note</th><th>/20</th><th>Crédits</th><th>Obs.</th></tr></thead>
+            <tbody>
+            @foreach ($notesReleve['ues'] as $ue)
+              <tr class="ue"><td colspan="5">{{ $ue['code'] }} — {{ $ue['libelle'] }} <span style="font-weight:normal;color:#777">({{ $ue['credits_total'] }} crédits)</span></td></tr>
+              @foreach ($ue['matieres'] as $m)
+              <tr>
+                <td style="text-align:left">{{ $m['libelle'] }}</td>
+                <td>{{ $n2($m['note']) }} <span class="bareme" style="color:#999">/ {{ rtrim(rtrim(number_format((float) $m['max'], 2, '.', ''), '0'), '.') }}</span></td>
+                <td><strong>{{ $n2($m['sur20']) }}</strong></td>
+                <td>{{ $m['credits'] }}/{{ $m['credits_max'] }}</td>
+                <td style="font-weight:bold;color:{{ $couleurObs[$m['obs']] ?? '#777' }}">{{ $m['obs'] }}</td>
+              </tr>
+              @endforeach
+            @endforeach
+            </tbody>
+          </table>
+          <div class="resultat-notes">
+            Moyenne du semestre : <strong>{{ $n2($res['moyenne'] ?? null) }}/20</strong>
+            @if (($res['credits_obtenus'] ?? null) !== null) &nbsp;·&nbsp; Crédits : <strong>{{ $res['credits_obtenus'] }}/{{ $res['credits_total'] }}</strong>@endif
+            @if (! empty($res['mention'])) &nbsp;·&nbsp; {{ $res['mention'] }}@endif
+          </div>
+          <p class="note-origine">
+            @if ($notesReleve['conserve'])
+              Notes telles qu'imprimées sur le relevé (le {{ \Illuminate\Support\Carbon::parse($notesReleve['date'])->format('d/m/Y à H:i') }}). Toute différence avec le document présenté indique une falsification.
+            @else
+              Relevé émis avant la conservation de son contenu : notes actuellement enregistrées par l'établissement.
+            @endif
+          </p>
+        </div>
+        @endif
         @unless ($complet)<p style="font-size:12px;color:#555;margin-top:12px">Vérification par numéro : détail masqué. Scannez le QR code du document pour afficher le détail complet.</p>@endunless
       </div>
     @else

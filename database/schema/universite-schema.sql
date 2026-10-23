@@ -1313,6 +1313,15 @@ CREATE TABLE `releves_emis` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `releves_emis_contenu` (
+  `numero` varchar(30) NOT NULL,
+  `contenu` longtext NOT NULL COMMENT 'notes et résultat du relevé tel qu''imprimé (JSON), montrés par la vérification du QR code',
+  `enregistre_le` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`numero`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `repechages` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `pv_id` int(10) unsigned NOT NULL,

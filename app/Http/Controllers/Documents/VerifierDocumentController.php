@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Documents;
 use App\Http\Controllers\Controller;
 use App\Services\CleVerification;
 use App\Services\Parametres;
+use App\Services\RelevesEmis;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -26,6 +27,9 @@ use Illuminate\Support\Facades\RateLimiter;
  *  - plus de création de tables à l'exécution (elles sont dans le schéma) ;
  *  - détail (nom complet, mention, filière…) seulement avec la clé du QR code
  *    ou pour le personnel connecté ; sinon : authenticité, type, initiales, année.
+ *
+ * Ajout : pour un relevé de notes, les notes (par UE et matière) et le
+ * résultat du semestre, tels qu'imprimés — mêmes conditions que le détail.
  */
 class VerifierDocumentController extends Controller
 {
@@ -46,7 +50,7 @@ class VerifierDocumentController extends Controller
     {
         $numero = mb_substr(trim((string) $request->query('num', '')), 0, 60);
         $personnel = $request->user() && $request->user()->role !== 'etudiant';
-        $donnees = ['numero' => $numero, 'resultat' => null, 'type' => null, 'attente' => 0, 'invalide' => false,
+        $donnees = ['numero' => $numero, 'resultat' => null, 'type' => null, 'attente' => 0, 'invalide' => false, 'notesReleve' => null,
             'complet' => $personnel || $cles->valide($numero, (string) $request->query('cle', '')),
             'institution' => $parametres->valeur('institution_nom', 'EDUFILE')];
         $statut = 200;
@@ -67,6 +71,10 @@ class VerifierDocumentController extends Controller
                             $donnees['type'] = $type;
                             break;
                         }
+                    }
+                    // Relevé : ses notes, seulement avec la clé du QR code (ou pour le personnel)
+                    if ($donnees['type'] === 'releve' && $donnees['complet']) {
+                        $donnees['notesReleve'] = app(RelevesEmis::class)->contenuPourVerification($donnees['resultat']);
                     }
                 }
             }

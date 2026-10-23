@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Notes;
 
 use App\Http\Controllers\Controller;
 use App\Navigation\Menu;
+use App\Services\CleVerification;
 use App\Services\Identite;
 use App\Services\Journal;
 use App\Services\Parametres;
@@ -72,13 +73,13 @@ class ReleveNotesController extends Controller
         $libelles = DB::table('filieres as f')->leftJoin('facultes as fac', 'fac.id', '=', 'f.faculte_id')->leftJoin('departements as d', 'd.id', '=', 'f.departement_id')
             ->where('f.id', $pv->filiere_id)->first([DB::raw('COALESCE(fac.libelle, f.faculte) AS faculte'), DB::raw('COALESCE(d.libelle, f.departement) AS departement')]);
 
-        $releves = $etudiants->map(function ($et) use ($ues, $choix, $notes, $pv, $registre, $journal, $menu, $calcul) {
+        $releves = $etudiants->map(function ($et) use ($ues, $choix, $notes, $pv, $registre, $journal, $calcul) {
             $lignes = $calcul->lignes($ues, $choix, $notes->get($et->id, collect())->keyBy('matiere_id'), (int) $et->id);
             $nbLignes = collect($lignes)->sum(fn ($l) => 1 + $l['matieres']->count());
-            $numero = $registre->enregistrer($et, $pv, $et->mention, $et->moyenne_generale);
+            $numero = $registre->enregistrer($et, $pv, $et->mention, $et->moyenne_generale, $lignes);
             $journal->action('creer', 'releve', "Relevé généré : $numero — {$et->nom} {$et->prenoms}", (int) $et->id);
 
-            return ['et' => $et, 'lignes' => $lignes, 'numero' => $numero, 'urlVerification' => app(\App\Services\CleVerification::class)->url($numero),
+            return ['et' => $et, 'lignes' => $lignes, 'numero' => $numero, 'urlVerification' => app(CleVerification::class)->url($numero),
                 'taille' => $nbLignes >= 35 ? 'tres-compact' : ($nbLignes >= 25 ? 'compact' : '')];
         });
 
