@@ -124,7 +124,8 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
   <div class="frame-inner"></div>
   <div class="frame-inner2"></div>
   @include('documents._coins')
-  <div class="watermark" style="background-image:url('{{ $logos['droite'] }}')"></div>
+  {{-- Filigrane : logo de l'université, comme les attestations de parcours --}}
+  <div class="watermark" style="background-image:url('{{ $logos['gauche'] }}')"></div>
 
   <div class="content">
     <div class="content-main">
