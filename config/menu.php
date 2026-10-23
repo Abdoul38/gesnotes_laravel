@@ -36,6 +36,7 @@ return [
         'historique' => ['📜', 'Historique académique', 'inscription_voir'],
         'releves' => ['📄', 'Relevés de notes', 'releve_notes'],
         'deliberation' => ['⚖️', 'Délibérations', 'pv_creer'],
+        'presidents_jury' => ['🧑‍⚖️', 'Présidents de jury', 'pv_creer'],
         'liste_valides' => ['✅', 'Liste des admis', 'pv_voir'],
         'diplomes' => ['🎓', 'Diplômes & Attestations', 'inscription_ped'],
     ],
@@ -72,6 +73,7 @@ return [
     'Portails' => [
         'portail_etudiant' => ['🎒', 'Portail étudiant', 'portail_etudiant'],
         'portail_enseignant' => ['📝', 'Portail enseignant', 'notes_saisir'],
+        'jury' => ['⚖️', 'Mes jurys', 'notes_saisir'],
     ],
     'Système' => [
         'sauvegarde' => ['💾', 'Sauvegarde BD', 'annees_gerer'],

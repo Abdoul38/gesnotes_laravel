@@ -211,6 +211,7 @@ body.mesure-impression .td-name{min-width:90px !important}
     <div style="text-align:center;font-style:italic;margin-bottom:2px">Fait à {{ $ville }}, le {{ $pv->date_pv ? Format::dateFR($pv->date_pv) : '........................' }}</div>
     <div style="height:14px"></div>
     <div style="border-top:0.5px solid #000;padding-top:3px;text-align:center;font-style:italic">Le Président du Jury</div>
+    @if ($president)<div style="text-align:center;font-size:9pt;font-weight:bold">{{ $president }}</div>@endif
   </div>
   <div>
     <div style="height:14px"></div>

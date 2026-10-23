@@ -18,7 +18,8 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:center">
       <div><div class="text-muted text-xs">Filière</div><div class="fw-600">{{ $pv->filiere }}</div></div>
       <div><div class="text-muted text-xs">Niveau · Semestre</div><div class="fw-600">{{ $pv->niveau }} · {{ $pv->sem_libelle }}</div></div>
-      <div><div class="text-muted text-xs">Année · Session</div><div class="fw-600">{{ $pv->annee }} · {{ $sessionLib }}</div></div>
+      <div><div class="text-muted text-xs">Année · Session</div><div class="fw-600">{{ $pv->annee }} · {{ $sessionLib }}</div>
+        <div class="text-muted text-xs" style="margin-top:4px">Président du jury : @if ($president)<strong>{{ $president }}</strong>@else<a href="{{ route('presidents_jury', ['annee_id' => $pv->annee_id]) }}">non désigné</a>@endif</div></div>
       <div class="flex gap-8" style="flex-wrap:wrap">
         @if ($peutModifier)
         <a href="{{ $navigation->lien('notes_importer', ['pv_id' => $pv->id]) }}" class="btn btn-secondary btn-sm">📥 Importer notes</a>

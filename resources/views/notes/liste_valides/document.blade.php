@@ -115,7 +115,7 @@ table.valides tr:nth-child(even) td{background:#fafafa}
 <div class="signature-area">
   <div class="sig-left">
     <div>Le Président du Jury</div>
-    <div class="sig-name" style="margin-top:50px"></div>
+    <div class="sig-name" style="margin-top:50px">{{ $president }}</div>
   </div>
   <div class="sig-right">
     <div>Fait à {{ $ville }}, le {{ $pv->date_pv ? \App\Support\Format::dateFR($pv->date_pv) : '......................' }}</div>

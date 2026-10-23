@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portails;
 use App\Http\Controllers\Controller;
 use App\Models\Utilisateur;
 use App\Services\Journal;
+use App\Services\NotesEnseignants;
 use App\Services\Pv;
 use App\Services\Resultats;
 use App\Services\SaisieNotes;
@@ -43,9 +44,11 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  *    comparait les seules notes d'examen) ;
  *  - un absent au rattrapage n'efface plus la composante saisie par
  *    l'autre enseignant (cours/TD) ;
- *  - finalisation automatique quand toutes les notes de la matière sont
- *    complètes, et non dès la première note : l'enseignant de cours
- *    verrouillait la matière avant que celui de TD ait saisi ;
+ *  - pas de finalisation automatique : l'enseignant enregistre ses notes,
+ *    qui n'apparaissent pas dans le PV global, puis les finalise lui-même
+ *    (voir App\Services\NotesEnseignants) — par PV et par composante, les
+ *    enseignants de cours et de TD finalisant chacun la leur ; la saisie du
+ *    mode administration va directement dans le PV, comme avant ;
  *  - le volume horaire prévu n'est modifiable que dans le périmètre du
  *    chef de département ou du doyen (toute matière avant).
  */
@@ -53,7 +56,15 @@ class PortailEnseignantController extends Controller
 {
     private const SESSIONS = ['normale', 'rattrapage'];
 
-    public function __construct(private readonly Pv $pvs, private readonly SaisieNotes $saisie, private readonly Resultats $resultats, private readonly Journal $journal) {}
+    private const MESSAGE_ATTENTE = "Notes enregistrées. Elles n'apparaîtront dans le PV qu'après leur finalisation.";
+
+    public function __construct(
+        private readonly Pv $pvs,
+        private readonly SaisieNotes $saisie,
+        private readonly Resultats $resultats,
+        private readonly Journal $journal,
+        private readonly NotesEnseignants $notesEns,
+    ) {}
 
     public function index(Request $request): View|RedirectResponse
     {
@@ -62,19 +73,38 @@ class PortailEnseignantController extends Controller
         if ($mode instanceof RedirectResponse) {
             return $mode;
         }
+        if (! $this->notesEns->disponible()) {
+            return redirect()->route('accueil')->with('erreur', 'Base de données à mettre à jour (php artisan gesnotes:completer-schema --appliquer).');
+        }
         $annees = DB::table('annees_academiques')->orderByDesc('libelle')->get();
         $anneeId = $this->annee($request, $annees);
-        $affectations = $this->affectations($u, $mode, $anneeId)->get();
+        $affectations = $this->etats($this->affectations($u, $mode, $anneeId)->get(), $mode);
         $choix = $this->selection($u, $mode, $anneeId, (int) $request->query('pv_id'), (int) $request->query('mat_id'));
         $etudiants = collect();
         $onglets = [];
         $tc = null;
+        $finalisees = [];
+        $enAttente = 0;
         if ($choix) {
             $onglets = $this->onglets($choix['type_charge'], $choix['mat']);
             $tc = isset($onglets[$request->query('tc')]) ? $request->query('tc') : array_key_first($onglets);
+            $finalisees = $this->notesEns->finalisees($choix['pv'], $choix['mat']);
             $etudiants = $this->etudiants($choix['pv'], $choix['mat']->id)
                 ->leftJoin('notes as n2', fn ($j) => $j->on('n2.etudiant_id', '=', 'e.id')->where('n2.pv_id', $choix['pv']->id)->where('n2.matiere_id', $choix['mat']->id))
                 ->select(['e.id', 'e.nom', 'e.prenoms', 'e.numero', 'n2.note_examen', 'n2.note_cc', 'n2.note_finale', 'n2.defaillant'])->get();
+            if ($mode !== 'admin') {
+                // Notes enregistrées pas encore finalisées : affichées à la place de celles du PV
+                foreach (array_keys($onglets) as $c) {
+                    $brouillons = $this->notesEns->brouillons((int) $choix['pv']->id, (int) $choix['mat']->id, $c);
+                    $enAttente += $c === $tc ? $brouillons->count() : 0;
+                    foreach ($etudiants as $et) {
+                        if ($brouillons->has($et->id)) {
+                            $et->{$c === 'cc' ? 'note_cc' : 'note_examen'} = $brouillons[$et->id];
+                            $et->defaillant = $brouillons[$et->id] === null ? 1 : 0;
+                        }
+                    }
+                }
+            }
         }
         if ($mode === 'enseignant' && $request->isMethod('get') && ! $request->query('pv_id')) {
             $this->journal->action('consulter', 'enseignant', 'Consultation portail enseignant', (int) $u->enseignant_id);
@@ -97,7 +127,9 @@ class PortailEnseignantController extends Controller
             'tc' => $tc,
             'etudiants' => $etudiants,
             'peutSaisir' => in_array($mode, ['enseignant', 'admin'], true),
-            'lectureSeule' => $choix && ($choix['pv']->verrouille || ($choix['mat']->finalisee && $mode !== 'admin')),
+            'lectureSeule' => $choix && ($choix['pv']->verrouille || ($mode !== 'admin' && in_array($tc, $finalisees, true))),
+            'finalisees' => $finalisees,
+            'enAttente' => $enAttente,
         ]);
     }
 
@@ -107,7 +139,7 @@ class PortailEnseignantController extends Controller
         if ($cible instanceof RedirectResponse) {
             return $cible;
         }
-        ['pv' => $pv, 'mat' => $mat, 'tc' => $tc, 'retour' => $retour] = $cible;
+        ['pv' => $pv, 'mat' => $mat, 'tc' => $tc, 'retour' => $retour, 'mode' => $mode] = $cible;
         $max = (float) ($tc === 'cc' ? $mat->note_max_cc : $mat->note_max_examen);
         $liste = $this->etudiants($pv, $mat->id)->pluck('e.nom', 'e.id');
         $notes = (array) $request->input('notes', []);
@@ -128,10 +160,10 @@ class PortailEnseignantController extends Controller
         if ($erreurs) {
             return redirect($retour)->withInput()->with('erreur', 'Rien n\'a été enregistré — '.implode(' ; ', array_slice($erreurs, 0, 5)).(count($erreurs) > 5 ? ' …' : ''));
         }
-        $this->enregistrer($request->user(), $pv, $mat, $tc, $valeurs);
+        $this->enregistrer($request->user(), $mode, $pv, $mat, $tc, $valeurs);
         $this->journal->action('modifier', 'notes', 'Saisie de notes ('.count($valeurs)." étudiant(s), {$this->libelleTc($tc)}) — {$mat->libelle}, {$pv->libelle}", (int) $mat->id);
 
-        return redirect($retour)->with('succes', 'Notes enregistrées avec succès.');
+        return redirect($retour)->with('succes', $mode === 'admin' ? 'Notes enregistrées avec succès.' : self::MESSAGE_ATTENTE);
     }
 
     public function importer(Request $request): RedirectResponse
@@ -140,7 +172,7 @@ class PortailEnseignantController extends Controller
         if ($cible instanceof RedirectResponse) {
             return $cible;
         }
-        ['pv' => $pv, 'mat' => $mat, 'tc' => $tc, 'retour' => $retour] = $cible;
+        ['pv' => $pv, 'mat' => $mat, 'tc' => $tc, 'retour' => $retour, 'mode' => $mode] = $cible;
         $fichier = $request->file('fichier_import');
         $ext = $fichier ? strtolower($fichier->getClientOriginalExtension()) : '';
         $lignes = $fichier && $fichier->isValid() && in_array($ext, ['xlsx', 'csv', 'txt'], true) ? $this->saisie->lire($fichier->getRealPath(), $ext) : [];
@@ -203,10 +235,11 @@ class PortailEnseignantController extends Controller
                 }
             }
         }
-        $this->enregistrer($request->user(), $pv, $mat, $tc, $valeurs);
+        $this->enregistrer($request->user(), $mode, $pv, $mat, $tc, $valeurs);
         $this->journal->action('importer', 'notes', "Import de notes ($nb, {$this->libelleTc($tc)}) — {$mat->libelle}, {$pv->libelle}", (int) $mat->id);
 
-        return redirect($retour)->with('succes', "✅ Import réussi — $nb note(s) importée(s)".($inconnus ? " · $inconnus matricule(s) introuvable(s)" : '').'.');
+        return redirect($retour)->with('succes', "✅ Import réussi — $nb note(s) importée(s)".($inconnus ? " · $inconnus matricule(s) introuvable(s)" : '').'.'
+            .($mode === 'admin' ? '' : ' '.self::MESSAGE_ATTENTE));
     }
 
     public function modele(Request $request): BinaryFileResponse|RedirectResponse
@@ -239,7 +272,11 @@ class PortailEnseignantController extends Controller
         ])->deleteFileAfterSend();
     }
 
-    /** Finaliser (tous) ou rouvrir (admin/secrétaire, chef de département, doyen) une matière. */
+    /**
+     * Finaliser (tous) ou rouvrir (admin/secrétaire, chef de département,
+     * doyen) les notes d'une matière dans un PV : l'enseignant finalise les
+     * composantes de son affectation, les autres toute la matière.
+     */
     public function finalisation(Request $request): RedirectResponse
     {
         $u = $request->user();
@@ -247,21 +284,40 @@ class PortailEnseignantController extends Controller
         if ($mode instanceof RedirectResponse) {
             return $mode;
         }
-        $retour = redirect()->route('portail_enseignant', ['annee_id' => (int) $request->input('annee_id')]);
-        $mat = DB::table('matieres')->find((int) $request->input('mat_id'));
-        if (! $mat || ! $this->peutFinaliser($u, $mode, (int) $mat->id)) {
+        $anneeId = (int) $request->input('annee_id');
+        $retour = redirect()->route('portail_enseignant', ['annee_id' => $anneeId, 'pv_id' => (int) $request->input('pv_id'), 'mat_id' => (int) $request->input('mat_id')]);
+        $choix = $this->selection($u, $mode, $anneeId, (int) $request->input('pv_id'), (int) $request->input('mat_id'));
+        if (! $choix || ! $this->peutFinaliser($u, $mode, (int) $choix['mat']->id)) {
             return $retour->with('erreur', "Vous n'êtes pas autorisé à modifier le statut de cette matière.");
         }
-        // L'enseignant verrouille ses notes, mais ne peut pas se déverrouiller lui-même
-        if ($mat->finalisee && $mode === 'enseignant') {
-            return $retour->with('erreur', "Seuls l'administration, le chef de département ou le doyen peuvent rouvrir une matière déjà finalisée.");
+        ['pv' => $pv, 'mat' => $mat] = $choix;
+        if ($pv->verrouille) {
+            return $retour->with('erreur', 'Ce PV est verrouillé.');
         }
-        DB::table('matieres')->where('id', $mat->id)->update($mat->finalisee
-            ? ['finalisee' => 0, 'finalisee_par' => null, 'finalisee_le' => null]
-            : ['finalisee' => 1, 'finalisee_par' => $u->id, 'finalisee_le' => now()]);
-        $this->journal->action('modifier', 'matiere', ($mat->finalisee ? 'Réouverture' : 'Finalisation')." matière « {$mat->libelle} »", (int) $mat->id);
+        $composantes = $mode === 'enseignant' ? array_keys($this->onglets($choix['type_charge'], $mat)) : NotesEnseignants::composantes($mat);
+        if (! $composantes) {
+            return $retour->with('erreur', 'Aucune note à finaliser pour votre affectation.');
+        }
+        $faites = array_intersect($composantes, $this->notesEns->finalisees($pv, $mat));
+        // « rouvrir » demandé, ou rien à finaliser : réouverture des composantes finalisées
+        $rouvrir = $request->input('action') === 'rouvrir' || count($faites) === count($composantes);
+        // L'enseignant verrouille ses notes, mais ne peut pas se déverrouiller lui-même
+        if ($rouvrir && $mode === 'enseignant') {
+            return $retour->with('erreur', "Seuls l'administration, le chef de département ou le doyen peuvent rouvrir des notes déjà finalisées.");
+        }
+        if ($rouvrir && $faites) {
+            $this->notesEns->rouvrir($pv, $mat, array_values($faites));
+            $this->journal->action('modifier', 'matiere', "Réouverture des notes « {$mat->libelle} » — {$pv->libelle}", (int) $mat->id);
 
-        return $retour->with('succes', "Matière « {$mat->libelle} » ".($mat->finalisee ? 'rouverte.' : 'marquée comme finalisée.'));
+            return $retour->with('succes', "Notes de « {$mat->libelle} » rouvertes : l'enseignant peut de nouveau les saisir.");
+        }
+        if ($rouvrir) {
+            return $retour->with('erreur', 'Ces notes ne sont pas finalisées.');
+        }
+        $nb = $this->notesEns->finaliser($pv, $mat, $composantes, (int) $u->id);
+        $this->journal->action('modifier', 'matiere', "Finalisation des notes « {$mat->libelle} » ($nb note(s) publiée(s) dans le PV) — {$pv->libelle}", (int) $mat->id);
+
+        return $retour->with('succes', "Notes de « {$mat->libelle} » finalisées : elles figurent maintenant dans le PV ($nb note(s)).");
     }
 
     /** Heures de cours réellement effectuées (même périmètre que la finalisation). */
@@ -443,31 +499,56 @@ class PortailEnseignantController extends Controller
         if ($choix['pv']->verrouille) {
             return redirect($retour)->with('erreur', 'Ce PV est verrouillé.');
         }
-        if ($choix['mat']->finalisee && $mode !== 'admin') {
-            return redirect($retour)->with('erreur', 'Cette matière est finalisée : ses notes ne sont plus modifiables.');
+        if ($mode !== 'admin' && $this->notesEns->finalisee($choix['pv'], $choix['mat'], $tc)) {
+            return redirect($retour)->with('erreur', 'Ces notes sont finalisées : elles ne sont plus modifiables.');
         }
         if (! isset($this->onglets($choix['type_charge'], $choix['mat'])[$tc])) {
             return redirect($retour)->with('erreur', "Vous n'êtes pas affecté pour saisir ce type de note sur cette matière.");
         }
 
-        return $choix + ['tc' => $tc, 'retour' => $retour];
+        return $choix + ['tc' => $tc, 'retour' => $retour, 'mode' => $mode];
     }
 
-    /** Enregistre, recalcule les résultats, finalise la matière quand toutes ses notes sont complètes. */
-    private function enregistrer(Utilisateur $u, object $pv, object $mat, string $tc, array $valeurs): void
+    /**
+     * Mode administration : directement dans le PV, résultats recalculés.
+     * Enseignant : notes gardées en attente de finalisation, hors du PV.
+     */
+    private function enregistrer(Utilisateur $u, string $mode, object $pv, object $mat, string $tc, array $valeurs): void
     {
+        if ($mode !== 'admin') {
+            $this->notesEns->enregistrer($pv, $mat, $tc, $valeurs, (int) $u->id);
+
+            return;
+        }
         DB::transaction(function () use ($u, $pv, $mat, $tc, $valeurs) {
             foreach ($this->saisie->enregistrerComposante($pv, $mat, $tc, $valeurs, (int) $u->id) as $et) {
                 $this->resultats->recalculer((int) $pv->id, (int) $et);
             }
         });
-        $incompletes = $this->etudiants($pv, $mat->id)->where(fn ($w) => $w
-            ->whereNotExists(fn ($s) => $s->from('notes as nc')->whereColumn('nc.etudiant_id', 'e.id')->where(['nc.pv_id' => $pv->id, 'nc.matiere_id' => $mat->id])
-                ->where(fn ($c) => $c->whereNotNull('nc.note_finale')->orWhere('nc.defaillant', 1))))->exists();
-        $notees = DB::table('notes')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id])->where(fn ($c) => $c->whereNotNull('note_examen')->orWhereNotNull('note_cc'))->exists();
-        if (! $incompletes && $notees) {
-            DB::table('matieres')->where(['id' => $mat->id, 'finalisee' => 0])->update(['finalisee' => 1, 'finalisee_par' => $u->id, 'finalisee_le' => now()]);
-        }
+    }
+
+    /**
+     * État de chaque ligne d'affectation (une par PV) : « finalisee » quand les
+     * composantes de la ligne sont toutes finalisées dans ce PV, « en_attente »
+     * = notes enregistrées pas encore finalisées.
+     */
+    private function etats(Collection $affectations, string $mode): Collection
+    {
+        $pvIds = $affectations->pluck('pv_id')->filter()->unique()->all();
+        $faites = DB::table('notes_finalisations')->whereIn('pv_id', $pvIds)->get()->groupBy(fn ($f) => $f->pv_id.'-'.$f->matiere_id);
+        $attente = DB::table('notes_enseignants')->whereIn('pv_id', $pvIds)->groupBy('pv_id', 'matiere_id', 'composante')
+            ->get(['pv_id', 'matiere_id', 'composante', DB::raw('COUNT(*) AS nb')])->groupBy(fn ($n) => $n->pv_id.'-'.$n->matiere_id);
+
+        return $affectations->each(function ($af) use ($mode, $faites, $attente) {
+            $composantes = array_keys($this->onglets($mode === 'enseignant' ? (string) $af->type_charge : 'cours_td', $af));
+            $cle = $af->pv_id.'-'.$af->mat_id;
+            $finies = $faites->has($cle) ? $faites[$cle]->pluck('composante')->all()
+                // Finalisée avant la finalisation par composante (voir NotesEnseignants::finalisees)
+                : ($af->type_session === 'normale' && $af->finalisee && ! $attente->has($cle) ? $composantes : []);
+            $af->en_attente = (int) $attente->get($cle, collect())->whereIn('composante', $composantes)->sum('nb');
+            $af->finalisee = $af->pv_id && $composantes && ! array_diff($composantes, $finies);
+            $af->une_finalisee = $af->pv_id && array_intersect($composantes, $finies);
+        });
     }
 
     /** Finaliser, déclarer les heures : admin ; chef dans son département ; doyen dans sa faculté ; enseignant affecté. */

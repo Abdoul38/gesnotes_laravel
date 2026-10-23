@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Notes;
 use App\Http\Controllers\Controller;
 use App\Services\Identite;
 use App\Services\Parametres;
+use App\Services\PresidentsJury;
 use App\Services\Pv;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ use Illuminate\View\View;
  */
 class DeliberationController extends Controller
 {
-    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres): View|RedirectResponse
+    public function __invoke(Request $request, Pv $pvs, Identite $identite, Parametres $parametres, PresidentsJury $presidents): View|RedirectResponse
     {
         $u = $request->user();
         if (! $request->filled('pv_id')) {
@@ -41,7 +42,8 @@ class DeliberationController extends Controller
         }
 
         $pv = $pvs->trouver((int) $request->query('pv_id'));
-        if (! $pv || ($u->faculteId() && (int) $pv->faculte_id !== $u->faculteId()) || ($u->departementId() && (int) $pv->departement_id !== $u->departementId())) {
+        // Président du jury du semestre (depuis « Mes jurys ») ; les autres : leur faculté, leur département
+        if (! $pv || (! $presidents->preside($u, $pv) && (($u->faculteId() && (int) $pv->faculte_id !== $u->faculteId()) || ($u->departementId() && (int) $pv->departement_id !== $u->departementId())))) {
             return redirect()->route('deliberation')->with('erreur', 'Accès non autorisé — ce PV appartient à une autre faculté.');
         }
         $libelles = DB::table('filieres as f')->leftJoin('facultes as fac', 'fac.id', '=', 'f.faculte_id')->leftJoin('departements as d', 'd.id', '=', 'f.departement_id')
@@ -51,6 +53,7 @@ class DeliberationController extends Controller
 
         return view('notes.deliberation.document', [
             'pv' => $pv,
+            'president' => PresidentsJury::nom($presidents->pour($pv)),
             'faculte' => $libelles->faculte ?? '',
             'departement' => $libelles->departement ?? '',
             'stats' => [

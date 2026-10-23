@@ -903,6 +903,38 @@ CREATE TABLE `notes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notes_enseignants` (
+  `pv_id` int(10) unsigned NOT NULL,
+  `etudiant_id` int(10) unsigned NOT NULL,
+  `matiere_id` int(10) unsigned NOT NULL,
+  `composante` enum('exam','cc') NOT NULL,
+  `note` decimal(6,2) DEFAULT NULL COMMENT 'NULL = absent (rattrapage)',
+  `saisie_par` int(10) unsigned DEFAULT NULL,
+  `maj_le` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`pv_id`,`matiere_id`,`composante`,`etudiant_id`),
+  KEY `etudiant_id` (`etudiant_id`),
+  KEY `matiere_id` (`matiere_id`),
+  CONSTRAINT `notes_enseignants_ibfk_1` FOREIGN KEY (`pv_id`) REFERENCES `pv_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `notes_enseignants_ibfk_2` FOREIGN KEY (`etudiant_id`) REFERENCES `etudiants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `notes_enseignants_ibfk_3` FOREIGN KEY (`matiere_id`) REFERENCES `matieres` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='notes saisies par l''enseignant, pas encore finalisées : absentes du PV';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notes_finalisations` (
+  `pv_id` int(10) unsigned NOT NULL,
+  `matiere_id` int(10) unsigned NOT NULL,
+  `composante` enum('exam','cc') NOT NULL,
+  `finalise_par` int(10) unsigned DEFAULT NULL,
+  `finalise_le` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`pv_id`,`matiere_id`,`composante`),
+  KEY `matiere_id` (`matiere_id`),
+  CONSTRAINT `notes_finalisations_ibfk_1` FOREIGN KEY (`pv_id`) REFERENCES `pv_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `notes_finalisations_ibfk_2` FOREIGN KEY (`matiere_id`) REFERENCES `matieres` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='composantes (examen, TD) finalisées par l''enseignant pour un PV';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `notifications_email` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `sujet` varchar(300) NOT NULL,
@@ -1186,6 +1218,24 @@ CREATE TABLE `presences` (
   UNIQUE KEY `uk_seance_etudiant` (`seance_id`,`etudiant_id`),
   KEY `idx_etudiant` (`etudiant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `presidents_jury` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `promotion_id` int(10) unsigned NOT NULL,
+  `semestre_id` int(10) unsigned NOT NULL,
+  `enseignant_id` int(10) unsigned NOT NULL,
+  `designe_par` int(10) unsigned DEFAULT NULL,
+  `designe_le` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_president` (`promotion_id`,`semestre_id`),
+  KEY `semestre_id` (`semestre_id`),
+  KEY `enseignant_id` (`enseignant_id`),
+  CONSTRAINT `presidents_jury_ibfk_1` FOREIGN KEY (`promotion_id`) REFERENCES `promotions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `presidents_jury_ibfk_2` FOREIGN KEY (`semestre_id`) REFERENCES `semestres` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `presidents_jury_ibfk_3` FOREIGN KEY (`enseignant_id`) REFERENCES `enseignants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='président du jury de délibération d''un semestre (filière, niveau, année)';
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;

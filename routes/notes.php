@@ -4,8 +4,10 @@
 // de routes/web.php.
 
 use App\Http\Controllers\Notes\DeliberationController;
+use App\Http\Controllers\Notes\JuryController;
 use App\Http\Controllers\Notes\ListeValidesController;
 use App\Http\Controllers\Notes\NotesImportController;
+use App\Http\Controllers\Notes\PresidentsJuryController;
 use App\Http\Controllers\Notes\PvController;
 use App\Http\Controllers\Notes\PvCreationController;
 use App\Http\Controllers\Notes\PvDetailController;
@@ -68,3 +70,15 @@ Route::middleware('page:reclamations')->group(function () {
     Route::post('/reclamations/{id}', [ReclamationTraitementController::class, 'traiter'])->whereNumber('id')->name('reclamation_traitement.traiter');
 });
 Route::get('/admis', ListeValidesController::class)->middleware(['page:liste_valides', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])->name('liste_valides');
+
+// Présidents de jury : désignation (périmètre vérifié dans le contrôleur) ; « Mes jurys » : espace du président
+Route::middleware(['page:presidents_jury', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])->controller(PresidentsJuryController::class)->group(function () {
+    Route::get('/jury/presidents', 'index')->name('presidents_jury');
+    Route::post('/jury/presidents', 'designer')->name('presidents_jury.designer');
+    Route::post('/jury/presidents/retirer', 'retirer')->name('presidents_jury.retirer');
+});
+Route::middleware('page:jury')->controller(JuryController::class)->group(function () {
+    Route::get('/jury', 'index')->name('jury');
+    Route::post('/jury/pv/{id}/verrou', 'verrou')->whereNumber('id')->name('jury.verrou');
+    Route::get('/jury/pv/{id}/{document}', 'document')->whereNumber('id')->whereIn('document', ['pv', 'deliberation', 'admis'])->name('jury.document');
+});

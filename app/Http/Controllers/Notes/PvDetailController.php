@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Notes;
 use App\Http\Controllers\Controller;
 use App\Services\Journal;
 use App\Services\Parametres;
+use App\Services\PresidentsJury;
 use App\Services\Pv;
 use App\Services\Resultats;
 use Illuminate\Http\JsonResponse;
@@ -52,6 +53,7 @@ class PvDetailController extends Controller
         private readonly Resultats $resultats,
         private readonly Journal $journal,
         private readonly Parametres $parametres,
+        private readonly PresidentsJury $presidents,
     ) {}
 
     public function afficher(Request $request, int $id): View|RedirectResponse
@@ -106,6 +108,7 @@ class PvDetailController extends Controller
             'repechages' => $this->repechages($pv),
             'repechagesDisponibles' => $this->repechagesDisponibles(),
             'etudiantsPv' => $tous,
+            'president' => PresidentsJury::nom($this->presidents->pour($pv)),
         ]);
     }
 

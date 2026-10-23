@@ -3,6 +3,8 @@
 namespace Tests\Feature\Portails;
 
 use App\Models\Utilisateur;
+use App\Services\NotesEnseignants;
+use App\Services\Pv;
 use App\Support\Tableur;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -94,26 +96,79 @@ class PortailEnseignantTest extends TestCase
         $this->assertSame(0, DB::table('notes')->count());
         $this->saisir($this->cours, 'cc', [$a => '10'])->assertSessionHas('erreur', "Vous n'êtes pas affecté pour saisir ce type de note sur cette matière.");
 
-        $this->saisir($this->cours, 'exam', [$a => '30,5', $b => '', $intrus => '12'])->assertSessionHas('succes');
-        $this->assertSame(['30.50', null, null], [$this->note($a, $this->m1)->note_examen, $this->note($a, $this->m1)->note_cc, $this->note($a, $this->m1)->note_finale]);
-        $this->assertDatabaseMissing('notes', ['etudiant_id' => $intrus]);
-        $this->assertDatabaseMissing('notes', ['etudiant_id' => $b]);
-
-        // Le TD complète la note sans effacer l'examen ; matière pas encore finalisée (BRAVO incomplet)
+        // Enregistrées sans être finalisées : rien dans le PV global, ni résultat
+        $this->saisir($this->cours, 'exam', [$a => '30,5', $b => '', $intrus => '12'])
+            ->assertSessionHas('succes', "Notes enregistrées. Elles n'apparaîtront dans le PV qu'après leur finalisation.");
+        $this->assertSame(0, DB::table('notes')->count());
+        $this->assertSame(['30.50'], DB::table('notes_enseignants')->pluck('note')->all());
+        $this->assertDatabaseMissing('notes_enseignants', ['etudiant_id' => $intrus]);
+        // … mais l'enseignant les retrouve dans son portail
+        $this->get($this->url("portail/enseignant?annee_id={$this->annee}&pv_id={$this->pv}&mat_id={$this->m1}"))->assertOk()
+            ->assertSee('value="30.5"', false)->assertSee('1 note(s) en attente')->assertSee('1 note(s) à finaliser');
         $this->saisir($this->td, 'cc', [$a => '15'])->assertSessionHas('succes');
-        $this->assertSame(['30.50', '15.00', '45.50'], [$this->note($a, $this->m1)->note_examen, $this->note($a, $this->m1)->note_cc, $this->note($a, $this->m1)->note_finale]);
+        $this->assertSame(0, DB::table('notes')->count());
+        $this->assertDatabaseMissing('resultats_semestre', ['pv_id' => $this->pv]);
+
+        // L'enseignant de cours finalise : son examen passe dans le PV (le TD, pas encore finalisé, n'y est pas)
+        $finaliser = fn (Utilisateur $u, ?int $pv = null) => $this->connecte($u)->post($this->url('portail/enseignant/finalisation'),
+            ['annee_id' => $this->annee, 'pv_id' => $pv ?? $this->pv, 'mat_id' => $this->m1]);
+        $finaliser($this->cours)->assertSessionHas('succes');
+        $this->assertSame(['30.50', null, null], [$this->note($a, $this->m1)->note_examen, $this->note($a, $this->m1)->note_cc, $this->note($a, $this->m1)->note_finale]);
+        $this->assertDatabaseMissing('notes', ['etudiant_id' => $b]);
         $this->assertSame(0, (int) DB::table('matieres')->where('id', $this->m1)->value('finalisee'));
         $this->assertDatabaseHas('resultats_semestre', ['pv_id' => $this->pv, 'etudiant_id' => $a]);
 
-        $this->saisir($this->cours, 'exam', [$b => '20'])->assertSessionHas('succes');
-        $this->saisir($this->td, 'cc', [$b => '10'])->assertSessionHas('succes');
-        $this->assertSame(1, (int) DB::table('matieres')->where('id', $this->m1)->value('finalisee'));
+        // Examen finalisé : plus de saisie, pas de réouverture par l'enseignant
+        $this->saisir($this->cours, 'exam', [$a => '40'])->assertSessionHas('erreur', 'Ces notes sont finalisées : elles ne sont plus modifiables.');
+        $finaliser($this->cours)->assertSessionHas('erreur');
+        $this->get($this->url("portail/enseignant?annee_id={$this->annee}&pv_id={$this->pv}&mat_id={$this->m1}"))->assertSee('Notes finalisées')->assertDontSee('name="notes[', false);
 
-        // Matière finalisée : plus de saisie, pas de réouverture par l'enseignant
-        $this->saisir($this->cours, 'exam', [$a => '40'])->assertSessionHas('erreur', 'Cette matière est finalisée : ses notes ne sont plus modifiables.');
-        $this->post($this->url('portail/enseignant/finalisation'), ['mat_id' => $this->m1])->assertSessionHas('erreur');
-        $this->assertSame('30.50', $this->note($a, $this->m1)->note_examen);
+        // Le TD finalise à son tour : note complète dans le PV, matière finalisée
+        $this->saisir($this->td, 'cc', [$b => '10'])->assertSessionHas('succes');
+        $finaliser($this->td)->assertSessionHas('succes');
+        $this->assertSame(['30.50', '15.00', '45.50'], [$this->note($a, $this->m1)->note_examen, $this->note($a, $this->m1)->note_cc, $this->note($a, $this->m1)->note_finale]);
+        $this->assertSame([null, '10.00'], [$this->note($b, $this->m1)->note_examen, $this->note($b, $this->m1)->note_cc]);
+        $this->assertSame(1, (int) DB::table('matieres')->where('id', $this->m1)->value('finalisee'));
+        $this->assertSame(0, DB::table('notes_enseignants')->count());
         $this->assertDatabaseHas('audit_log', ['module' => 'notes', 'action' => 'modifier']);
+    }
+
+    public function test_reouverture_garde_les_notes_du_pv_jusqu_a_la_nouvelle_finalisation(): void
+    {
+        $a = $this->etudiant('00001', 'ALPHA');
+        $chefA = $this->creerUtilisateur('chef_departement', ['departement_id' => $this->depA, 'faculte_id' => $this->facA]);
+        $this->donnerPermissions('chef_departement', ['notes_saisir']);
+        $finaliser = fn (Utilisateur $u, string $action = 'finaliser') => $this->connecte($u)->post($this->url('portail/enseignant/finalisation'),
+            ['annee_id' => $this->annee, 'pv_id' => $this->pv, 'mat_id' => $this->m1, 'action' => $action]);
+        $this->saisir($this->cours, 'exam', [$a => '20'])->assertSessionHas('succes');
+        $finaliser($this->cours)->assertSessionHas('succes');
+
+        // Rouverte par le chef de département : l'enseignant corrige, le PV garde 20 jusqu'à la finalisation
+        $finaliser($this->cours, 'rouvrir')->assertSessionHas('erreur');
+        $finaliser($chefA, 'rouvrir')->assertSessionHas('succes');
+        $this->saisir($this->cours, 'exam', [$a => '25'])->assertSessionHas('succes');
+        $this->assertSame('20.00', $this->note($a, $this->m1)->note_examen);
+        $finaliser($this->cours)->assertSessionHas('succes');
+        $this->assertSame('25.00', $this->note($a, $this->m1)->note_examen);
+
+        // PV verrouillé : ni saisie, ni finalisation
+        DB::table('pv_sessions')->where('id', $this->pv)->update(['verrouille' => 1]);
+        $finaliser($chefA)->assertSessionHas('erreur', 'Ce PV est verrouillé.');
+    }
+
+    public function test_matiere_finalisee_avant_la_finalisation_par_composante(): void
+    {
+        // Ancienne règle : matière finalisée, sans finalisation par composante → reste finalisée en session normale
+        $a = $this->etudiant('00001', 'ALPHA');
+        DB::table('matieres')->where('id', $this->m1)->update(['finalisee' => 1]);
+        $this->saisir($this->cours, 'exam', [$a => '20'])->assertSessionHas('erreur', 'Ces notes sont finalisées : elles ne sont plus modifiables.');
+        $this->connecte($this->cours)->get($this->url("portail/enseignant?annee_id={$this->annee}"))->assertSee('✅ Finalisée');
+
+        // Rouverte pour le seul examen : le TD reste finalisé
+        app(NotesEnseignants::class)->rouvrir(app(Pv::class)->trouver($this->pv), DB::table('matieres')->find($this->m1), ['exam']);
+        $this->saisir($this->cours, 'exam', [$a => '20'])->assertSessionHas('succes');
+        $this->saisir($this->td, 'cc', [$a => '10'])->assertSessionHas('erreur');
+        $this->assertSame(0, (int) DB::table('matieres')->where('id', $this->m1)->value('finalisee'));
     }
 
     public function test_perimetres_lecture_seule_et_volume(): void
@@ -136,8 +191,10 @@ class PortailEnseignantTest extends TestCase
         $this->saisir($chefA, 'exam', [$a => '10'])->assertSessionHas('erreur');
         $this->assertSame(0, DB::table('notes')->count());
         $this->post($this->url('portail/enseignant/volume'), ['mat_id' => $this->m1, 'volume_horaire_prevu' => '30'])->assertSessionHas('succes');
-        $this->post($this->url('portail/enseignant/finalisation'), ['mat_id' => $this->m1])->assertSessionHas('succes');
-        $this->post($this->url('portail/enseignant/finalisation'), ['mat_id' => $this->m1])->assertSessionHas('succes');
+        $fin = ['annee_id' => $this->annee, 'pv_id' => $this->pv, 'mat_id' => $this->m1];
+        $this->post($this->url('portail/enseignant/finalisation'), $fin)->assertSessionHas('succes');
+        $this->assertSame(1, (int) DB::table('matieres')->where('id', $this->m1)->value('finalisee'));
+        $this->post($this->url('portail/enseignant/finalisation'), $fin)->assertSessionHas('succes');
         $this->assertSame(0, (int) DB::table('matieres')->where('id', $this->m1)->value('finalisee'));
 
         // Heures : bornées par le volume prévu ; enseignant ne fixe pas le volume
@@ -170,6 +227,8 @@ class PortailEnseignantTest extends TestCase
 
         // L'enseignant de cours saisit l'examen : TD de 1ère session repris (30 + 5 = 35) ; BRAVO laissé vide = n'a pas composé
         $this->saisir($this->cours, 'exam', [$a => '30', $b => ''], $this->m1, $ratt)->assertSessionHas('succes');
+        $this->assertSame(0, DB::table('notes')->where('pv_id', $ratt)->count());
+        $this->connecte($this->cours)->post($this->url('portail/enseignant/finalisation'), ['annee_id' => $this->annee, 'pv_id' => $ratt, 'mat_id' => $this->m1])->assertSessionHas('succes');
         $this->assertSame(['30.00', '5.00', '35.00'], [$this->note($a, $this->m1, $ratt)->note_examen, $this->note($a, $this->m1, $ratt)->note_cc, $this->note($a, $this->m1, $ratt)->note_finale]);
         $this->assertSame([null, 1], [$this->note($b, $this->m1, $ratt)->note_finale, (int) $this->note($b, $this->m1, $ratt)->defaillant]);
     }

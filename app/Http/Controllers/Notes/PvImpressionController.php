@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Notes;
 use App\Http\Controllers\Controller;
 use App\Services\Identite;
 use App\Services\Parametres;
+use App\Services\PresidentsJury;
 use App\Services\Pv;
 use App\Services\Resultats;
 use Illuminate\Http\RedirectResponse;
@@ -26,10 +27,13 @@ use Illuminate\View\View;
  *    ceux qui composaient le semestre en avance ;
  *  - nom de l'université et ville tirés des paramètres (« Tahoua » était écrit
  *    en dur dans la ligne de date).
+ *
+ * Ajouts : le président du jury du semestre (son nom est imprimé au bas du
+ * PV) peut aussi l'imprimer, depuis « Mes jurys ».
  */
 class PvImpressionController extends Controller
 {
-    public function __invoke(Request $request, Pv $pvs, Resultats $resultats, Identite $identite, Parametres $parametres): View|RedirectResponse
+    public function __invoke(Request $request, Pv $pvs, Resultats $resultats, Identite $identite, Parametres $parametres, PresidentsJury $presidents): View|RedirectResponse
     {
         $u = $request->user();
         $pv = $pvs->trouver((int) $request->query('id'));
@@ -38,7 +42,7 @@ class PvImpressionController extends Controller
             'sc_entite', 'doyen' => $u->faculteId() > 0 && (int) $pv->faculte_id === $u->faculteId(),
             'chef_departement' => $u->departementId() > 0 && (int) $pv->departement_id === $u->departementId(),
             default => false,
-        };
+        } || ($pv && $presidents->preside($u, $pv));
         if (! $ok) {
             return redirect()->route('pv')->with('erreur', 'Accès refusé — ce PV ne relève pas de votre périmètre.');
         }
@@ -72,6 +76,7 @@ class PvImpressionController extends Controller
             'seuil' => (float) $resultats->regle('seuil_validation', (int) $pv->annee_id, '10'),
             'logos' => $identite->logos($pv->faculte_id ? (int) $pv->faculte_id : null),
             'signataire' => $identite->signataire($pv->faculte_id ? (int) $pv->faculte_id : null),
+            'president' => PresidentsJury::nom($presidents->pour($pv)),
             'institution' => $parametres->valeur('institution_nom', 'Université Djibo Hamani de Tahoua'),
             'ville' => $parametres->valeur('institution_ville', 'Tahoua'),
         ]);

@@ -312,7 +312,7 @@ table.t td.c{text-align:center}
   <div class="signatures no-break">
     <div class="sig-bloc">
       <div class="sig-titre">Le Président du Jury</div>
-      <div class="sig-ligne">Nom &amp; Signature</div>
+      <div class="sig-ligne">{{ $president ?: 'Nom & Signature' }}</div>
     </div>
   </div>
 
