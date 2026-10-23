@@ -106,6 +106,8 @@ class DocumentsTest extends TestCase
         $page = $this->get($this->url("attestations?et_id={$this->alpha}&type=validation_l2"))->assertOk()->assertSee('A'.date('y').'-VA-000001');
         // Le QR code porte la clé du document
         $page->assertSee(e(app(CleVerification::class)->url('A'.date('y').'-VA-000001')), false);
+        // … et l'adresse officielle de vérification est imprimée en clair, sans la clé
+        $page->assertSee('Site officiel')->assertSee(CleVerification::site(app(CleVerification::class)->url('X')));
         $this->assertSame(1, DB::table('attestations_emises')->count());
         $this->assertEquals(14, DB::table('attestations_emises')->value('moyenne'));
 
@@ -188,7 +190,8 @@ class DocumentsTest extends TestCase
         $insA = DB::table('inscriptions')->insertGetId(['etudiant_id' => $this->alpha, 'promotion_id' => $promo, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
         $insB = DB::table('inscriptions')->insertGetId(['etudiant_id' => $this->beta, 'promotion_id' => $promo, 'statut' => 'inscrit', 'date_inscription' => '2025-10-01']);
         $this->connecte($this->admin)->get($this->url("certificat-scolarite?ins_id=$insA"))->assertOk()
-            ->assertSee('Certificat de Scolarité')->assertSee('ALPHA Awa')->assertSee('Est inscrite')->assertSee('2025-2026');
+            ->assertSee('Certificat de Scolarité')->assertSee('ALPHA Awa')->assertSee('Est inscrite')->assertSee('2025-2026')
+            ->assertSee('Site officiel')->assertSee('/verification');
         // Par ins_id, chaque étudiant a son propre numéro (avant : étudiant 0, numéro partagé)
         $this->get($this->url("certificat-scolarite?ins_id=$insB"))->assertOk()->assertSee('BETA Bio');
         $this->get($this->url("certificat-scolarite?et_id={$this->alpha}"))->assertOk();

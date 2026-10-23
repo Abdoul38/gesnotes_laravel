@@ -256,8 +256,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
       </ul>
       <div style="display:flex;align-items:center;gap:2mm;margin-top:2mm">
         <div data-qr="{{ $r['urlVerification'] }}" data-qr-cellule="2" style="width:11mm;height:11mm"></div>
-        @php($siteVerif = parse_url($r['urlVerification'], PHP_URL_HOST).parse_url($r['urlVerification'], PHP_URL_PATH))
-        <span style="font-size:6.5pt;color:#8B6F1F;line-height:1.2">Scanner pour vérifier l'authenticité<br>et comparer les notes affichées.<br>Site officiel : <strong>{{ $siteVerif }}</strong><br>N° {{ $r['numero'] }}</span>
+        <span style="font-size:6.5pt;color:#8B6F1F;line-height:1.2">Scanner pour vérifier l'authenticité<br>et comparer les notes affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($r['urlVerification']) }}</strong><br>N° {{ $r['numero'] }}</span>
       </div>
     </div>
     <div class="sig-zone">

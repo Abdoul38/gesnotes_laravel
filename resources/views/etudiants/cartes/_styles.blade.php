@@ -188,7 +188,8 @@ body{font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;backgrou
 .v-right{width:21mm;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1mm;position:relative;z-index:1}
 .v-qr{width:19mm;height:19mm}
 .v-qr svg{width:100%;height:100%;display:block}
-.v-cap{font-size:4.8pt;line-height:1.25;color:#6b7684;text-align:center}
+.v-cap{font-size:4.8pt;line-height:1.25;color:#6b7684;text-align:center;overflow-wrap:anywhere}
+.v-cap strong{font-size:4.2pt;color:#1a3a5c}
 .v-foot{flex-shrink:0;background:#fff;border-top:.2mm solid #c9a24b;padding:.6mm 3mm;display:flex;justify-content:space-between;align-items:center;gap:2mm;position:relative;z-index:2}
 .c-bc-left{display:flex;flex-direction:column;align-items:center;flex:none}
 .c-bc-bars{width:44mm;height:5mm}

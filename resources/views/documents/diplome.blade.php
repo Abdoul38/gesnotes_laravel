@@ -80,7 +80,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 .qr-auth { position:absolute; bottom:16mm; left:20mm; z-index:2; display:flex; align-items:center; gap:3mm; max-width:60mm; }
 .qr-auth .qr-txt { line-height:1.3; }
 .qr-auth img { width:16mm; height:16mm; }
-.qr-auth .qr-txt { font-size:6.5pt; color:#8B6F1F; font-family:Georgia,serif; line-height:1.3; max-width:35mm; }
+.qr-auth .qr-txt { font-size:6.5pt; color:#8B6F1F; font-family:Georgia,serif; line-height:1.3; max-width:40mm; overflow-wrap:anywhere; }
 
 @page { size: A4 landscape; margin: 0; }
 @media print {
@@ -171,7 +171,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 
   <div class="qr-auth">
     <div data-qr="{{ $urlVerification }}" data-qr-cellule="2" style="width:16mm;height:16mm"></div>
-    <span class="qr-txt">Scanner pour vérifier<br>l'authenticité</span>
+    <span class="qr-txt">Scanner pour vérifier l'authenticité<br>et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong></span>
   </div>
   <div class="numero-diplome">Diplôme enregistré sous le N° {{ $numero }}</div>
 </div>

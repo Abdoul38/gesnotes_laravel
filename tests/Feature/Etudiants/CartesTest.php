@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Etudiants;
 
+use App\Http\Controllers\Etudiants\CartesController;
 use App\Models\Utilisateur;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -43,7 +44,7 @@ class CartesTest extends TestCase
             ->assertSee('SALEY')->assertSee('Économie')->assertSee('L1')->assertSee('2025-2026')
             ->assertSee('Malienne')->assertSee('06/05/2004 à Tahoua')
             ->assertSee("N° {$prefixe}000001")->assertSee('data-qr=', false)->assertSee('<svg', false)
-            ->assertDontSee('<script>', false);
+            ->assertSee('/verification')->assertDontSee('<script>', false);
 
         $this->get($this->url("etudiants/cartes/imprimer?id={$this->et}"))->assertOk()->assertSee("{$prefixe}000001");
         $this->assertSame(1, DB::table('cartes_emises')->count());
@@ -102,8 +103,8 @@ class CartesTest extends TestCase
 
     public function test_melange_des_couleurs(): void
     {
-        $this->assertSame('#000000', \App\Http\Controllers\Etudiants\CartesController::melanger('#000000', 0.5, true));
-        $this->assertSame('#808080', \App\Http\Controllers\Etudiants\CartesController::melanger('#ffffff', 0.5, true));
-        $this->assertSame('#ffffff', \App\Http\Controllers\Etudiants\CartesController::melanger('#ffffff', 0.5, false));
+        $this->assertSame('#000000', CartesController::melanger('#000000', 0.5, true));
+        $this->assertSame('#808080', CartesController::melanger('#ffffff', 0.5, true));
+        $this->assertSame('#ffffff', CartesController::melanger('#ffffff', 0.5, false));
     }
 }

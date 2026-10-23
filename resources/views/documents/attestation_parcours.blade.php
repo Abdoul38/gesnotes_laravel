@@ -103,7 +103,7 @@ body {
 .pied .numero { font-size:7pt; color:#8B6F1F; white-space:nowrap; font-family:Georgia,serif; text-align:right; }
 .pied .qr-auth { display:flex; align-items:center; gap:1.5mm; flex-shrink:0; margin-left:3mm; }
 .pied .qr-auth img { width:11mm; height:11mm; }
-.pied .qr-auth .qr-txt { font-size:5.5pt; color:#8B6F1F; line-height:1.25; max-width:22mm; }
+.pied .qr-auth .qr-txt { font-size:5.5pt; color:#8B6F1F; line-height:1.25; max-width:30mm; overflow-wrap:anywhere; }
 
 @page {
   size: A4;
@@ -214,7 +214,7 @@ body {
       <div class="avis"><strong>Avis important —</strong> Il n'est délivré qu'une seule attestation. Le titulaire devra en faire établir des copies certifiées conformes par les autorités compétentes. Ce document ne doit comporter ni rature ni surcharge, sous peine de nullité.</div>
       <div class="qr-auth">
         <div data-qr="{{ $urlVerification }}" data-qr-cellule="2" style="width:11mm;height:11mm"></div>
-        <span class="qr-txt">Scanner pour vérifier l'authenticité</span>
+        <span class="qr-txt">Scanner pour vérifier l'authenticité et comparer les informations affichées.<br>Site officiel : <strong>{{ \App\Services\CleVerification::site($urlVerification) }}</strong></span>
       </div>
       <div class="numero">{{ $numero }}</div>
     </div>

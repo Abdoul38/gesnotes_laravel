@@ -35,4 +35,10 @@ class CleVerification
     {
         return route('verifier_diplome', ['num' => $numero, 'cle' => $this->cle($numero)]);
     }
+
+    /** Adresse officielle imprimée en clair sous le QR code (sans la clé), pour repérer un QR code menant à un faux site. */
+    public static function site(string $url): string
+    {
+        return parse_url($url, PHP_URL_HOST).parse_url($url, PHP_URL_PATH);
+    }
 }
