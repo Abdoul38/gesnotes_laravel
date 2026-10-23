@@ -3,6 +3,8 @@
 // Module « Portails » (étape 9). Chargé dans le groupe auth + licence de
 // routes/web.php.
 
+use App\Http\Controllers\Candidature\CandidaturesAdminController;
+use App\Http\Controllers\Portails\ExamensEnseignantController;
 use App\Http\Controllers\Portails\GestionParentsController;
 use App\Http\Controllers\Portails\PortailEnseignantController;
 use App\Http\Controllers\Portails\PortailEtudiantController;
@@ -24,6 +26,8 @@ Route::middleware(['page:gestion_parents', 'roles:admin,secretaire,sc_centrale,s
 });
 
 // Portail enseignant (permission notes_saisir ; modes et périmètres dans le contrôleur)
+// Planning des examens de l'enseignant (lecture seule)
+Route::get('/portail/enseignant/examens', ExamensEnseignantController::class)->middleware('page:mes_examens')->name('mes_examens');
 Route::middleware('page:portail_enseignant')->controller(PortailEnseignantController::class)->group(function () {
     Route::get('/portail/enseignant', 'index')->name('portail_enseignant');
     Route::get('/portail/enseignant/modele', 'modele')->name('portail_enseignant.modele');
@@ -45,7 +49,7 @@ Route::middleware('roles:recteur,admin')->controller(RectoratController::class)-
 
 // Administration des candidatures (ancien hasRole admin / secrétaire / sc_centrale)
 Route::middleware(['page:portail_candidats_admin', 'roles:admin,secretaire,sc_centrale'])
-    ->controller(\App\Http\Controllers\Candidature\CandidaturesAdminController::class)->group(function () {
+    ->controller(CandidaturesAdminController::class)->group(function () {
         Route::get('/candidatures', 'index')->name('portail_candidats_admin');
         Route::post('/candidatures', 'creerDossier')->name('portail_candidats_admin.creer');
         Route::post('/candidatures/statut', 'statut')->name('portail_candidats_admin.statut');
