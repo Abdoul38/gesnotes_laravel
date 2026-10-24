@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Espaces;
 
 use App\Espaces\Espaces;
 use App\Http\Controllers\Controller;
+use App\Services\ExportNational;
 use App\Services\IndicateursNationaux;
-use App\Support\Classeur;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -75,46 +75,8 @@ class MinistereController extends Controller
         $stats = $this->national->parUniversite($annee);
         $t = $this->national->totaux($stats, $annee);
         $this->tracer($request, 'export_excel', $annee);
-        $pct = fn ($part, $tout) => $tout > 0 ? round($part / $tout * 100, 1) : 0;
-        $entete = fn (array $titres) => ['height' => 30, 'cells' => array_map(fn ($x) => ['v' => $x, 'style' => 5], $titres)];
-        $cel = fn (array $v) => ['cells' => array_map(fn ($x) => ['v' => $x], $v)];
-        $ok = array_filter($stats, fn ($s) => ! $s['erreur']);
-
-        $classeur = new Classeur;
-        $classeur->feuille('National', [
-            ['height' => 26, 'cells' => [['v' => "Tableau de bord national — Année académique $annee", 'style' => 1]]],
-            ['cells' => [['v' => 'Généré le '.now()->format('d/m/Y à H:i')]]],
-            $entete(['Université', 'Inscrits', 'Hommes', 'Femmes', '% Femmes', 'Passages', 'Redoublants', 'Taux de passage', 'Heures prévues', 'Heures faites',
-                'Exécution programme', 'Facultés', 'Filières', 'PV publiés', 'PV en attente']),
-            ...array_map(fn ($s) => $s['erreur'] ? $cel([$s['uni']->nom, 'Connexion impossible'])
-                : $cel([$s['uni']->nom, $s['inscrits'], $s['hommes'], $s['femmes'], $pct($s['femmes'], $s['inscrits']), $s['passages'], $s['redoublants'],
-                    $s['taux_passage'], $s['heures_prevues'], $s['heures_faites'], $s['taux_programme'], $s['nb_facultes'], $s['nb_filieres'], $s['pv_publies'], $s['pv_attente']]),
-                array_values($stats)),
-            $cel(['TOTAL NATIONAL', $t['inscrits'], $t['hommes'], $t['femmes'], $pct($t['femmes'], $t['inscrits']), $t['passages'], $t['redoublants'],
-                $t['taux_passage'], $t['heures_prevues'], $t['heures_faites'], $t['taux_programme'], '', '', $t['pv_publies'], '']),
-        ], [44, 10, 10, 10, 10, 10, 12, 14, 14, 14, 16, 10, 10, 10, 12], 3, ['A1:O1', 'A2:O2']);
-
-        $facultes = [];
-        $filieres = [];
-        foreach ($ok as $s) {
-            foreach ($s['facultes'] as $f) {
-                $facultes[] = $cel([$s['uni']->sigle, $f['faculte'], $f['inscrits'], $f['femmes'], $f['passages'], $f['redoublants'], $f['taux'], $f['taux_programme'], $f['pv_publies']]);
-                foreach ($f['filieres'] as $l) {
-                    $filieres[] = $cel([$s['uni']->sigle, $f['faculte'], $l['filiere'], $l['niveau'], $l['inscrits'], $l['femmes'], $l['passages'], $l['redoublants'], $l['taux'], $l['taux_programme']]);
-                }
-            }
-        }
-        $classeur->feuille('Facultés', [$entete(['Université', 'Faculté', 'Inscrits', 'Femmes', 'Passages', 'Redoublants', 'Taux de passage', 'Exécution programme', 'PV publiés']), ...$facultes],
-            [12, 44, 10, 10, 10, 12, 14, 16, 10], 1);
-        $classeur->feuille('Filières', [$entete(['Université', 'Faculté', 'Filière', 'Niveau', 'Inscrits', 'Femmes', 'Passages', 'Redoublants', 'Taux de passage', 'Exécution programme']), ...$filieres],
-            [12, 36, 40, 10, 10, 10, 10, 12, 14, 16], 1);
-        $evolution = [];
-        foreach ($ok as $s) {
-            foreach ($s['evolution'] as $e) {
-                $evolution[] = $cel([$s['uni']->sigle, $e['annee'], $e['inscrits'], $e['passages'], $e['redoublants'], $e['taux']]);
-            }
-        }
-        $classeur->feuille('Évolution', [$entete(['Université', 'Année académique', 'Inscrits', 'Passages', 'Redoublants', 'Taux de passage']), ...$evolution], [12, 20, 12, 12, 14, 16], 1);
+        // Facultés regroupées par université, filières par université et par faculté (App\Services\ExportNational)
+        $classeur = app(ExportNational::class)->classeur($stats, $t, $annee);
 
         return response()->download($classeur->enregistrer(), 'tableau_national_'.str_replace('/', '-', $annee).'_'.date('Y-m-d').'.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
