@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Communication\CentreNotifications;
 use App\Services\Communication\Push;
 use App\Services\Licence;
 use App\Services\ReinitialisationParent;
@@ -35,7 +36,7 @@ use Throwable;
 class ApiMobileParentController extends Controller
 {
     private const ACTIONS = ['login', 'logout', 'profil', 'enfant', 'resultats', 'presences', 'paiements', 'emploi_du_temps', 'examens',
-        'annonces', 'mot_de_passe', 'reset_password_demande', 'reset_password', 'push_token'];
+        'annonces', 'mot_de_passe', 'reset_password_demande', 'reset_password', 'push_token', 'notifications', 'notifications_lues'];
 
     /** Actions sans session : connexion, mot de passe oublié. */
     private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
@@ -222,6 +223,19 @@ class ApiMobileParentController extends Controller
     {
         return $this->ok($this->suivi->annonces($this->enfant)->orderByDesc('epinglee')->orderByDesc('created_at')->limit(50)
             ->get(['id', 'titre', 'contenu', 'type', 'epinglee', 'date_debut', 'date_fin', 'created_at']));
+    }
+
+    /** Notifications de la cloche : celles du compte et les annonces concernant ses enfants. */
+    private function notifications(): JsonResponse
+    {
+        return $this->ok(app(CentreNotifications::class)->parent((int) $this->parent->id, $this->enfants()));
+    }
+
+    private function notificationsLues(): JsonResponse
+    {
+        app(CentreNotifications::class)->marquerLues('parent', (int) $this->parent->id);
+
+        return $this->ok([], 'OK');
     }
 
     /** Téléphone qui recevra les notifications (jeton Firebase) ; « retirer » à la déconnexion. */

@@ -47,22 +47,32 @@ class Push
         }
     }
 
-    /** Notifie l'étudiant (ses téléphones). Retourne le nombre de notifications envoyées. */
+    /** Notifie l'étudiant (historique de la cloche + ses téléphones). Retourne le nombre de notifications envoyées. */
     public function etudiant(int $etudiantId, string $titre, string $texte, array $donnees = []): int
     {
+        $this->historiser('etudiant', [$etudiantId], $titre, $texte, $donnees['type'] ?? 'info');
+
         return $this->comptes('etudiant', [$etudiantId], $titre, $texte, $donnees);
     }
 
     /** Notifie les parents actifs liés à l'étudiant. */
     public function parentsDe(int $etudiantId, string $titre, string $texte, array $donnees = []): int
     {
-        if (! $this->actif()) {
-            return 0;
-        }
         $parents = DB::table('parents_etudiants as pe')->join('parents as p', 'p.id', '=', 'pe.parent_id')
             ->where(['pe.etudiant_id' => $etudiantId, 'p.actif' => 1])->pluck('p.id')->all();
+        $this->historiser('parent', $parents, $titre, $texte, $donnees['type'] ?? 'info');
 
         return $this->comptes('parent', $parents, $titre, $texte, $donnees + ['etudiant_id' => (string) $etudiantId]);
+    }
+
+    /** Historique affiché par la cloche de l'application (même sans téléphone enregistré). */
+    private function historiser(string $type, array $ids, string $titre, string $texte, string $categorie): void
+    {
+        if (! $ids || ! Schema::hasTable('notifications_mobile')) {
+            return;
+        }
+        DB::table('notifications_mobile')->insert(array_map(fn ($id) => ['type_compte' => $type, 'compte_id' => (int) $id,
+            'categorie' => mb_substr($categorie, 0, 20), 'titre' => mb_substr($titre, 0, 150), 'texte' => mb_substr($texte, 0, 500), 'cree_le' => now()], $ids));
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\Candidatures;
+use App\Services\Communication\CentreNotifications;
 use App\Services\Communication\Courriel;
 use App\Services\Communication\Push;
 use App\Services\Communication\Sms;
@@ -66,7 +67,7 @@ class ApiMobileController extends Controller
         'statistiques', 'recu', 'check_inscription', 'carte', 'reset_password_demande', 'reset_password', 'reclamations_data',
         'matieres_pv', 'soumettre_reclamation',
         'inscription_academique', 'inscription_academique_demarrer', 'inscription_academique_payer', 'inscription_academique_statut',
-        'inscription_academique_tiers', 'push_token'];
+        'inscription_academique_tiers', 'push_token', 'notifications', 'notifications_lues'];
 
     private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
 
@@ -629,6 +630,20 @@ class ApiMobileController extends Controller
             'note_originale' => DB::table('notes')->where(['pv_id' => $pvId, 'etudiant_id' => $this->etudiant->id, 'matiere_id' => $matiere])->value('note_finale')]);
 
         return $this->ok(['id' => $id], 'Réclamation soumise avec succès');
+    }
+
+    /** Notifications de la cloche (et nombre de non lues). */
+    private function notifications(): JsonResponse
+    {
+        return $this->ok(app(CentreNotifications::class)->etudiant($this->etudiant));
+    }
+
+    /** Liste ouverte : tout est lu. */
+    private function notificationsLues(): JsonResponse
+    {
+        app(CentreNotifications::class)->marquerLues('etudiant', (int) $this->etudiant->id);
+
+        return $this->ok([], 'OK');
     }
 
     /** Téléphone qui recevra les notifications (jeton Firebase) ; « retirer » à la déconnexion. */

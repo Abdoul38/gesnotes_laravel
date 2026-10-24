@@ -858,6 +858,29 @@ CREATE TABLE `appareils_push` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notifications_mobile` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `type_compte` enum('etudiant','parent') NOT NULL,
+  `compte_id` int(10) unsigned NOT NULL,
+  `categorie` varchar(20) NOT NULL DEFAULT 'info' COMMENT 'resultats, absence, examen, paiement, message…',
+  `titre` varchar(150) NOT NULL,
+  `texte` varchar(500) NOT NULL,
+  `cree_le` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_compte` (`type_compte`,`compte_id`,`cree_le`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='notifications de l''application (historique affiché par la cloche)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notifications_lectures` (
+  `type_compte` enum('etudiant','parent') NOT NULL,
+  `compte_id` int(10) unsigned NOT NULL,
+  `lu_le` datetime NOT NULL,
+  PRIMARY KEY (`type_compte`,`compte_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='dernière ouverture de la liste des notifications (badge des non lues)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `parents_reset_codes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `parent_id` int(10) unsigned NOT NULL,
