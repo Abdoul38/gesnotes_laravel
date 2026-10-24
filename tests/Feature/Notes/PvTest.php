@@ -376,6 +376,22 @@ class PvTest extends TestCase
         $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertRedirect($this->url('pv'));
     }
 
+    public function test_saisie_du_pv_de_rattrapage_td_calcule_depuis_l_examen(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $this->saisir([$a => [$this->m1 => ['exam' => '10', 'cc' => '17'], $this->m2 => ['exam' => '8']]])->assertSessionHas('succes');
+        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'type_session' => 'rattrapage',
+            'libelle' => 'PV S1 rattrapage', 'pv_normale_id' => $this->pv]);
+
+        // Examen 20/40 au rattrapage : TD = 10/20 (le TD saisi et celui de 1ère session, 17, sont ignorés), note 30/60
+        $this->saisir([$a => [$this->m1 => ['exam' => '20', 'cc' => '19']]], $ratt)->assertSessionHas('succes');
+        $n = DB::table('notes')->where(['pv_id' => $ratt, 'etudiant_id' => $a, 'matiere_id' => $this->m1])->first();
+        $this->assertSame(['20.00', '10.00', '30.00'], [$n->note_examen, $n->note_cc, $n->note_finale]);
+        // TD affiché, non modifiable, dans le PV de rattrapage
+        $this->get($this->url("pv/$ratt"))->assertOk()->assertSee("le TD est la note d'examen ramenée au barème du TD", false)
+            ->assertDontSee("notes[$a][{$this->m1}][cc]", false);
+    }
+
     public function test_journal_des_modifications_de_notes(): void
     {
         $a = $this->etudiant('ALPHA');

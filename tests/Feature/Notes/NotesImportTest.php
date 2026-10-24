@@ -3,6 +3,7 @@
 namespace Tests\Feature\Notes;
 
 use App\Models\Utilisateur;
+use App\Services\Resultats;
 use App\Support\Tableur;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -125,14 +126,14 @@ class NotesImportTest extends TestCase
         DB::table('notes')->insert(['pv_id' => $ratt, 'etudiant_id' => $ids['ECHO'], 'matiere_id' => $this->m1, 'note_examen' => 40, 'note_cc' => 20, 'note_finale' => 60, 'observation' => 'AV']);
 
         $this->importer($this->m1, $this->fichierTexte("N° Etudiant;Nom;Prénoms;Examen/40;TD/20\n"
-            ."00021;ALPHA;X;30;\n"        // a composé, mieux qu'en 1ère session : 30 + TD de 1ère session (5) = 35
-            ."00022;BRAVO;X;10;\n"        // a composé, moins bien : 10 + 6 = 16 < 24 → la 1ère session (24) est gardée
+            ."00021;ALPHA;X;30;\n"        // a composé : examen 30/40 reporté sur le TD → 15/20, soit 45 (le TD de 1ère session, 5, n'est pas repris)
+            ."00022;BRAVO;X;10;8\n"       // a composé, moins bien : 10 + 5 (TD du fichier ignoré) = 15 < 24 → la 1ère session (24) est gardée
             ."00024;DELTA;X;;15\n"        // examen vide (TD saisi) : n'a pas composé → note écrasée
             ."00025;ECHO;X;5;0\n"),        // matière acquise en 1ère session : ignorée
             $ratt)->assertSessionHas('resultat_import', fn ($r) => $r['ok'] === 3 && $r['absents'] === 1);   // CHARLIE, absent du fichier
 
         $note = fn ($nom) => DB::table('notes')->where(['pv_id' => $ratt, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m1])->first();
-        $this->assertSame(['30.00', '5.00', '35.00', 0], [$note('ALPHA')->note_examen, $note('ALPHA')->note_cc, $note('ALPHA')->note_finale, (int) $note('ALPHA')->defaillant]);
+        $this->assertSame(['30.00', '15.00', '45.00', 0], [$note('ALPHA')->note_examen, $note('ALPHA')->note_cc, $note('ALPHA')->note_finale, (int) $note('ALPHA')->defaillant]);
         $this->assertSame(['18.00', '6.00', '24.00'], [$note('BRAVO')->note_examen, $note('BRAVO')->note_cc, $note('BRAVO')->note_finale]);
         foreach (['CHARLIE', 'DELTA'] as $absent) {
             $this->assertSame([null, null, 1], [$note($absent)->note_examen, $note($absent)->note_finale, (int) $note($absent)->defaillant], $absent);
@@ -149,7 +150,7 @@ class NotesImportTest extends TestCase
             ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m1, 'note_examen' => 30, 'note_cc' => 15, 'note_finale' => 45],
             ['pv_id' => $this->pv, 'etudiant_id' => $a, 'matiere_id' => $this->m2, 'note_examen' => 14, 'note_cc' => null, 'note_finale' => 14],
         ]);
-        app(\App\Services\Resultats::class)->recalculer($this->pv, $a);
+        app(Resultats::class)->recalculer($this->pv, $a);
 
         $export = $this->connecte($this->admin)->get($this->url("pv/export?id={$this->pv}"))->assertOk()->assertDownload();
         $chemin = $export->baseResponse->getFile()->getPathname();
@@ -228,9 +229,9 @@ class NotesImportTest extends TestCase
                 ['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m1, 'note_examen' => $exam, 'note_cc' => $td, 'note_finale' => $exam + $td],
                 ['pv_id' => $this->pv, 'etudiant_id' => $ids[$nom], 'matiere_id' => $this->m2, 'note_examen' => $m2, 'note_cc' => null, 'note_finale' => $m2],
             ]);
-            app(\App\Services\Resultats::class)->recalculer($this->pv, $ids[$nom]);
+            app(Resultats::class)->recalculer($this->pv, $ids[$nom]);
         }
-        app(\App\Services\Resultats::class)->recalculerRangs($this->pv);
+        app(Resultats::class)->recalculerRangs($this->pv);
         $this->assertSame(['Admis', 'Ajourné', 'Elim', 'Admis', 'Défaillant', 'Admis'],
             array_map(fn ($id) => DB::table('resultats_semestre')->where('etudiant_id', $id)->value('decision'), array_values($ids)));
 
@@ -280,9 +281,9 @@ class NotesImportTest extends TestCase
             ['pv_id' => $this->pv, 'etudiant_id' => $b, 'matiere_id' => $this->m2, 'note_examen' => 9, 'note_cc' => null, 'note_finale' => 9],
         ]);
         foreach ([$a, $b] as $et) {
-            app(\App\Services\Resultats::class)->recalculer($this->pv, $et);
+            app(Resultats::class)->recalculer($this->pv, $et);
         }
-        app(\App\Services\Resultats::class)->recalculerRangs($this->pv);
+        app(Resultats::class)->recalculerRangs($this->pv);
         $this->connecte($this->admin);
         $lire = fn ($reponse) => $reponse->assertOk()->assertDownload()->baseResponse->getFile()->getPathname();
         $valeurs = Tableur::xlsx($lire($this->get($this->url("pv/export?id={$this->pv}"))));
@@ -311,7 +312,7 @@ class NotesImportTest extends TestCase
 
         // Une note fixée à la main (réclamation : note finale ≠ Exam. + TD) garde sa valeur, sans formule
         DB::table('notes')->where(['etudiant_id' => $a, 'matiere_id' => $this->m1])->update(['note_finale' => 50]);
-        app(\App\Services\Resultats::class)->recalculer($this->pv, $a);
+        app(Resultats::class)->recalculer($this->pv, $a);
         $zip->open($lire($this->get($this->url("pv/export?id={$this->pv}&formules=1"))));
         $this->assertStringContainsString('<c r="F5" s="0"><v>50</v></c>', (string) $zip->getFromName('xl/worksheets/sheet1.xml'));
         $zip->close();

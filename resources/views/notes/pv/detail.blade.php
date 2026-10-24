@@ -217,7 +217,9 @@
               </td>
               @if ($avecTd)
               <td style="text-align:center">
-                @if ($saisie)
+                @if ($saisie && $pv->type_session === 'rattrapage')
+                <span style="font-size:11px;font-weight:600;color:var(--text-muted)" title="Rattrapage : le TD est la note d'examen ramenée au barème du TD">{{ $f2($note?->note_cc) }}</span>
+                @elseif ($saisie)
                 <input type="number" class="note-input cc-input" name="notes[{{ $et->id }}][{{ $m->id }}][cc]" value="{{ $note?->note_cc }}"
                   min="0" max="{{ (float) $m->note_max_cc }}" step="0.01" data-decimales="2" placeholder="TD" style="width:56px" aria-label="TD {{ $m->libelle }} — {{ $et->nom }}">
                 @else

@@ -5,6 +5,7 @@ namespace Tests\Feature\Portails;
 use App\Models\Utilisateur;
 use App\Services\NotesEnseignants;
 use App\Services\Pv;
+use App\Services\SaisieNotes;
 use App\Support\Tableur;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -251,6 +252,23 @@ class PortailEnseignantTest extends TestCase
             ->assertSessionHas('erreur', 'Aucun dossier enseignant lié à votre compte.');
     }
 
+    public function test_td_du_rattrapage_calcule_depuis_l_examen(): void
+    {
+        // Exemple de l'université : examen /30 et TD /30 ; 1ère session 5 + 17 ; rattrapage 15/30 → TD 15/30, note 30/60
+        $mat = (object) ['note_max_examen' => 30, 'note_max_cc' => 30];
+        $this->assertSame(15.0, SaisieNotes::tdRattrapage(15.0, $mat));
+        $this->assertSame(10.0, SaisieNotes::tdRattrapage(30.0, (object) ['note_max_examen' => 60, 'note_max_cc' => 20]));
+        $this->assertNull(SaisieNotes::tdRattrapage(12.0, (object) ['note_max_examen' => 20, 'note_max_cc' => 0]));
+        $this->assertNull(SaisieNotes::tdRattrapage(null, $mat));
+
+        // Pas d'onglet TD au rattrapage pour l'enseignant de TD
+        $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'type_session' => 'rattrapage',
+            'libelle' => 'PV S1 rattrapage', 'pv_normale_id' => $this->pv]);
+        $this->connecte($this->td)->get($this->url("portail/enseignant?annee_id={$this->annee}&pv_id=$ratt&mat_id={$this->m1}"))->assertOk()
+            ->assertSee("le TD est calculé à partir de la note d'examen");
+        $this->saisir($this->td, 'cc', [1 => '10'], $this->m1, $ratt)->assertSessionHas('erreur');
+    }
+
     public function test_rattrapage_td_de_premiere_session_et_absent(): void
     {
         // M1 (Exam./40 + TD/20) non validée en 1ère session : 10 + 5 = 15 ; 12 + 4 = 16
@@ -263,11 +281,12 @@ class PortailEnseignantTest extends TestCase
         $ratt = DB::table('pv_sessions')->insertGetId(['promotion_id' => $this->promo, 'semestre_id' => $this->sem, 'type_session' => 'rattrapage',
             'libelle' => 'PV S1 rattrapage', 'pv_normale_id' => $this->pv]);
 
-        // L'enseignant de cours saisit l'examen : TD de 1ère session repris (30 + 5 = 35) ; BRAVO laissé vide = n'a pas composé
+        // L'enseignant de cours saisit l'examen : 30/40 reporté sur le TD (15/20), soit 45 — le TD de 1ère session (5) n'est pas repris ;
+        // BRAVO laissé vide = n'a pas composé
         $this->saisir($this->cours, 'exam', [$a => '30', $b => ''], $this->m1, $ratt)->assertSessionHas('succes');
         $this->assertSame(0, DB::table('notes')->where('pv_id', $ratt)->count());
         $this->connecte($this->cours)->post($this->url('portail/enseignant/finalisation'), ['annee_id' => $this->annee, 'pv_id' => $ratt, 'mat_id' => $this->m1])->assertSessionHas('succes');
-        $this->assertSame(['30.00', '5.00', '35.00'], [$this->note($a, $this->m1, $ratt)->note_examen, $this->note($a, $this->m1, $ratt)->note_cc, $this->note($a, $this->m1, $ratt)->note_finale]);
+        $this->assertSame(['30.00', '15.00', '45.00'], [$this->note($a, $this->m1, $ratt)->note_examen, $this->note($a, $this->m1, $ratt)->note_cc, $this->note($a, $this->m1, $ratt)->note_finale]);
         $this->assertSame([null, 1], [$this->note($b, $this->m1, $ratt)->note_finale, (int) $this->note($b, $this->m1, $ratt)->defaillant]);
     }
 

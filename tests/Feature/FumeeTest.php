@@ -63,7 +63,6 @@ class FumeeTest extends TestCase
         foreach ($comptes as $role => $u) {
             foreach ($pages as $uri) {
                 $r = $this->connecte($u)->get($this->url(ltrim($uri, '/')));
-");
                 if ($r->getStatusCode() >= 500) {
                     $erreurs[] = "$role → /$uri : HTTP {$r->getStatusCode()}";
                 }

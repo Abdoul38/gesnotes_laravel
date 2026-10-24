@@ -37,10 +37,10 @@ class NotesEnseignants
         return Schema::hasTable('notes_enseignants') && Schema::hasTable('notes_finalisations');
     }
 
-    /** Composantes d'une matière : examen, et TD s'il est prévu. */
-    public static function composantes(object $mat): array
+    /** Composantes d'une matière : examen, et TD s'il est prévu (pas au rattrapage : il découle de l'examen). */
+    public static function composantes(object $mat, ?object $pv = null): array
     {
-        return (float) $mat->note_max_cc > 0 ? ['exam', 'cc'] : ['exam'];
+        return (float) $mat->note_max_cc > 0 && ($pv->type_session ?? '') !== 'rattrapage' ? ['exam', 'cc'] : ['exam'];
     }
 
     /** Composantes finalisées de la matière dans ce PV. */
@@ -49,7 +49,7 @@ class NotesEnseignants
         $faites = DB::table('notes_finalisations')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id])->pluck('composante')->all();
         if (! $faites && $pv->type_session === 'normale' && ! empty($mat->finalisee)
             && ! DB::table('notes_enseignants')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id])->exists()) {
-            return self::composantes($mat);   // finalisée avant la finalisation par composante
+            return self::composantes($mat, $pv);   // finalisée avant la finalisation par composante
         }
 
         return $faites;
@@ -100,7 +100,7 @@ class NotesEnseignants
         return DB::transaction(function () use ($pv, $mat, $composantes, $utilisateur) {
             $nb = 0;
             $deja = $this->finalisees($pv, $mat);
-            foreach (array_intersect(self::composantes($mat), $composantes) as $c) {
+            foreach (array_intersect(self::composantes($mat, $pv), $composantes) as $c) {
                 if (in_array($c, $deja, true)) {
                     continue;
                 }
@@ -129,7 +129,7 @@ class NotesEnseignants
         DB::transaction(function () use ($pv, $mat, $composantes) {
             if (! DB::table('notes_finalisations')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id])->exists() && $this->finalisees($pv, $mat)) {
                 // Finalisée par l'ancienne règle : les autres composantes restent finalisées
-                foreach (array_diff(self::composantes($mat), $composantes) as $c) {
+                foreach (array_diff(self::composantes($mat, $pv), $composantes) as $c) {
                     DB::table('notes_finalisations')->insert(['pv_id' => $pv->id, 'matiere_id' => $mat->id, 'composante' => $c, 'finalise_le' => now()]);
                 }
             }
@@ -145,7 +145,7 @@ class NotesEnseignants
             return;
         }
         $faites = DB::table('notes_finalisations')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id])->pluck('composante')->all();
-        $complete = ! array_diff(self::composantes($mat), $faites);
+        $complete = ! array_diff(self::composantes($mat, $pv), $faites);
         DB::table('matieres')->where('id', $mat->id)->update($complete
             ? ['finalisee' => 1, 'finalisee_par' => $utilisateur, 'finalisee_le' => now()]
             : ['finalisee' => 0, 'finalisee_par' => null, 'finalisee_le' => null]);

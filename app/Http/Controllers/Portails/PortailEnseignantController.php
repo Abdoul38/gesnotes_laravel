@@ -87,7 +87,7 @@ class PortailEnseignantController extends Controller
         $finalisees = [];
         $enAttente = 0;
         if ($choix) {
-            $onglets = $this->onglets($choix['type_charge'], $choix['mat']);
+            $onglets = $this->onglets($choix['type_charge'], $choix['mat'], $choix['pv']);
             $tc = isset($onglets[$request->query('tc')]) ? $request->query('tc') : array_key_first($onglets);
             $finalisees = $this->notesEns->finalisees($choix['pv'], $choix['mat']);
             $etudiants = $this->etudiants($choix['pv'], $choix['mat']->id)
@@ -251,7 +251,7 @@ class PortailEnseignantController extends Controller
             return $mode;
         }
         $choix = $this->selection($u, $mode, (int) $request->query('annee_id'), (int) $request->query('pv_id'), (int) $request->query('mat_id'));
-        $onglets = $choix ? $this->onglets($choix['type_charge'], $choix['mat']) : [];
+        $onglets = $choix ? $this->onglets($choix['type_charge'], $choix['mat'], $choix['pv']) : [];
         $tc = (string) $request->query('tc', 'exam');
         if (! $choix || ! isset($onglets[$tc])) {
             return redirect()->route('portail_enseignant')->with('erreur', 'Matière introuvable dans vos affectations.');
@@ -295,7 +295,7 @@ class PortailEnseignantController extends Controller
         if ($pv->verrouille) {
             return $retour->with('erreur', 'Ce PV est verrouillé.');
         }
-        $composantes = $mode === 'enseignant' ? array_keys($this->onglets($choix['type_charge'], $mat)) : NotesEnseignants::composantes($mat);
+        $composantes = $mode === 'enseignant' ? array_keys($this->onglets($choix['type_charge'], $mat, $pv)) : NotesEnseignants::composantes($mat, $pv);
         if (! $composantes) {
             return $retour->with('erreur', 'Aucune note à finaliser pour votre affectation.');
         }
@@ -446,14 +446,15 @@ class PortailEnseignantController extends Controller
         return ['pv' => $pv, 'mat' => $mat, 'type_charge' => $mode === 'enseignant' ? (string) $lignes->first()->type_charge : 'cours_td'];
     }
 
-    /** Onglets ouverts par l'affectation : examen (cours), TD (si la matière en a). */
-    private function onglets(string $typeCharge, object $mat): array
+    /** Onglets ouverts par l'affectation : examen (cours), TD (si la matière en a, hors rattrapage). */
+    private function onglets(string $typeCharge, object $mat, ?object $pv = null): array
     {
         $onglets = [];
         if ($typeCharge !== 'td') {
             $onglets['exam'] = 'Examen';
         }
-        if ($typeCharge !== 'cours' && (float) $mat->note_max_cc > 0) {
+        // Au rattrapage, le TD n'est pas composé : il découle de l'examen (SaisieNotes::tdRattrapage)
+        if ($typeCharge !== 'cours' && (float) $mat->note_max_cc > 0 && ($pv->type_session ?? '') !== 'rattrapage') {
             $onglets['cc'] = 'TD';
         }
 
@@ -503,7 +504,7 @@ class PortailEnseignantController extends Controller
         if ($mode !== 'admin' && $this->notesEns->finalisee($choix['pv'], $choix['mat'], $tc)) {
             return redirect($retour)->with('erreur', 'Ces notes sont finalisées : elles ne sont plus modifiables.');
         }
-        if (! isset($this->onglets($choix['type_charge'], $choix['mat'])[$tc])) {
+        if (! isset($this->onglets($choix['type_charge'], $choix['mat'], $choix['pv'])[$tc])) {
             return redirect($retour)->with('erreur', "Vous n'êtes pas affecté pour saisir ce type de note sur cette matière.");
         }
 
@@ -541,7 +542,7 @@ class PortailEnseignantController extends Controller
             ->get(['pv_id', 'matiere_id', 'composante', DB::raw('COUNT(*) AS nb')])->groupBy(fn ($n) => $n->pv_id.'-'.$n->matiere_id);
 
         return $affectations->each(function ($af) use ($mode, $faites, $attente) {
-            $composantes = array_keys($this->onglets($mode === 'enseignant' ? (string) $af->type_charge : 'cours_td', $af));
+            $composantes = array_keys($this->onglets($mode === 'enseignant' ? (string) $af->type_charge : 'cours_td', $af, (object) ['type_session' => $af->type_session]));
             $cle = $af->pv_id.'-'.$af->mat_id;
             $finies = $faites->has($cle) ? $faites[$cle]->pluck('composante')->all()
                 // Finalisée avant la finalisation par composante (voir NotesEnseignants::finalisees)

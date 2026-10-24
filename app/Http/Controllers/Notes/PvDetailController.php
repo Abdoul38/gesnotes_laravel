@@ -9,6 +9,7 @@ use App\Services\Parametres;
 use App\Services\PresidentsJury;
 use App\Services\Pv;
 use App\Services\Resultats;
+use App\Services\SaisieNotes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -492,7 +493,9 @@ class PvDetailController extends Controller
                     return round((float) $brut, 2);
                 };
                 $exam = $lire('exam', (float) $m->note_max_examen);
-                $cc = (float) $m->note_max_cc > 0 ? $lire('cc', (float) $m->note_max_cc) : null;
+                // Rattrapage : seul l'examen est composé, le TD en découle (règle de l'université)
+                $cc = $pv->type_session === 'rattrapage' ? SaisieNotes::tdRattrapage($exam, $m)
+                    : ((float) $m->note_max_cc > 0 ? $lire('cc', (float) $m->note_max_cc) : null);
                 $lignes[] = [
                     'pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mat, 'note_examen' => $exam, 'note_cc' => $cc,
                     // Même calcul que l'ancienne saisie (le moteur juge ensuite le TD manquant)

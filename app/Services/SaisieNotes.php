@@ -16,8 +16,9 @@ use Illuminate\Support\Facades\DB;
  *    note vide, matière défaillante ;
  *  - examen saisi (a composé) : la meilleure note finale entre le rattrapage
  *    et la 1ère session est gardée ;
- *  - le TD n'est pas repassé : vide au rattrapage, celui de 1ère session est
- *    repris pour calculer la note de rattrapage.
+ *  - au rattrapage, l'étudiant ne compose que l'examen : sa note d'examen
+ *    est reportée proportionnellement sur le TD (examen 15/30, TD sur 30 →
+ *    TD 15/30), le TD de 1ère session n'est pas repris (voir tdRattrapage()).
  */
 class SaisieNotes
 {
@@ -33,11 +34,22 @@ class SaisieNotes
     }
 
     /**
+     * TD d'une note de rattrapage : la note d'examen ramenée au barème du TD
+     * (règle de l'université). Null si la matière n'a pas de TD.
+     */
+    public static function tdRattrapage(?float $exam, object $mat): ?float
+    {
+        $maxExam = (float) $mat->note_max_examen;
+        $maxCc = (float) $mat->note_max_cc;
+
+        return $exam === null || $maxCc <= 0 || $maxExam <= 0 ? null : round($exam * $maxCc / $maxExam, 2);
+    }
+
+    /**
      * Enregistre les notes [étudiant][matière] = [examen, TD], avec les règles
-     * de rattrapage ci-dessus. Différences voulues : examen vide au rattrapage
-     * = absent même si un TD est saisi (la 1ère session était gardée) ; TD
-     * vide au rattrapage = TD de 1ère session (la note n'était pas calculée et
-     * la 1ère session restait, même si le rattrapage était meilleur).
+     * de rattrapage ci-dessus. Différence voulue : examen vide au rattrapage
+     * = absent même si un TD est saisi (la 1ère session était gardée) ; le
+     * TD du fichier est ignoré au rattrapage (calculé depuis l'examen).
      */
     public function enregistrer(object $pv, array $saisies, int $utilisateur): int
     {
@@ -54,8 +66,8 @@ class SaisieNotes
                 if ($rattrapage && $exam === null) {
                     // N'a pas composé : la note de 1ère session est écrasée
                     [$td, $defaillant] = [null, 1];
-                } elseif ($rattrapage && $avecTd && $td === null && $n1?->note_cc !== null) {
-                    $td = (float) $n1->note_cc;   // TD non repassé : celui de 1ère session
+                } elseif ($rattrapage && $avecTd) {
+                    $td = self::tdRattrapage($exam, $matieres[$mid]);   // examen reporté sur le TD
                 }
                 // Note finale seulement si l'examen ET le TD prévu sont saisis
                 $finale = ($exam !== null && (! $avecTd || $td !== null)) ? $exam + ($td ?? 0) : null;
@@ -78,13 +90,15 @@ class SaisieNotes
      * celle déjà enregistrée — l'enseignant de cours et celui de TD saisissent
      * séparément. [étudiant => note], null = absent (rattrapage : matière
      * défaillante). Note finale seulement quand l'examen et le TD prévu sont
-     * là ; en rattrapage, la meilleure note finale des deux sessions est
-     * gardée, comme à l'import. Retourne les étudiants enregistrés.
+     * là ; en rattrapage, le TD est l'examen reporté sur le barème du TD et la
+     * meilleure note finale des deux sessions est gardée, comme à l'import.
+     * Retourne les étudiants enregistrés.
      */
     public function enregistrerComposante(object $pv, object $mat, string $type, array $valeurs, int $utilisateur): array
     {
         $existantes = DB::table('notes')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id])->whereIn('etudiant_id', array_keys($valeurs))->get()->keyBy('etudiant_id');
-        $session1 = ($pv->type_session === 'rattrapage' && $pv->pv_normale_id)
+        $rattrapage = $pv->type_session === 'rattrapage' && $pv->pv_normale_id;
+        $session1 = $rattrapage
             ? DB::table('notes')->where(['pv_id' => $pv->pv_normale_id, 'matiere_id' => $mat->id])->get()->keyBy('etudiant_id') : collect();
         $avecTd = (float) $mat->note_max_cc > 0;
         $lignes = [];
@@ -93,8 +107,8 @@ class SaisieNotes
             $n1 = $session1[$et] ?? null;
             $exam = $type === 'exam' ? $valeur : ($n?->note_examen !== null ? (float) $n->note_examen : null);
             $td = $type === 'cc' ? $valeur : ($n?->note_cc !== null ? (float) $n->note_cc : null);
-            if ($session1->isNotEmpty() && $type === 'exam' && $valeur !== null && $avecTd && $td === null && $n1?->note_cc !== null) {
-                $td = (float) $n1->note_cc;   // rattrapage : TD non repassé, celui de 1ère session
+            if ($rattrapage && $type === 'exam' && $avecTd) {
+                $td = self::tdRattrapage($valeur, $mat);   // rattrapage : examen reporté sur le TD
             }
             $finale = ($valeur !== null && $exam !== null && (! $avecTd || $td !== null)) ? $exam + ($td ?? 0) : null;
             if ($finale !== null && $n1 && $n1->note_finale !== null && (float) $n1->note_finale > $finale) {

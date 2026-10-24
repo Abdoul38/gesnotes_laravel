@@ -201,7 +201,7 @@
       </div>
     </div>
     @elseif ($choix && ! $onglets)
-    <div class="card"><div class="empty-state" style="padding:32px"><p>Cette matière n'a pas de TD : aucune note à saisir pour votre affectation.</p></div></div>
+    <div class="card"><div class="empty-state" style="padding:32px"><p>{{ $choix['pv']->type_session === 'rattrapage' ? "Au rattrapage, l'étudiant ne compose que l'examen : le TD est calculé à partir de la note d'examen. Aucune note à saisir pour votre affectation." : "Cette matière n'a pas de TD : aucune note à saisir pour votre affectation." }}</p></div></div>
     @elseif ($choix)
     <div class="card"><div class="empty-state" style="padding:32px"><p>Aucun étudiant trouvé.</p></div></div>
     @else
