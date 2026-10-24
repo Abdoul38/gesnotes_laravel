@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portails;
 use App\Http\Controllers\Controller;
 use App\Models\ParentEleve;
 use App\Services\Parametres;
+use App\Services\ReinitialisationParent;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -72,6 +73,42 @@ class ConnexionParentController extends Controller
         $parent->forceFill(['derniere_connexion' => now()])->saveQuietly();
 
         return redirect()->route('portail_parent');
+    }
+
+    /** Mot de passe oublié : étape 1 (numéro) ou 2 (code reçu par SMS et nouveau mot de passe). */
+    public function oubli(Request $request, Parametres $parametres): View
+    {
+        if ($request->boolean('autre')) {
+            $request->session()->forget('parent_oubli_telephone');
+        }
+
+        return view('portails.oubli_parent', [
+            'institution' => $parametres->valeur('institution_nom', config('app.name')),
+            'telephone' => $request->session()->get('parent_oubli_telephone'),
+        ]);
+    }
+
+    public function envoyerCode(Request $request, ReinitialisationParent $reinit): RedirectResponse
+    {
+        $telephone = ReinitialisationParent::telephone((string) $request->input('telephone'));
+        if ($erreur = $reinit->demander($telephone, (string) $request->ip())) {
+            return redirect()->route('login_parent.oubli')->with('erreur', $erreur);
+        }
+        // Numéro gardé en session (pas dans l'adresse) pour l'étape du code
+        $request->session()->put('parent_oubli_telephone', $telephone);
+
+        return redirect()->route('login_parent.oubli')->with('succes', ReinitialisationParent::GENERIQUE);
+    }
+
+    public function reinitialiser(Request $request, ReinitialisationParent $reinit): RedirectResponse
+    {
+        $telephone = (string) $request->session()->get('parent_oubli_telephone', '');
+        if ($erreur = $reinit->reinitialiser($telephone, (string) $request->input('code'), (string) $request->input('nouveau'), (string) $request->ip())) {
+            return redirect()->route('login_parent.oubli')->with('erreur', $erreur);
+        }
+        $request->session()->forget('parent_oubli_telephone');
+
+        return redirect()->route('login_parent')->with('succes', 'Mot de passe changé. Connectez-vous avec votre nouveau mot de passe.');
     }
 
     public function deconnecter(Request $request): RedirectResponse

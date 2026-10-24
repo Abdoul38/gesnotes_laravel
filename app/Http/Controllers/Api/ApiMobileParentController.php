@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\Licence;
+use App\Services\ReinitialisationParent;
 use App\Services\SuiviEtudiant;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\JsonResponse;
@@ -27,12 +28,16 @@ use Throwable;
  * Lecture seule : le parent ne voit que les enfants liés à son compte
  * (parents_etudiants) — notes et résultats des PV finalisés ou publiés,
  * présences, paiements, emploi du temps, examens, annonces. Compte
- * désactivé : ses sessions sont refusées.
+ * désactivé : ses sessions sont refusées. Mot de passe oublié : code par SMS
+ * (App\Services\ReinitialisationParent).
  */
 class ApiMobileParentController extends Controller
 {
     private const ACTIONS = ['login', 'logout', 'profil', 'enfant', 'resultats', 'presences', 'paiements', 'emploi_du_temps', 'examens',
-        'annonces', 'mot_de_passe'];
+        'annonces', 'mot_de_passe', 'reset_password_demande', 'reset_password'];
+
+    /** Actions sans session : connexion, mot de passe oublié. */
+    private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
 
     /** Actions qui portent sur un enfant (paramètre et_id). */
     private const PAR_ENFANT = ['enfant', 'resultats', 'presences', 'paiements', 'emploi_du_temps', 'examens', 'annonces'];
@@ -57,7 +62,7 @@ class ApiMobileParentController extends Controller
         if (! $licence->verifierInstallation()['valide']) {
             return $this->erreur("Service indisponible : licence de l'établissement invalide. Contactez la scolarité.", 503);
         }
-        if ($action !== 'login') {
+        if (! in_array($action, self::PUBLIQUES, true)) {
             $this->parent = $this->authentifier($request);
             if (! $this->parent) {
                 return $this->erreur($request->bearerToken() ? 'Session expirée, veuillez vous reconnecter' : 'Token manquant', 401);
@@ -109,6 +114,24 @@ class ApiMobileParentController extends Controller
         $this->parent = $parent;
 
         return $this->ok(['token' => $jeton, 'parent' => $this->infosParent()], 'Connexion réussie');
+    }
+
+    /** Mot de passe oublié : code envoyé par SMS (même réponse que le numéro existe ou non). */
+    private function resetPasswordDemande(Request $request): JsonResponse
+    {
+        $erreur = app(ReinitialisationParent::class)->demander((string) $request->input('telephone'), (string) $request->ip());
+
+        return $erreur ? $this->erreur($erreur, str_starts_with($erreur, 'Trop') ? 429 : 400)
+            : $this->ok([], ReinitialisationParent::GENERIQUE.' Si vous ne recevez rien, contactez la scolarité.');
+    }
+
+    private function resetPassword(Request $request): JsonResponse
+    {
+        $erreur = app(ReinitialisationParent::class)->reinitialiser((string) $request->input('telephone'), (string) $request->input('code'),
+            (string) $request->input('nouveau_mdp'), (string) $request->ip());
+
+        return $erreur ? $this->erreur($erreur, str_starts_with($erreur, 'Trop') ? 429 : 400)
+            : $this->ok([], 'Mot de passe réinitialisé. Connectez-vous avec votre nouveau mot de passe.');
     }
 
     private function logout(): JsonResponse

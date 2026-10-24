@@ -844,6 +844,21 @@ CREATE TABLE `mobile_reset_codes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `parents_reset_codes` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `parent_id` int(10) unsigned NOT NULL,
+  `code_hash` char(64) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `tentatives` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `used` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_parent` (`parent_id`),
+  CONSTRAINT `parents_reset_codes_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `parents` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='codes de réinitialisation du mot de passe des parents (SMS)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `mobile_tokens` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `etudiant_id` int(10) unsigned NOT NULL,

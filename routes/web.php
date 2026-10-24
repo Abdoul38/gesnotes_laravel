@@ -39,6 +39,9 @@ Route::get('/verification', VerifierDocumentController::class)->name('verifier_d
 // Espace Parents : comptes et session distincts du personnel (garde « parent »)
 Route::get('/parents/connexion', [ConnexionParentController::class, 'formulaire'])->name('login_parent');
 Route::post('/parents/connexion', [ConnexionParentController::class, 'connecter'])->name('login_parent.envoyer');
+Route::get('/parents/mot-de-passe-oublie', [ConnexionParentController::class, 'oubli'])->name('login_parent.oubli');
+Route::post('/parents/mot-de-passe-oublie/code', [ConnexionParentController::class, 'envoyerCode'])->name('login_parent.oubli.code');
+Route::post('/parents/mot-de-passe-oublie', [ConnexionParentController::class, 'reinitialiser'])->name('login_parent.oubli.reinitialiser');
 Route::middleware(['parent', 'licence'])->group(function () {
     Route::get('/parents', [PortailParentController::class, 'index'])->name('portail_parent');
     Route::post('/parents/compte', [PortailParentController::class, 'compte'])->name('portail_parent.compte');

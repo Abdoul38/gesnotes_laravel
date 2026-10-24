@@ -30,6 +30,8 @@
     <div class="erreur">Trop de tentatives. Réessayez dans {{ $attente }} minute(s).</div>
     @elseif (session('erreur'))
     <div class="erreur">{{ session('erreur') }}</div>
+    @elseif (session('succes'))
+    <div class="info" style="background:#dcfce7;color:#166534">{{ session('succes') }}</div>
     @elseif ($expiree)
     <div class="info">⌛ Votre session a expiré après une période d'inactivité. Veuillez vous reconnecter.</div>
     @endif
@@ -41,7 +43,8 @@
         <input type="password" name="mot_de_passe" id="mot_de_passe" required autocomplete="current-password"></div>
       <button type="submit" class="btn-connexion" @disabled($attente)>Se connecter</button>
     </form>
-    <div class="note">Identifiants fournis par l'établissement — contactez la scolarité en cas d'oubli.</div>
+    <div style="text-align:center;margin-top:14px"><a href="{{ route('login_parent.oubli') }}" style="font-size:12.5px;color:#0F2942">Mot de passe oublié ?</a></div>
+    <div class="note">Identifiants fournis par l'établissement. Mot de passe oublié : un code vous est envoyé par SMS.</div>
   </div>
 </div>
 @endsection

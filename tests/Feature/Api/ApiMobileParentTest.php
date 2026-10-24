@@ -100,6 +100,41 @@ class ApiMobileParentTest extends TestCase
         $this->api($jeton, 'annonces', $et)->assertOk()->assertJsonPath('data.0.titre', 'Rentrée');
     }
 
+    public function test_mot_de_passe_oublie_par_sms(): void
+    {
+        RateLimiter::clear('reset_parent|udh|demande|127.0.0.1|90112233');
+        RateLimiter::clear('reset_parent|udh|reset|127.0.0.1|90112233');
+        $jeton = $this->jeton();
+        $api = fn (string $action, array $d) => $this->postJson($this->url("api/mobile/parents?action=$action"), $d);
+
+        // Même réponse pour un numéro inconnu ; aucun SMS
+        $api('reset_password_demande', ['telephone' => '99999999'])->assertJson(['success' => true]);
+        $this->assertSame(0, DB::table('sms_logs')->count());
+        $api('reset_password_demande', ['telephone' => '90 11 22 33'])->assertJson(['success' => true]);
+        $sms = DB::table('sms_logs')->where('contexte', 'reset_parent')->first();
+        $this->assertSame('90112233', $sms->numero);
+        preg_match('/(\d{6})/', $sms->message, $m);
+
+        $api('reset_password', ['telephone' => '90112233', 'code' => '000000', 'nouveau_mdp' => 'Nouveau123'])->assertJson(['success' => false]);
+        $api('reset_password', ['telephone' => '90112233', 'code' => $m[1], 'nouveau_mdp' => 'court'])->assertJson(['success' => false]);
+        $api('reset_password', ['telephone' => '90112233', 'code' => $m[1], 'nouveau_mdp' => 'Nouveau123'])->assertJson(['success' => true]);
+        $this->assertTrue(Hash::check('Nouveau123', DB::table('parents')->value('mot_de_passe_hash')));
+        // Code à usage unique ; sessions mobiles fermées
+        $api('reset_password', ['telephone' => '90112233', 'code' => $m[1], 'nouveau_mdp' => 'Autre1234'])->assertJson(['success' => false]);
+        $this->api($jeton, 'profil')->assertStatus(401);
+    }
+
+    public function test_mot_de_passe_oublie_sur_le_site(): void
+    {
+        RateLimiter::clear('reset_parent|udh|demande|127.0.0.1|90112233');
+        $this->get($this->url('parents/connexion'))->assertOk()->assertSee('Mot de passe oublié ?');
+        $this->post($this->url('parents/mot-de-passe-oublie/code'), ['telephone' => '90112233'])->assertRedirect($this->url('parents/mot-de-passe-oublie'));
+        $this->get($this->url('parents/mot-de-passe-oublie'))->assertOk()->assertSee('Code envoyé au')->assertSee('90112233');
+        preg_match('/(\d{6})/', DB::table('sms_logs')->value('message'), $m);
+        $this->post($this->url('parents/mot-de-passe-oublie'), ['code' => $m[1], 'nouveau' => 'Nouveau123'])->assertRedirect($this->url('parents/connexion'));
+        $this->post($this->url('parents/connexion'), ['telephone' => '90112233', 'mot_de_passe' => 'Nouveau123'])->assertRedirect($this->url('parents'));
+    }
+
     public function test_mot_de_passe_et_deconnexion(): void
     {
         $jeton = $this->jeton();

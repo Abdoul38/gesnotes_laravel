@@ -146,6 +146,20 @@ class ApiService {
     return res;
   }
 
+  /// Appel de l'API parents sans session (mot de passe oublié).
+  static Future<Map<String, dynamic>> _postParentsPublic(String action, Map<String, dynamic> body) {
+    final uri = Uri.parse(AppConstants.apiParentsUrl).replace(queryParameters: {'action': action});
+    return _envoyer(() => http.post(uri,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'}, body: json.encode(body)));
+  }
+
+  /// Mot de passe oublié (parent) : code envoyé par SMS au numéro du compte.
+  static Future<Map<String, dynamic>> demanderCodeParent(String telephone) =>
+      _postParentsPublic('reset_password_demande', {'telephone': telephone});
+
+  static Future<Map<String, dynamic>> reinitialiserMotDePasseParent(String telephone, String code, String nouveau) =>
+      _postParentsPublic('reset_password', {'telephone': telephone, 'code': code, 'nouveau_mdp': nouveau});
+
   static Future<Map<String, dynamic>?> getCachedParent() async {
     final prefs = await SharedPreferences.getInstance();
     final s = prefs.getString(_parentKey);

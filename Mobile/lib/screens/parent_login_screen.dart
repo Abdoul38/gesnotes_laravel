@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 import 'parent_home_screen.dart';
+import 'parent_reset_screen.dart';
 
 class ParentLoginScreen extends StatefulWidget {
   const ParentLoginScreen({super.key});
@@ -99,7 +100,15 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                       : const Text('Se connecter'),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParentResetScreen())),
+                  child: const Text('Mot de passe oublié ?',
+                      style: TextStyle(color: AppConstants.primaryColor, fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
@@ -108,7 +117,7 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
                   SizedBox(width: 8),
                   Expanded(child: Text(
                     'Votre compte parent est créé par la scolarité de l\'université, qui le relie à votre ou vos enfants. '
-                    'Mot de passe oublié : contactez la scolarité.',
+                    'Mot de passe oublié : un code vous est envoyé par SMS.',
                     style: TextStyle(fontSize: 12, color: Colors.blue),
                   )),
                 ]),
