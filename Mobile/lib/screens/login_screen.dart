@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
 import 'reset_password_screen.dart';
+import 'parent_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -194,7 +195,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  // Espace parent
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const ParentLoginScreen())),
+                    icon: const Icon(Icons.family_restroom, color: AppConstants.primaryColor),
+                    label: const Text('Je suis parent d\'étudiant',
+                        style: TextStyle(color: AppConstants.primaryColor, fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: AppConstants.primaryColor),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
 
                   // Info premier accès
                   Container(

@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   // ── API ────────────────────────────────────────────────────
-  // Modifier selon votre configuration réseau
-  static const String apiUrl = 'https://edufile.alwaysdata.net/api_mobile.php';
-  // Pour test local (même appareil) :
-  //static const String apiUrl = 'http://172.18.10.36/gesnotes/api_mobile.php';
+  // Adresse du serveur, modifiable à la compilation sans toucher au code :
+  //   flutter run --dart-define=API_URL=http://172.18.10.36:8012/api_mobile.php
+  static const String apiUrl = String.fromEnvironment('API_URL',
+      defaultValue: 'https://udh.cursus-niger.net/api_mobile.php');
+
+  /// API de l'Espace parent : même serveur, adresse /api/mobile/parents.
+  static String get apiParentsUrl => apiUrl.endsWith('api_mobile.php')
+      ? apiUrl.replaceFirst(RegExp(r'api_mobile\.php$'), 'api/mobile/parents')
+      : '$apiUrl/parents';
 
   static const String appName = 'UDH Mobile';
   static const String appVersion = '1.0.0';

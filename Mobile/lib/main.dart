@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'services/api_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/parent_home_screen.dart';
 import 'utils/constants.dart';
 
 void main() async {
@@ -62,8 +63,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     final loggedIn = await ApiService.isLoggedIn();
+    final parent = loggedIn && await ApiService.estParent();
+    if (!mounted) return;
     Navigator.pushReplacement(context,
-      MaterialPageRoute(builder: (_) => loggedIn ? const HomeScreen() : const LoginScreen()),
+      MaterialPageRoute(builder: (_) => !loggedIn ? const LoginScreen() : (parent ? const ParentHomeScreen() : const HomeScreen())),
     );
   }
 

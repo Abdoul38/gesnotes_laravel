@@ -10,6 +10,8 @@ import '../utils/constants.dart';
 class ApiService {
   static const _tokenKey    = 'udh_auth_token';
   static const _etudiantKey = 'udh_etudiant_data';
+  static const _modeKey     = 'udh_mode';     // 'etudiant' ou 'parent'
+  static const _parentKey   = 'udh_parent_data';
 
   /// Appelé quand le serveur refuse le jeton (session expirée) : retour à la connexion.
   static void Function()? onSessionExpiree;
@@ -42,7 +44,18 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_etudiantKey);
+    await prefs.remove(_modeKey);
+    await prefs.remove(_parentKey);
   }
+
+  /// Session ouverte avec un compte parent (Espace parent).
+  static Future<bool> estParent() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_modeKey) == 'parent';
+  }
+
+  static Future<String> _url() async =>
+      await estParent() ? AppConstants.apiParentsUrl : AppConstants.apiUrl;
 
   // ── Headers avec token ───────────────────────────────────
   // Le jeton passe UNIQUEMENT dans l'en-tête Authorization : dans l'adresse
@@ -88,14 +101,14 @@ class ApiService {
 
   // ── GET ──────────────────────────────────────────────────
   static Future<Map<String, dynamic>> get(String action, [Map<String, String>? params]) async {
-    final uri = Uri.parse(AppConstants.apiUrl).replace(queryParameters: {'action': action, ...?params});
+    final uri = Uri.parse(await _url()).replace(queryParameters: {'action': action, ...?params});
     final headers = await _headers();
     return _envoyer(() => http.get(uri, headers: headers));
   }
 
   // ── POST ─────────────────────────────────────────────────
   static Future<Map<String, dynamic>> post(String action, Map<String, dynamic> body) async {
-    final uri = Uri.parse(AppConstants.apiUrl).replace(queryParameters: {'action': action});
+    final uri = Uri.parse(await _url()).replace(queryParameters: {'action': action});
     final headers = await _headers();
     return _envoyer(() => http.post(uri, headers: headers, body: json.encode(body)));
   }
@@ -115,6 +128,51 @@ class ApiService {
       await saveEtudiant(etudiant);
     }
     return res;
+  }
+
+  // ── Espace parent ────────────────────────────────────────
+  /// Connexion avec un compte de l'Espace Parents (téléphone + mot de passe).
+  static Future<Map<String, dynamic>> loginParent(String telephone, String password) async {
+    final uri = Uri.parse(AppConstants.apiParentsUrl).replace(queryParameters: {'action': 'login'});
+    final res = await _envoyer(() => http.post(uri,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: json.encode({'telephone': telephone, 'password': password, 'device': 'Flutter Android'})));
+    if (res['success'] == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await saveToken(res['data']['token'] as String);
+      await prefs.setString(_modeKey, 'parent');
+      await prefs.setString(_parentKey, json.encode(res['data']['parent']));
+    }
+    return res;
+  }
+
+  static Future<Map<String, dynamic>?> getCachedParent() async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = prefs.getString(_parentKey);
+    if (s == null) return null;
+    try { return json.decode(s) as Map<String, dynamic>; } catch(_) { return null; }
+  }
+
+  static Future<Map<String, dynamic>> getProfilParent() async {
+    final res = await get('profil');
+    if (res['success'] == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_parentKey, json.encode(res['data']));
+    }
+    return res;
+  }
+
+  /// Données d'un enfant : enfant, resultats, presences, paiements, emploi_du_temps, examens, annonces.
+  static Future<Map<String, dynamic>> getEnfant(String action, int etudiantId) =>
+      get(action, {'et_id': etudiantId.toString()});
+
+  static Future<Map<String, dynamic>> changerMotDePasseParent(String actuel, String nouveau) =>
+      post('mot_de_passe', {'actuel': actuel, 'nouveau': nouveau});
+
+  /// Déconnexion parent : le jeton est aussi supprimé sur le serveur.
+  static Future<void> logoutParent() async {
+    await post('logout', {});
+    await logout();
   }
 
   static Future<bool> isLoggedIn() async {

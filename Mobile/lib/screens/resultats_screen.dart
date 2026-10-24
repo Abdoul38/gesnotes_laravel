@@ -5,7 +5,10 @@ import '../services/api_service.dart';
 import '../utils/constants.dart';
 
 class ResultatsScreen extends StatefulWidget {
-  const ResultatsScreen({super.key});
+  /// Espace parent : résultats de cet enfant (sinon ceux de l'étudiant connecté).
+  final int? etudiantId;
+  final String? titre;
+  const ResultatsScreen({super.key, this.etudiantId, this.titre});
   @override
   State<ResultatsScreen> createState() => _ResultatsScreenState();
 }
@@ -27,7 +30,10 @@ class _ResultatsScreenState extends State<ResultatsScreen>
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final res = await ApiService.getResultats();
+    final id = widget.etudiantId;
+    final cle = id == null ? 'resultats' : 'resultats_enfant_$id';
+    final res = id == null ? await ApiService.getResultats() : await ApiService.getEnfant('resultats', id);
+    if (!mounted) return;
     if (res['success'] == true) {
       setState(() {
         _notes     = res['data']['notes']     ?? [];
@@ -35,9 +41,9 @@ class _ResultatsScreenState extends State<ResultatsScreen>
         _loading   = false;
         _offline   = false;
       });
-      await ApiService.cacheData('resultats', res['data']);
+      await ApiService.cacheData(cle, res['data']);
     } else {
-      final cached = await ApiService.getCached('resultats');
+      final cached = await ApiService.getCached(cle);
       setState(() {
         _notes     = cached?['notes']     ?? [];
         _resultats = cached?['resultats'] ?? [];
@@ -51,7 +57,7 @@ class _ResultatsScreenState extends State<ResultatsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mes Résultats'),
+        title: Text(widget.titre ?? 'Mes Résultats'),
         actions: [
           if (_offline) const Padding(
             padding: EdgeInsets.only(right: 12),

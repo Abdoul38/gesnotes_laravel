@@ -6,7 +6,9 @@ import '../services/api_service.dart';
 import '../utils/constants.dart';
 
 class AnnoncesScreen extends StatefulWidget {
-  const AnnoncesScreen({super.key});
+  /// Espace parent : annonces destinées à cet enfant.
+  final int? etudiantId;
+  const AnnoncesScreen({super.key, this.etudiantId});
   @override
   State<AnnoncesScreen> createState() => _AnnoncesScreenState();
 }
@@ -21,12 +23,15 @@ class _AnnoncesScreenState extends State<AnnoncesScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final res = await ApiService.getAnnonces();
+    final id = widget.etudiantId;
+    final cle = id == null ? 'annonces' : 'annonces_enfant_$id';
+    final res = id == null ? await ApiService.getAnnonces() : await ApiService.getEnfant('annonces', id);
+    if (!mounted) return;
     if (res['success'] == true) {
       setState(() { _annonces = res['data'] ?? []; _loading = false; _offline = false; });
-      await ApiService.cacheData('annonces', res['data']);
+      await ApiService.cacheData(cle, res['data']);
     } else {
-      final cached = await ApiService.getCached('annonces');
+      final cached = await ApiService.getCached(cle);
       setState(() { _annonces = cached ?? []; _loading = false; _offline = true; });
     }
   }
