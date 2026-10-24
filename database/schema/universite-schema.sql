@@ -870,6 +870,22 @@ CREATE TABLE `niveaux` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mobile_tokens_parents` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `parent_id` int(10) unsigned NOT NULL,
+  `token` varchar(64) NOT NULL COMMENT 'empreinte SHA-256 du jeton',
+  `device_info` varchar(200) DEFAULT NULL,
+  `last_used` datetime DEFAULT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token` (`token`),
+  KEY `parent_id` (`parent_id`),
+  CONSTRAINT `mobile_tokens_parents_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `parents` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='sessions de l''application mobile des parents';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `notes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `pv_id` int(10) unsigned NOT NULL,

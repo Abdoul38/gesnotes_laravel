@@ -10,6 +10,7 @@ use App\Services\Identite;
 use App\Services\InscriptionEnLigne;
 use App\Services\Licence;
 use App\Services\Pv;
+use App\Services\SuiviEtudiant;
 use App\Universites\UniversiteCourante;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -240,40 +241,7 @@ class ApiMobileController extends Controller
 
     private function resultats(Request $request): JsonResponse
     {
-        $id = $this->etudiant->id;
-        $anneeId = (int) $request->query('annee_id');
-        $lignes = DB::table('inscriptions as i')->join('promotions as p', 'p.id', '=', 'i.promotion_id')->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')
-            ->join('niveaux as nv', 'nv.id', '=', 'p.niveau_id')->join('unites_enseignement as ue', 'ue.promotion_id', '=', 'p.id')
-            ->join('semestres as s', 's.id', '=', 'ue.semestre_id')->join('matieres as m', fn ($j) => $j->on('m.ue_id', '=', 'ue.id')->where('m.actif', 1))
-            ->leftJoin('pv_sessions as ps1', fn ($j) => $j->on('ps1.promotion_id', '=', 'p.id')->on('ps1.semestre_id', '=', 'ue.semestre_id')
-                ->where('ps1.type_session', 'normale')->whereIn('ps1.statut', Pv::CONSULTABLES))
-            ->leftJoin('notes as n1', fn ($j) => $j->on('n1.pv_id', '=', 'ps1.id')->on('n1.matiere_id', '=', 'm.id')->where('n1.etudiant_id', $id))
-            ->leftJoin('pv_sessions as ps2', fn ($j) => $j->on('ps2.pv_normale_id', '=', 'ps1.id')->where('ps2.type_session', 'rattrapage')->whereIn('ps2.statut', Pv::CONSULTABLES))
-            ->leftJoin('notes as n2', fn ($j) => $j->on('n2.pv_id', '=', 'ps2.id')->on('n2.matiere_id', '=', 'm.id')->where('n2.etudiant_id', $id))
-            ->where('i.etudiant_id', $id)->where('i.statut', 'inscrit')->when($anneeId, fn ($q) => $q->where('a.id', $anneeId))
-            ->orderByDesc('a.libelle')->orderBy('s.code')->orderBy('ue.ordre')->orderBy('m.ordre')
-            ->get(['m.libelle as matiere', 'm.coefficient', 'm.note_max_totale', 'm.note_max_cc', 'm.note_max_examen', 'ue.code as ue_code', 'ue.libelle as ue_lib',
-                'ue.credits_total', 's.code as sem_code', 's.libelle as semestre', 'a.libelle as annee', 'a.id as annee_id', 'nv.code as niveau',
-                'n1.note_cc as note_cc_s1', 'n1.note_examen as note_examen_s1', 'n1.note_finale as note_finale_s1', 'n1.observation as obs_s1', 'n1.defaillant as defaillant_s1',
-                'n2.note_cc as note_cc_s2', 'n2.note_examen as note_examen_s2', 'n2.note_finale as note_finale_s2', 'n2.observation as obs_s2', 'n2.defaillant as defaillant_s2',
-                DB::raw('COALESCE(ps2.type_session, ps1.type_session) AS session_active'), 'ps1.id as pv_normale_id', 'ps2.id as pv_ratt_id']);
-        // Note retenue : rattrapage s'il existe, sinon session normale (notes de 1ʳᵉ session gardées pour comparaison)
-        $notes = $lignes->map(function ($n) {
-            $ratt = $n->note_finale_s2 !== null || $n->obs_s2 !== null;
-            foreach (['note_cc', 'note_examen', 'note_finale', 'defaillant'] as $c) {
-                $n->$c = $ratt ? $n->{$c.'_s2'} : $n->{$c.'_s1'};
-            }
-            $n->observation = $ratt ? $n->obs_s2 : $n->obs_s1;
-            $n->has_rattrapage = $ratt ? 1 : 0;
-
-            return $n;
-        });
-        $resultats = DB::table('resultats_semestre as rs')->join('pv_sessions as ps', 'ps.id', '=', 'rs.pv_id')->join('promotions as p', 'p.id', '=', 'ps.promotion_id')
-            ->join('annees_academiques as a', 'a.id', '=', 'p.annee_id')->join('niveaux as nv', 'nv.id', '=', 'p.niveau_id')->join('semestres as s', 's.id', '=', 'ps.semestre_id')
-            ->where('rs.etudiant_id', $id)->whereIn('ps.statut', Pv::CONSULTABLES)->orderByDesc('a.libelle')->orderBy('s.code')
-            ->get(['rs.valide', 'rs.mention', 'rs.moyenne_generale', 'rs.rang', 'a.libelle as annee', 'a.id as annee_id', 'nv.code as niveau', 's.libelle as semestre', 'ps.type_session']);
-
-        return $this->ok(['notes' => $notes, 'resultats' => $resultats]);
+        return $this->ok(app(SuiviEtudiant::class)->notes((int) $this->etudiant->id, (int) $request->query('annee_id')));
     }
 
     private function annonces(): JsonResponse
@@ -695,14 +663,7 @@ class ApiMobileController extends Controller
     /** Annonces publiées et en cours pour l'étudiant (tous, étudiants, sa filière, son niveau actuel). */
     private function requeteAnnonces()
     {
-        $niveau = DB::table('inscriptions as i')->join('annees_academiques as a', 'a.id', '=', 'i.annee_id')
-            ->where(['i.etudiant_id' => $this->etudiant->id, 'i.statut' => 'inscrit', 'a.active' => 1])->value('i.niveau_id');
-
-        return DB::table('annonces')->where('publiee', 1)->whereDate('date_debut', '<=', now())
-            ->where(fn ($w) => $w->whereNull('date_fin')->orWhereDate('date_fin', '>=', now()))
-            ->where(fn ($w) => $w->whereIn('cible', ['tous', 'etudiants'])
-                ->orWhere(fn ($f) => $f->where('cible', 'filiere')->where('filiere_id', (int) ($this->etudiant->filiere_id ?? 0)))
-                ->orWhere(fn ($n) => $n->where('cible', 'niveau')->where('niveau_id', (int) ($niveau ?? 0))));
+        return app(SuiviEtudiant::class)->annonces($this->etudiant);
     }
 
     /** L'étudiant est inscrit pédagogiquement au semestre du PV, dans la même filière et le même niveau. */
