@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Communication;
 
 use App\Http\Controllers\Controller;
+use App\Services\Communication\AlertesParents;
 use App\Services\Communication\Courriel;
 use App\Services\Communication\Sms;
 use App\Services\Journal;
@@ -100,6 +101,10 @@ class ParametresCommunicationController extends Controller
             'sms_sender_id' => trim((string) $request->input('sms_sender_id')) ?: 'EDUFILE',
             'sms_actif' => $request->boolean('sms_actif') ? '1' : '0',
         ];
+        // Alertes envoyées aux parents (chaque type activable)
+        foreach (array_keys(AlertesParents::REGLAGES) as $cle) {
+            $champs[$cle] = $request->boolean($cle) ? '1' : '0';
+        }
         if (trim((string) $request->input('sms_api_key')) !== '') {
             $champs['sms_api_key'] = trim((string) $request->input('sms_api_key'));
         }

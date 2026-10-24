@@ -17,3 +17,9 @@ if (config('gesnotes.sauvegardes_auto.planifiees')) {
     // Rappel par e-mail chaque lundi tant que la copie sur clé USB a plus de 28 jours
     Schedule::command('gesnotes:copier-usb --rappel')->weeklyOn(1, '09:00');
 }
+
+// Rappel aux parents des examens du lendemain (SMS / e-mail), chaque jour à 18 h — sur le serveur de
+// production seulement (RAPPELS_EXAMENS=true dans son .env), jamais depuis un PC de test.
+if (config('gesnotes.rappels_examens')) {
+    Schedule::command('gesnotes:rappels-examens')->dailyAt('18:00')->withoutOverlapping(60);
+}

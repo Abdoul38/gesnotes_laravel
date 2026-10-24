@@ -79,6 +79,10 @@ return [
     // naissance…), consultées depuis le dossier étudiant.
     'dossier_pieces_candidats' => env('DOSSIER_PIECES_CANDIDATS', env('ANCIENNE_APP_CHEMIN') ? rtrim(env('ANCIENNE_APP_CHEMIN'), '/\\').'/candidature/uploads/pieces' : null),
 
+    // Rappel aux parents des examens du lendemain (gesnotes:rappels-examens, chaque jour à 18 h) :
+    // à activer sur le serveur de production seulement.
+    'rappels_examens' => (bool) env('RAPPELS_EXAMENS', false),
+
     // Pages hors menu : même permission que leur page parente
     // (copie de $permissionsPages dans l'ancien index.php).
     'permissions_pages' => [

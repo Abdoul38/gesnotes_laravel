@@ -52,7 +52,8 @@ class Notifications
             $bilan['sms'] += (int) $r['sms'];
         };
         $liste = DB::table('resultats_semestre as rs')->join('etudiants as e', 'e.id', '=', 'rs.etudiant_id')
-            ->where('rs.pv_id', $pvId)->distinct()->get(['e.id', 'e.nom', 'e.prenoms', 'e.email', 'e.telephone']);
+            ->where('rs.pv_id', $pvId)->distinct()->get(['e.id', 'e.nom', 'e.prenoms', 'e.email', 'e.telephone', 'rs.moyenne_generale', 'rs.valide', 'rs.decision']);
+        $avecResultat = app(AlertesParents::class)->active('parents_alerte_resultats');
         foreach ($liste as $et) {
             if ($etudiants) {
                 $texte = "Bonjour {$et->prenoms} {$et->nom},\n\nLes résultats du {$pv->semestre} ({$pv->filiere} {$pv->niveau}) sont maintenant disponibles. "
@@ -63,8 +64,11 @@ class Notifications
                 $proches = DB::table('parents_etudiants as pe')->join('parents as p', 'p.id', '=', 'pe.parent_id')
                     ->where('pe.etudiant_id', $et->id)->where('p.actif', 1)->get(['p.email', 'p.telephone']);
                 foreach ($proches as $p) {
-                    $texte = "Bonjour,\n\nLes résultats de {$et->prenoms} {$et->nom} pour le {$pv->semestre} ({$pv->filiere} {$pv->niveau}) sont maintenant disponibles. "
-                        ."Connectez-vous à l'Espace Parents pour les consulter :\n".$this->menu->lien('login_parent')."\n\n$application";
+                    // Moyenne et décision dans le message : utile aux parents sans smartphone (réglage « résultats »)
+                    $resultat = $avecResultat && $et->moyenne_generale !== null
+                        ? ' Moyenne : '.number_format((float) $et->moyenne_generale, 2, ',', ' ').'/20 — '.($et->valide ? 'semestre validé' : ($et->decision ?: 'semestre non validé')).'.' : '';
+                    $texte = "Bonjour,\n\nLes résultats de {$et->prenoms} {$et->nom} pour le {$pv->semestre} ({$pv->filiere} {$pv->niveau}) sont disponibles.$resultat "
+                        ."Détails sur l'Espace Parents :\n".$this->menu->lien('login_parent')."\n\n$application";
                     $compter($this->envoyer($p->email, $p->telephone, $sujet, $texte, 'pv_publie', $pvId));
                 }
             }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Structure;
 
 use App\Http\Controllers\Controller;
 use App\Models\Utilisateur;
+use App\Services\Communication\AlertesParents;
 use App\Services\Journal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -88,8 +89,14 @@ class PresenceController extends Controller
             $lignes[] = ['seance_id' => $seance->id, 'etudiant_id' => (int) $et, 'statut' => $statut,
                 'motif' => mb_substr(trim((string) ($motifs[$et] ?? '')), 0, 200) ?: null, 'saisi_par' => $u->id];
         }
+        // Absences nouvelles (pas déjà enregistrées comme absences) : parents prévenus après l'enregistrement
+        $avant = DB::table('presences')->where('seance_id', $seance->id)->pluck('statut', 'etudiant_id');
+        $nouveauxAbsents = collect($lignes)->filter(fn ($l) => $l['statut'] === 'absent' && ($avant[$l['etudiant_id']] ?? null) !== 'absent')->pluck('etudiant_id')->all();
         if ($lignes) {
             DB::table('presences')->upsert($lignes, ['seance_id', 'etudiant_id'], ['statut', 'motif', 'saisi_par']);
+        }
+        if ($nouveauxAbsents) {
+            app(AlertesParents::class)->absences($seance, $nouveauxAbsents);
         }
         $journal->action('modifier', 'presence', "Présences de la séance #{$seance->id} ({$seance->matiere}, ".count($lignes).' étudiant(s))', (int) $seance->id);
 

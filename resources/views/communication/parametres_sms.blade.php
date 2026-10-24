@@ -27,6 +27,13 @@
         <div class="form-group"><label class="form-label" for="sms_sender_id">Nom de l'expéditeur (Sender ID)</label>
           <input type="text" name="sms_sender_id" id="sms_sender_id" class="form-control" value="{{ $p('sms_sender_id', 'EDUFILE') }}" maxlength="11" placeholder="EDUFILE">
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">11 caractères alphanumériques au plus.</div></div>
+        <div class="form-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+          <div class="form-label">👨‍👩‍👧 Alertes envoyées aux parents (SMS, et e-mail s'il est connu)</div>
+          @foreach (\App\Services\Communication\AlertesParents::REGLAGES as $cle => $libelle)
+          <label style="display:block;font-size:13px;margin:4px 0"><input type="checkbox" name="{{ $cle }}" value="1" @checked($p($cle, '1') === '1') style="vertical-align:middle"> {{ $libelle }}</label>
+          @endforeach
+          <div class="form-hint">Les relances de paiement sont envoyées depuis Communication › Relances impayés.</div>
+        </div>
         <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
       </form>
 
