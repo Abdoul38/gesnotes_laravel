@@ -35,6 +35,7 @@ return [
         'stats' => ['📊', 'Statistiques', 'stats_voir'],
         'historique' => ['📜', 'Historique académique', 'inscription_voir'],
         'releves' => ['📄', 'Relevés de notes', 'releve_notes'],
+        'pilotage' => ['🎯', 'Tableau de pilotage', 'stats_voir'],
         'deliberation' => ['⚖️', 'Délibérations', 'pv_creer'],
         'presidents_jury' => ['🧑‍⚖️', 'Présidents de jury', 'pv_creer'],
         'liste_valides' => ['✅', 'Liste des admis', 'pv_voir'],

@@ -4,6 +4,7 @@
 // groupe auth + licence de routes/web.php.
 
 use App\Http\Controllers\Rapports\HistoriqueController;
+use App\Http\Controllers\Rapports\PilotageController;
 use App\Http\Controllers\Rapports\RapportsController;
 use App\Http\Controllers\Rapports\StatistiquesController;
 use App\Http\Controllers\Rapports\SuiviExecutionController;
@@ -14,6 +15,10 @@ Route::get('/statistiques', StatistiquesController::class)->middleware('page:sta
 // Ancien contrôle de rôle d'historique.php (l'étudiant passe par son portail)
 Route::get('/historique', HistoriqueController::class)
     ->middleware(['page:historique', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])->name('historique');
+
+// Tableau de bord de pilotage (périmètre par rôle dans le contrôleur ; le recteur y accède depuis son espace)
+Route::get('/pilotage', PilotageController::class)
+    ->middleware(['page:pilotage', 'roles:admin,secretaire,sc_centrale,sc_entite,doyen,chef_departement'])->name('pilotage');
 
 Route::get('/rapports', [RapportsController::class, 'index'])->middleware('page:rapports')->name('rapports');
 Route::get('/rapports/export', [RapportsController::class, 'export'])->middleware('page:rapports_export')->name('rapports_export');

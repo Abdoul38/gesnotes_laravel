@@ -30,6 +30,7 @@
       @foreach ($annees as $a)<option value="{{ $a->id }}" @selected($a->id == $annee?->id)>{{ $a->libelle }}</option>@endforeach
     </select>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <a href="{{ route('rectorat.pilotage', ['annee_id' => $annee?->id]) }}" class="btn btn-sm btn-primary" title="Réussite, notes non finalisées, retards de saisie, présence">🎯 Pilotage</a>
       <a href="{{ route('rectorat.excel', ['annee_id' => $annee?->id]) }}" class="btn btn-sm btn-primary" title="Synthèse, facultés, filières, évolution">📊 Excel détaillé</a>
       <a href="{{ route('rectorat.rapport', ['annee_id' => $annee?->id]) }}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">📥 Rapport PDF</a>
       <button type="button" class="btn btn-sm btn-secondary" data-toggle-display="zone-mdp">🔒 Mot de passe</button>

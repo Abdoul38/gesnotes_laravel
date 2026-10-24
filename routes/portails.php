@@ -10,6 +10,7 @@ use App\Http\Controllers\Portails\GestionParentsController;
 use App\Http\Controllers\Portails\PortailEnseignantController;
 use App\Http\Controllers\Portails\PortailEtudiantController;
 use App\Http\Controllers\Portails\RectoratController;
+use App\Http\Controllers\Rapports\PilotageController;
 use Illuminate\Support\Facades\Route;
 
 // Portail étudiant : l'étudiant pour lui-même ; le personnel avec la permission (contrôles dans le contrôleur)
@@ -45,6 +46,7 @@ Route::middleware('roles:recteur,admin')->controller(RectoratController::class)-
     Route::get('/rectorat', 'index')->name('rectorat');
     Route::get('/rectorat/excel', 'excel')->name('rectorat.excel');
     Route::get('/rectorat/rapport', 'rapport')->name('rectorat.rapport');
+    Route::get('/rectorat/pilotage', PilotageController::class)->name('rectorat.pilotage');
     Route::get('/rectorat/pv/{id}/impression', 'impressionPv')->whereNumber('id')->name('rectorat.pv_impression');
     Route::post('/rectorat/mot-de-passe', 'motDePasse')->name('rectorat.mot_de_passe');
 });
