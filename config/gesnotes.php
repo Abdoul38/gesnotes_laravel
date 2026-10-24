@@ -87,6 +87,9 @@ return [
     'alerte_erreurs' => env('ALERTE_ERREURS_EMAIL'),
     'alerte_erreurs_tests' => false,
 
+    // Notifications sur téléphone (Firebase Cloud Messaging) : clé du compte de service, hors du dossier public
+    'firebase_credentials' => env('FIREBASE_CREDENTIALS', storage_path('app/private/firebase/compte-service.json')),
+
     // Pages hors menu : même permission que leur page parente
     // (copie de $permissionsPages dans l'ancien index.php).
     'permissions_pages' => [

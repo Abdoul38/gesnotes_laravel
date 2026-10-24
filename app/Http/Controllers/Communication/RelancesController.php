@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Communication;
 use App\Http\Controllers\Controller;
 use App\Navigation\Menu;
 use App\Services\Communication\Notifications;
+use App\Services\Communication\Push;
 use App\Services\Journal;
 use App\Services\Paiements;
 use Illuminate\Database\Query\Builder;
@@ -103,6 +104,9 @@ class RelancesController extends Controller
         $res = $notifications->envoyer($p->email, $p->telephone, $sujet, $texte, 'paiement_retard', (int) $p->id);
 
         $nbParents = 0;
+        // Notification sur téléphone (étudiant et parents)
+        app(Push::class)->etudiant((int) $p->etudiant_id, 'Paiement en attente', 'Un paiement de frais est en retard : merci de régulariser auprès de la scolarité.', ['type' => 'paiement']);
+        app(Push::class)->parentsDe((int) $p->etudiant_id, 'Paiement en attente', 'Un paiement de frais de '.$p->prenoms.' est en retard.', ['type' => 'paiement']);
         $parents = DB::table('parents_etudiants as pe')->join('parents as pa', 'pa.id', '=', 'pe.parent_id')
             ->where('pe.etudiant_id', $p->etudiant_id)->where('pa.actif', 1)->get(['pa.email', 'pa.telephone']);
         foreach ($parents as $parent) {

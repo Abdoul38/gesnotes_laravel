@@ -5,6 +5,7 @@ namespace App\Services\Communication;
 use App\Services\Parametres;
 use App\Universites\UniversiteCourante;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -57,6 +58,7 @@ class AlertesParents
                 $this->notifications->envoyer($p->email, $p->telephone, 'Absence de '.$et->prenoms, $texte, 'absence', (int) $seance->id);
                 $nb++;
             }
+            app(Push::class)->parentsDe((int) $et->id, 'Absence de '.$et->prenoms, "Absent(e) au cours de {$seance->matiere} du $date.", ['type' => 'absence']);
         }
 
         return $nb;
@@ -83,6 +85,12 @@ class AlertesParents
                 .($x->session === 'rattrapage' ? ' (rattrapage)' : '').' demain '.$jour->format('d/m/Y').' à '.substr((string) $x->heure_debut, 0, 5)
                 .($x->salle ? ", salle {$x->salle}" : '').'. Bonne chance !';
             foreach ($this->candidats($x) as $et) {
+                // Notification sur téléphone : une fois par examen et par étudiant
+                if (Cache::add('rappel_push|'.$x->id.'|'.$et->id, 1, now()->addDays(2))) {
+                    $resume = "{$x->matiere} demain à ".substr((string) $x->heure_debut, 0, 5).($x->salle ? ", salle {$x->salle}" : '');
+                    app(Push::class)->etudiant((int) $et->id, 'Rappel d\'examen', $resume, ['type' => 'examen']);
+                    app(Push::class)->parentsDe((int) $et->id, 'Examen de '.$et->prenoms, $resume, ['type' => 'examen']);
+                }
                 foreach ($this->parents((int) $et->id) as $p) {
                     if ($this->dejaEnvoye('rappel_examen', (int) $x->id, $p)) {
                         continue;

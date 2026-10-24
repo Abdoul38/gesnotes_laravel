@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\Candidatures;
 use App\Services\Communication\Courriel;
+use App\Services\Communication\Push;
 use App\Services\Communication\Sms;
 use App\Services\Identite;
 use App\Services\InscriptionEnLigne;
@@ -65,7 +66,7 @@ class ApiMobileController extends Controller
         'statistiques', 'recu', 'check_inscription', 'carte', 'reset_password_demande', 'reset_password', 'reclamations_data',
         'matieres_pv', 'soumettre_reclamation',
         'inscription_academique', 'inscription_academique_demarrer', 'inscription_academique_payer', 'inscription_academique_statut',
-        'inscription_academique_tiers'];
+        'inscription_academique_tiers', 'push_token'];
 
     private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
 
@@ -628,6 +629,19 @@ class ApiMobileController extends Controller
             'note_originale' => DB::table('notes')->where(['pv_id' => $pvId, 'etudiant_id' => $this->etudiant->id, 'matiere_id' => $matiere])->value('note_finale')]);
 
         return $this->ok(['id' => $id], 'Réclamation soumise avec succès');
+    }
+
+    /** Téléphone qui recevra les notifications (jeton Firebase) ; « retirer » à la déconnexion. */
+    private function pushToken(Request $request): JsonResponse
+    {
+        $push = app(Push::class);
+        if ($request->boolean('retirer')) {
+            $push->retirer((string) $request->input('token'));
+        } else {
+            $push->enregistrer('etudiant', (int) $this->etudiant->id, (string) $request->input('token'), (string) $request->input('plateforme', 'android'));
+        }
+
+        return $this->ok([], 'OK');
     }
 
     // ── Outils ────────────────────────────────────────────────

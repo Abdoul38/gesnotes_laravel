@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Communication\Push;
 use App\Services\Licence;
 use App\Services\ReinitialisationParent;
 use App\Services\SuiviEtudiant;
@@ -34,7 +35,7 @@ use Throwable;
 class ApiMobileParentController extends Controller
 {
     private const ACTIONS = ['login', 'logout', 'profil', 'enfant', 'resultats', 'presences', 'paiements', 'emploi_du_temps', 'examens',
-        'annonces', 'mot_de_passe', 'reset_password_demande', 'reset_password'];
+        'annonces', 'mot_de_passe', 'reset_password_demande', 'reset_password', 'push_token'];
 
     /** Actions sans session : connexion, mot de passe oublié. */
     private const PUBLIQUES = ['login', 'reset_password_demande', 'reset_password'];
@@ -221,6 +222,19 @@ class ApiMobileParentController extends Controller
     {
         return $this->ok($this->suivi->annonces($this->enfant)->orderByDesc('epinglee')->orderByDesc('created_at')->limit(50)
             ->get(['id', 'titre', 'contenu', 'type', 'epinglee', 'date_debut', 'date_fin', 'created_at']));
+    }
+
+    /** Téléphone qui recevra les notifications (jeton Firebase) ; « retirer » à la déconnexion. */
+    private function pushToken(Request $request): JsonResponse
+    {
+        $push = app(Push::class);
+        if ($request->boolean('retirer')) {
+            $push->retirer((string) $request->input('token'));
+        } else {
+            $push->enregistrer('parent', (int) $this->parent->id, (string) $request->input('token'), (string) $request->input('plateforme', 'android'));
+        }
+
+        return $this->ok([], 'OK');
     }
 
     // ── Outils ────────────────────────────────────────────────

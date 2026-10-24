@@ -54,13 +54,17 @@ class Notifications
         $liste = DB::table('resultats_semestre as rs')->join('etudiants as e', 'e.id', '=', 'rs.etudiant_id')
             ->where('rs.pv_id', $pvId)->distinct()->get(['e.id', 'e.nom', 'e.prenoms', 'e.email', 'e.telephone', 'rs.moyenne_generale', 'rs.valide', 'rs.decision']);
         $avecResultat = app(AlertesParents::class)->active('parents_alerte_resultats');
+        $push = app(Push::class);
         foreach ($liste as $et) {
             if ($etudiants) {
+                $push->etudiant((int) $et->id, 'Résultats disponibles', "Les résultats du {$pv->semestre} sont publiés.", ['type' => 'resultats']);
                 $texte = "Bonjour {$et->prenoms} {$et->nom},\n\nLes résultats du {$pv->semestre} ({$pv->filiere} {$pv->niveau}) sont maintenant disponibles. "
                     ."Connectez-vous à votre portail pour les consulter :\n".route('login')."\n\n$application";
                 $compter($this->envoyer($et->email, $et->telephone, $sujet, $texte, 'pv_publie', $pvId));
             }
             if ($parents) {
+                $push->parentsDe((int) $et->id, 'Résultats de '.$et->prenoms, "Les résultats du {$pv->semestre} sont publiés"
+                    .($et->moyenne_generale !== null && $avecResultat ? ' : moyenne '.number_format((float) $et->moyenne_generale, 2, ',', ' ').'/20.' : '.'), ['type' => 'resultats']);
                 $proches = DB::table('parents_etudiants as pe')->join('parents as p', 'p.id', '=', 'pe.parent_id')
                     ->where('pe.etudiant_id', $et->id)->where('p.actif', 1)->get(['p.email', 'p.telephone']);
                 foreach ($proches as $p) {

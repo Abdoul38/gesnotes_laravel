@@ -844,6 +844,20 @@ CREATE TABLE `mobile_reset_codes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `appareils_push` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `type_compte` enum('etudiant','parent') NOT NULL,
+  `compte_id` int(10) unsigned NOT NULL,
+  `jeton` varchar(255) NOT NULL COMMENT 'jeton Firebase Cloud Messaging du téléphone',
+  `plateforme` varchar(20) DEFAULT NULL,
+  `maj_le` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_jeton` (`jeton`),
+  KEY `idx_compte` (`type_compte`,`compte_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='téléphones qui reçoivent les notifications (application mobile)';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `parents_reset_codes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `parent_id` int(10) unsigned NOT NULL,
