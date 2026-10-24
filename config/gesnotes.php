@@ -83,6 +83,10 @@ return [
     // à activer sur le serveur de production seulement.
     'rappels_examens' => (bool) env('RAPPELS_EXAMENS', false),
 
+    // Alerte par e-mail quand une page plante (App\Services\AlerteErreur) ; vide : SAUVEGARDES_AUTO_ALERTE
+    'alerte_erreurs' => env('ALERTE_ERREURS_EMAIL'),
+    'alerte_erreurs_tests' => false,
+
     // Pages hors menu : même permission que leur page parente
     // (copie de $permissionsPages dans l'ancien index.php).
     'permissions_pages' => [

@@ -11,6 +11,7 @@ use App\Http\Middleware\ParentConnecte;
 use App\Http\Middleware\ResoudreUniversite;
 use App\Http\Middleware\SessionActive;
 use App\Http\Middleware\VerifierLicence;
+use App\Services\AlerteErreur;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -46,5 +47,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(fn () => route('accueil'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Erreur serveur : alerte par e-mail à l'administrateur (au plus une fois par heure pour la même erreur)
+        $exceptions->report(function (Throwable $e) {
+            app(AlerteErreur::class)->signaler($e);
+        });
     })->create();
