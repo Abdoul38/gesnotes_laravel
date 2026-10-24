@@ -293,3 +293,46 @@ document.addEventListener('change', function (e) {
         champ.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }, true);
+
+// ── Notes : valeur hors barème refusée dès la saisie ─────────
+// Une note supérieure au maximum de la case (ou négative) n'est pas gardée :
+// la case est vidée aussitôt et un message rouge s'affiche à côté pendant
+// quelques secondes (le serveur la refuse aussi).
+(function () {
+    var bulle = null, minuteur = null;
+    function retirer() {
+        if (bulle) { bulle.remove(); bulle = null; }
+    }
+    function signaler(champ, texte) {
+        retirer();
+        clearTimeout(minuteur);
+        bulle = document.createElement('div');
+        bulle.setAttribute('role', 'alert');
+        bulle.textContent = texte;
+        var r = champ.getBoundingClientRect();
+        bulle.style.cssText = 'position:absolute;z-index:9999;background:#dc2626;color:#fff;font-size:12px;font-weight:600;'
+            + 'padding:6px 10px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:260px;pointer-events:none;'
+            + 'left:' + Math.max(4, r.left + window.scrollX) + 'px;top:' + (r.bottom + window.scrollY + 4) + 'px';
+        document.body.appendChild(bulle);
+        champ.style.outline = '2px solid #dc2626';
+        champ.style.backgroundColor = '#fee2e2';
+        minuteur = setTimeout(function () {
+            retirer();
+            champ.style.outline = '';
+            champ.style.backgroundColor = '';
+        }, 3500);
+    }
+    document.addEventListener('input', function (e) {
+        var champ = e.target;
+        if (!champ.matches || !champ.matches('input[type="number"][data-decimales][max]') || champ.value === '') return;
+        var v = parseFloat(String(champ.value).replace(',', '.'));
+        var max = parseFloat(champ.getAttribute('max'));
+        var min = champ.hasAttribute('min') ? parseFloat(champ.getAttribute('min')) : 0;
+        if (isNaN(v) || isNaN(max) || (v <= max && v >= min)) return;
+        var saisie = champ.value;
+        champ.value = '';
+        signaler(champ, v > max
+            ? 'Note refusée : ' + saisie + ' dépasse le maximum (' + max + ').'
+            : 'Note refusée : ' + saisie + ' est inférieure à ' + min + '.');
+    }, true);
+})();
