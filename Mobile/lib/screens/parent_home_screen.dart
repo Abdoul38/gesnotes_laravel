@@ -186,9 +186,12 @@ class _AccueilParentState extends State<_AccueilParent> with _Chargement {
                 if (widget.enfants.length > 1) ...[
                   DropdownButtonFormField<int>(
                     initialValue: widget.etudiantId,
+                    // Toute la largeur, noms longs abrégés (sinon débordement à droite)
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Enfant suivi', prefixIcon: Icon(Icons.swap_horiz)),
                     items: widget.enfants.map((e) => DropdownMenuItem<int>(
-                        value: e['id'] as int, child: Text('${e['prenoms']} ${e['nom']}'))).toList(),
+                        value: e['id'] as int,
+                        child: Text('${e['prenoms']} ${e['nom']}', maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: (v) { if (v != null) widget.onChoix(v); },
                   ),
                   const SizedBox(height: 12),
