@@ -65,6 +65,41 @@ class Push
         return $this->comptes('parent', $parents, $titre, $texte, $donnees + ['etudiant_id' => (string) $etudiantId]);
     }
 
+    /**
+     * Annonce publiée : étudiants ciblés (tous, étudiants, filière, niveau de
+     * l'année active) et leurs parents (sauf « étudiants uniquement ») ; rien
+     * pour les annonces aux enseignants. Une seule fois par annonce, et pas
+     * avant sa date de début. Retourne le nombre de notifications envoyées.
+     */
+    public function annonce(object $annonce): int
+    {
+        if (! $this->actif() || ! $annonce->publiee || $annonce->cible === 'enseignants'
+            || ($annonce->date_debut && $annonce->date_debut > now()->toDateString())
+            || ! Cache::add('annonce_push|'.$annonce->id, 1, now()->addYear())) {
+            return 0;
+        }
+        $etudiants = DB::table('etudiants as e')->select('e.id');
+        if ($annonce->cible === 'filiere') {
+            $etudiants->where('e.filiere_id', (int) $annonce->filiere_id);
+        } elseif ($annonce->cible === 'niveau') {
+            $etudiants->whereExists(fn ($s) => $s->from('inscriptions as i')->join('annees_academiques as a', 'a.id', '=', 'i.annee_id')
+                ->whereColumn('i.etudiant_id', 'e.id')->where(['i.statut' => 'inscrit', 'a.active' => 1, 'i.niveau_id' => (int) $annonce->niveau_id]));
+        }
+        $jetons = DB::table('appareils_push')->where('type_compte', 'etudiant')->whereIn('compte_id', $etudiants)->pluck('jeton');
+        if ($annonce->cible !== 'etudiants') {
+            $parents = DB::table('parents_etudiants as pe')->join('parents as p', 'p.id', '=', 'pe.parent_id')->where('p.actif', 1)
+                ->when($annonce->cible !== 'tous', fn ($q) => $q->whereIn('pe.etudiant_id', $etudiants))->select('pe.parent_id');
+            $jetons = $jetons->merge(DB::table('appareils_push')->where('type_compte', 'parent')->whereIn('compte_id', $parents)->pluck('jeton'));
+        }
+        $texte = mb_strimwidth(trim(preg_replace('/\s+/u', ' ', strip_tags((string) $annonce->contenu))), 0, 160, '…');
+        $nb = 0;
+        foreach ($jetons->unique() as $jeton) {
+            $nb += (int) $this->envoyer($jeton, '📢 '.$annonce->titre, $texte, ['type' => 'annonce', 'annonce_id' => (string) $annonce->id]);
+        }
+
+        return $nb;
+    }
+
     private function comptes(string $type, array $ids, string $titre, string $texte, array $donnees): int
     {
         if (! $ids || ! $this->actif()) {

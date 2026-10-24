@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Communication;
 use App\Autorisations\Perimetre;
 use App\Http\Controllers\Controller;
 use App\Models\Utilisateur;
+use App\Services\Communication\Push;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,6 +76,8 @@ class MessagerieController extends Controller
             ->where('expediteur_id', $d['dest_id'])->value('id') : null;
         DB::table('messages')->insert(['expediteur_type' => 'admin', 'expediteur_id' => $u->id, 'destinataire_type' => 'etudiant',
             'destinataire_id' => $d['dest_id'], 'sujet' => mb_substr(trim($d['sujet']), 0, 200), 'corps' => trim($d['corps']), 'parent_id' => $parent]);
+        // Notification sur le téléphone de l'étudiant
+        app(Push::class)->etudiant((int) $d['dest_id'], '✉️ Message de la scolarité', mb_substr(trim($d['sujet']), 0, 120), ['type' => 'message']);
 
         return redirect()->route('messagerie', $parent ? ['msg' => $parent] : [])->with('succes', 'Message envoyé.');
     }

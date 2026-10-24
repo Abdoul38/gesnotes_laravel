@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Communication;
 
 use App\Autorisations\Perimetre;
 use App\Http\Controllers\Controller;
+use App\Services\Communication\Push;
 use App\Services\Journal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -96,11 +97,13 @@ class AnnoncesController extends Controller
         if ($modification) {
             DB::table('annonces')->where('id', $existante->id)->update($valeurs);
             $this->journal->action('modifier', 'annonce', "Annonce modifiée : {$valeurs['titre']}", (int) $existante->id);
+            $this->notifier((int) $existante->id);
 
             return redirect()->route('annonces')->with('succes', 'Annonce modifiée.');
         }
         $id = DB::table('annonces')->insertGetId($valeurs + ['auteur_id' => $request->user()->id]);
         $this->journal->action('creer', 'annonce', "Annonce créée : {$valeurs['titre']}", $id);
+        $this->notifier($id);
 
         return redirect()->route('annonces')->with('succes', 'Annonce créée avec succès.');
     }
@@ -113,6 +116,7 @@ class AnnoncesController extends Controller
         }
         DB::table('annonces')->where('id', $a->id)->update(['publiee' => $a->publiee ? 0 : 1]);
         $this->journal->action($a->publiee ? 'depublier' : 'publier', 'annonce', "Annonce : {$a->titre}", (int) $a->id);
+        $this->notifier((int) $a->id);
 
         return redirect()->route('annonces');
     }
@@ -130,6 +134,16 @@ class AnnoncesController extends Controller
     }
 
     /** Écriture : permission « etudiants_gerer » ; un compte limité à une faculté ne touche qu'à ses annonces. */
+    /** Notification sur téléphone de l'annonce publiée (une seule fois), après la réponse au navigateur. */
+    private function notifier(int $id): void
+    {
+        $annonce = DB::table('annonces')->find($id);
+        if ($annonce && $annonce->publiee) {
+            $push = app(Push::class);
+            dispatch(fn () => $push->annonce($annonce))->afterResponse();
+        }
+    }
+
     private function modifiable(Request $request, object $a): bool
     {
         $u = $request->user();

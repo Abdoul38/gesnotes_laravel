@@ -67,6 +67,38 @@ class PushTest extends TestCase
         $this->assertSame(0, DB::table('appareils_push')->count());
     }
 
+    public function test_annonces_et_messages(): void
+    {
+        Http::fake(['oauth2.googleapis.com/*' => Http::response(['access_token' => 'jeton-google']), 'fcm.googleapis.com/*' => Http::response(['name' => 'ok'])]);
+        $eco = DB::table('filieres')->insertGetId(['code' => 'ECO', 'libelle' => 'Économie', 'departement' => '']);
+        $droit = DB::table('filieres')->insertGetId(['code' => 'DRT', 'libelle' => 'Droit', 'departement' => '']);
+        $a = DB::table('etudiants')->insertGetId(['numero' => '00001', 'nom' => 'ALPHA', 'prenoms' => 'Awa', 'filiere_id' => $eco]);
+        $b = DB::table('etudiants')->insertGetId(['numero' => '00002', 'nom' => 'BRAVO', 'prenoms' => 'Ben', 'filiere_id' => $droit]);
+        $parent = DB::table('parents')->insertGetId(['nom' => 'ALPHA', 'prenoms' => 'Moussa', 'telephone' => '90112233', 'mot_de_passe_hash' => 'x']);
+        DB::table('parents_etudiants')->insert(['parent_id' => $parent, 'etudiant_id' => $a, 'lien' => 'pere']);
+        DB::table('appareils_push')->insert([['type_compte' => 'etudiant', 'compte_id' => $a, 'jeton' => 'tel-alpha'],
+            ['type_compte' => 'etudiant', 'compte_id' => $b, 'jeton' => 'tel-bravo'], ['type_compte' => 'parent', 'compte_id' => $parent, 'jeton' => 'tel-parent']]);
+        $envoyes = fn () => collect(Http::recorded())->filter(fn ($r) => str_contains($r[0]->url(), 'fcm.googleapis.com'))->map(fn ($r) => $r[0]['message']['token'])->values()->all();
+
+        // Annonce à la filière Économie : l'étudiant de cette filière et son parent, pas l'étudiant de Droit
+        $id = DB::table('annonces')->insertGetId(['titre' => 'Rentrée', 'contenu' => '<p>Reprise des cours lundi.</p>', 'cible' => 'filiere',
+            'filiere_id' => $eco, 'publiee' => 1, 'date_debut' => now()->toDateString()]);
+        $this->assertSame(2, app(Push::class)->annonce(DB::table('annonces')->find($id)));
+        $this->assertEqualsCanonicalizing(['tel-alpha', 'tel-parent'], $envoyes());
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'fcm') && $r['message']['notification']['title'] === '📢 Rentrée'
+            && $r['message']['notification']['body'] === 'Reprise des cours lundi.');
+        // Une seule fois par annonce ; « étudiants uniquement » : pas les parents
+        $this->assertSame(0, app(Push::class)->annonce(DB::table('annonces')->find($id)));
+        $id2 = DB::table('annonces')->insertGetId(['titre' => 'Examens', 'contenu' => 'Calendrier', 'cible' => 'etudiants', 'publiee' => 1, 'date_debut' => now()->toDateString()]);
+        $this->assertSame(2, app(Push::class)->annonce(DB::table('annonces')->find($id2)));
+
+        // Message de la scolarité : téléphone de l'étudiant destinataire
+        $this->connecte($this->creerUtilisateur('admin'))->post($this->url('messagerie'), ['sujet' => 'Votre dossier', 'corps' => 'Merci de passer.', 'dest_id' => $b])
+            ->assertSessionHas('succes');
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'fcm') && $r['message']['token'] === 'tel-bravo'
+            && $r['message']['notification']['title'] === '✉️ Message de la scolarité' && $r['message']['notification']['body'] === 'Votre dossier');
+    }
+
     public function test_sans_cle_rien_n_est_envoye(): void
     {
         Http::fake();
