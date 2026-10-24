@@ -3,6 +3,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/notifications_service.dart';
 import '../utils/constants.dart';
 import 'login_screen.dart';
 
@@ -94,6 +95,7 @@ class ProfilScreen extends StatelessWidget {
                   ),
                 );
                 if (ok == true && context.mounted) {
+                  await NotificationsService.retirer();
                   await ApiService.logout();
                   Navigator.pushAndRemoveUntil(context,
                     MaterialPageRoute(builder: (_) => const LoginScreen()),

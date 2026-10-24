@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/api_service.dart';
+import 'services/notifications_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/parent_home_screen.dart';
@@ -16,6 +17,7 @@ void main() async {
     statusBarColor: AppConstants.primaryColor,
     statusBarIconBrightness: Brightness.light,
   ));
+  await NotificationsService.initialiser();
   // Session expirée (jeton refusé par le serveur) : retour à l'écran de connexion
   ApiService.onSessionExpiree = () => navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
@@ -32,6 +34,7 @@ class UDHApp extends StatelessWidget {
     return MaterialApp(
       title: AppConstants.appName,
       navigatorKey: navigatorKey,
+      scaffoldMessengerKey: NotificationsService.messagerKey,
       theme: AppConstants.theme,
       debugShowCheckedModeBanner: false,
       home: const SplashScreen(),
@@ -64,6 +67,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
     final loggedIn = await ApiService.isLoggedIn();
     final parent = loggedIn && await ApiService.estParent();
+    if (loggedIn) NotificationsService.enregistrer();
     if (!mounted) return;
     Navigator.pushReplacement(context,
       MaterialPageRoute(builder: (_) => !loggedIn ? const LoginScreen() : (parent ? const ParentHomeScreen() : const HomeScreen())),

@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import 'notifications_service.dart';
 
 class ApiService {
   static const _tokenKey    = 'udh_auth_token';
@@ -126,6 +127,7 @@ class ApiService {
       final etudiant = res['data']['etudiant'] as Map<String, dynamic>;
       await saveToken(token);
       await saveEtudiant(etudiant);
+      NotificationsService.enregistrer();
     }
     return res;
   }
@@ -142,6 +144,7 @@ class ApiService {
       await saveToken(res['data']['token'] as String);
       await prefs.setString(_modeKey, 'parent');
       await prefs.setString(_parentKey, json.encode(res['data']['parent']));
+      NotificationsService.enregistrer();
     }
     return res;
   }
@@ -185,6 +188,7 @@ class ApiService {
 
   /// Déconnexion parent : le jeton est aussi supprimé sur le serveur.
   static Future<void> logoutParent() async {
+    await NotificationsService.retirer();
     await post('logout', {});
     await logout();
   }

@@ -5,3 +5,6 @@
 build/
 *.iml
 .idea/
+
+# Configuration Firebase propre au projet (fournie par la console Firebase)
+android/app/google-services.json
