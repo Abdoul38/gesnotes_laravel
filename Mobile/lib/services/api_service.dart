@@ -206,6 +206,10 @@ class ApiService {
       post('reset_password', {'identifiant': identifiant, 'code': code, 'nouveau_mdp': nouveau});
 
   // ── Endpoints ────────────────────────────────────────────
+  /// La cloche : notifications du compte (étudiant ou parent) et nombre de non lues.
+  static Future<Map<String, dynamic>> getNotifications() => get('notifications');
+  static Future<Map<String, dynamic>> marquerNotificationsLues() => post('notifications_lues', {});
+
   static Future<Map<String, dynamic>> getProfil()       => get('profil');
   static Future<Map<String, dynamic>> getInscriptions() => get('inscriptions');
   static Future<Map<String, dynamic>> getAnnonces()     => get('annonces');

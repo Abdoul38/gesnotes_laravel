@@ -17,6 +17,15 @@ class NotificationsService {
   /// Bandeau affiché quand une notification arrive application ouverte.
   static final messagerKey = GlobalKey<ScaffoldMessengerState>();
 
+  /// Nombre de notifications non lues (badge de la cloche).
+  static final nonLues = ValueNotifier<int>(0);
+
+  static Future<void> actualiserCompteur() async {
+    if (!await ApiService.isLoggedIn()) return;
+    final res = await ApiService.getNotifications();
+    if (res['success'] == true) nonLues.value = (res['data']['non_lues'] as num?)?.toInt() ?? 0;
+  }
+
   static Future<void> initialiser() async {
     try {
       await Firebase.initializeApp();
@@ -24,11 +33,14 @@ class NotificationsService {
       FirebaseMessaging.onMessage.listen((message) {
         final n = message.notification;
         if (n == null) return;
+        actualiserCompteur();
         messagerKey.currentState?.showSnackBar(SnackBar(
           content: Text('${n.title ?? ''}\n${n.body ?? ''}'.trim()),
           duration: const Duration(seconds: 6),
         ));
       });
+      // Application ouverte depuis une notification : badge à jour
+      FirebaseMessaging.onMessageOpenedApp.listen((_) => actualiserCompteur());
       FirebaseMessaging.instance.onTokenRefresh.listen((jeton) async {
         if (await ApiService.isLoggedIn()) _envoyer(jeton);
       });
@@ -49,6 +61,7 @@ class NotificationsService {
 
   /// Avant la déconnexion : le téléphone ne reçoit plus les notifications de ce compte.
   static Future<void> retirer() async {
+    nonLues.value = 0;
     if (!_pret) return;
     try {
       final jeton = await FirebaseMessaging.instance.getToken();

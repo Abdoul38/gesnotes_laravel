@@ -3,6 +3,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import '../widgets/cloche_notifications.dart';
 import '../services/api_service.dart';
 import 'inscription_screen.dart';
 import 'inscription_academique_screen.dart';
@@ -75,6 +76,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SliverAppBar(
             expandedHeight: 190,
             pinned: true,
+            actions: const [ClocheNotifications()],
             backgroundColor: AppConstants.primaryColor,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(

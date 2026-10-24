@@ -9,6 +9,7 @@ import '../utils/constants.dart';
 import 'annonces_screen.dart';
 import 'login_screen.dart';
 import 'resultats_screen.dart';
+import '../widgets/cloche_notifications.dart';
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
@@ -176,7 +177,7 @@ class _AccueilParentState extends State<_AccueilParent> with _Chargement {
     return Scaffold(
       appBar: AppBar(
         title: Text('Bonjour ${widget.parent['prenoms'] ?? ''}'),
-        actions: actionsHorsLigne(() => charger('enfant', widget.etudiantId)),
+        actions: [...actionsHorsLigne(() => charger('enfant', widget.etudiantId)), const ClocheNotifications()],
       ),
       body: chargement && d == null
           ? const Center(child: CircularProgressIndicator())
