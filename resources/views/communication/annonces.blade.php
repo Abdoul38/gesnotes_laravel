@@ -136,5 +136,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/annonces.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/annonces.js') }}"></script>
 @endpush

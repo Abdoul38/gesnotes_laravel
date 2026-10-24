@@ -56,6 +56,6 @@ td:first-child { text-align: left; }
   </table>
   <div style="margin-top:24px;font-size:9px;color:#6b7280;text-align:center">Généré depuis le tableau de bord national MESR — {{ now()->format('d/m/Y H:i') }}</div>
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

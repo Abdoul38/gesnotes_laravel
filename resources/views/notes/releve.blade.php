@@ -280,7 +280,7 @@ table.tn .nv{color:#b91c1c; font-weight:bold; text-align:center}
 </div>
 @endforeach
 
-<script src="{{ asset('assets/js/qrcode.js') }}"></script>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/qrcode.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

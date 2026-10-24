@@ -36,6 +36,6 @@ tr:nth-child(even){background:#f9fafb}
   @endforeach
 </div>
 @include('rapports._tableau')
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

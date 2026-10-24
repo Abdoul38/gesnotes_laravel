@@ -112,7 +112,7 @@
 @endforeach
 </div>
 
-<script src="{{ asset('assets/js/qrcode.js') }}"></script>
-<script src="{{ asset('assets/js/cartes-impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/qrcode.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/cartes-impression.js') }}"></script>
 </body>
 </html>

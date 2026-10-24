@@ -83,5 +83,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/notifications-email.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/notifications-email.js') }}"></script>
 @endpush

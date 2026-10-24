@@ -88,5 +88,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/roles.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/roles.js') }}"></script>
 @endpush

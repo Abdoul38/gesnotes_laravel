@@ -67,6 +67,6 @@ table.res { width: 100%; border-collapse: collapse; font-size: 10px; }
   @endif
   @isset($entete)<div style="margin-top:30px;font-size:9px;color:#6b7280;text-align:center">Document extrait du tableau de bord national MESR — consultation en lecture seule</div>@endisset
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

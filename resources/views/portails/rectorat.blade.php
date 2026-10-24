@@ -404,6 +404,6 @@
 @endsection
 
 @push('scripts')
-@if (in_array($onglet, ['accueil', 'evolution'], true))<script src="{{ asset('assets/js/chart.min.js') }}"></script>@endif
-<script src="{{ asset('assets/js/rectorat.js') }}"></script>
+@if (in_array($onglet, ['accueil', 'evolution'], true))<script src="{{ \App\Support\Ressource::url('assets/js/chart.min.js') }}"></script>@endif
+<script src="{{ \App\Support\Ressource::url('assets/js/rectorat.js') }}"></script>
 @endpush

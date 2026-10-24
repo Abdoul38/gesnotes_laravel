@@ -29,5 +29,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/filtre-options.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/filtre-options.js') }}"></script>
 @endpush

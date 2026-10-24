@@ -100,6 +100,6 @@ tbody td { padding:2px 5px; border:0.5px solid #d8cfb8; vertical-align:middle; }
   <div class="sig-zone"><div class="sig-box"><div>Le Chef de Service Scolarité</div><div style="height:25px"></div></div></div>
   <div class="footer"><span>{{ $institution }} — {{ $service }}</span><span>Document généré le {{ date('d/m/Y') }} — Confidentiel</span></div>
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

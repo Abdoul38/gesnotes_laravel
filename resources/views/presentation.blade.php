@@ -14,7 +14,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cursus — Système académique multi-université</title>
-<link rel="stylesheet" href="{{ asset('assets/css/presentation.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\Ressource::url('assets/css/presentation.css') }}">
 </head>
 <body>
 

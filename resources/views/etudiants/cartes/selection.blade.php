@@ -41,5 +41,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/cartes-selection.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/cartes-selection.js') }}"></script>
 @endpush

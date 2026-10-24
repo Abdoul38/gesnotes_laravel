@@ -93,5 +93,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/relances.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/relances.js') }}"></script>
 @endpush

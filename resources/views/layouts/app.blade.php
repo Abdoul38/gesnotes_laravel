@@ -21,7 +21,7 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="app-url" content="{{ url('/') }}">
 <title>{{ isset($titre) ? $titre.' — ' : '' }}{{ $universite->nomApplication() }}</title>
-<link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\Ressource::url('assets/css/app.css') }}">
 @if ($couleur)
 <style>:root{--brand:{{ $couleur }}}</style>
 @endif
@@ -33,7 +33,7 @@
 <meta name="apple-mobile-web-app-title" content="EDUFILE">
 <link rel="apple-touch-icon" href="{{ asset('assets/icons/icon-192.png') }}">
 <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/icons/icon-192.png') }}">
-<script src="{{ asset('assets/js/pwa-register.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/pwa-register.js') }}"></script>
 @stack('head')
 </head>
 <body>
@@ -97,8 +97,8 @@
   @yield('contenu')
 @endauth
 
-<script src="{{ asset('assets/js/layout.js') }}"></script>
-<script src="{{ asset('assets/js/app.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/layout.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/app.js') }}"></script>
 @stack('scripts')
 </body>
 </html>

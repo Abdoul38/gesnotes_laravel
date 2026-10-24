@@ -191,7 +191,7 @@
   </div>
   @endif
 </div>
-<script src="{{ asset('assets/js/candidature.js') }}"></script>
-<script src="{{ asset('assets/js/inscription-en-ligne.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/candidature.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/inscription-en-ligne.js') }}"></script>
 </body>
 </html>

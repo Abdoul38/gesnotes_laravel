@@ -322,6 +322,6 @@ table.t td.c{text-align:center}
   </div>
 
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

@@ -212,5 +212,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/inscription-scolarite.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/inscription-scolarite.js') }}"></script>
 @endpush

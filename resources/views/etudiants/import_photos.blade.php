@@ -145,5 +145,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/import-photos.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/import-photos.js') }}"></script>
 @endpush

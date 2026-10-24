@@ -58,5 +58,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/suivi-execution.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/suivi-execution.js') }}"></script>
 @endpush

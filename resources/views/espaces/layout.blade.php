@@ -11,7 +11,7 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="app-url" content="{{ url('/') }}">
 <title>{{ $titre ?? $espace['titre'] }} — CURSUS</title>
-<link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\Ressource::url('assets/css/app.css') }}">
 <style>
 :root{--brand:{{ $espace['couleur'] }}}
 body{background:#f4f6f8}
@@ -45,8 +45,8 @@ body{background:#f4f6f8}
   @endforeach
   @yield('contenu')
 </div>
-<script src="{{ asset('assets/js/layout.js') }}"></script>
-<script src="{{ asset('assets/js/app.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/layout.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/app.js') }}"></script>
 @stack('scripts')
 </body>
 </html>

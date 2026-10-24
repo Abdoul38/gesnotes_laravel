@@ -75,5 +75,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/salles-disponibilite.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/salles-disponibilite.js') }}"></script>
 @endpush

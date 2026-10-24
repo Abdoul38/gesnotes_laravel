@@ -175,7 +175,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
   </div>
   <div class="numero-diplome">Diplôme enregistré sous le N° {{ $numero }}<br>Code de vérification : {{ app(\App\Services\CleVerification::class)->code($numero) }}</div>
 </div>
-<script src="{{ asset('assets/js/qrcode.js') }}"></script>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/qrcode.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

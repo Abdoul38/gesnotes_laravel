@@ -75,6 +75,6 @@
 @endpush
 
 @push('scripts')
-<script src="{{ asset('assets/js/chart.min.js') }}"></script>
-<script src="{{ asset('assets/js/statistiques.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/chart.min.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/statistiques.js') }}"></script>
 @endpush

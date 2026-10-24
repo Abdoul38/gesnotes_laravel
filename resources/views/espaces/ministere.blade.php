@@ -349,6 +349,6 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/chart.min.js') }}"></script>
-<script src="{{ asset('assets/js/ministere.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/chart.min.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/ministere.js') }}"></script>
 @endpush

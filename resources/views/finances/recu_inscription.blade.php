@@ -124,6 +124,6 @@ table.info td strong{color:#0F2942}
   </div>
 </div>
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

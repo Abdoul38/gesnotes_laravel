@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Connexion — {{ $espace['titre'] }} · CURSUS</title>
-<link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\Ressource::url('assets/css/app.css') }}">
 <style>
 body{font-family:Georgia,'Times New Roman',serif;background:{{ $espace['code'] === 'anab' ? '#3b1d78' : '#0F2942' }};min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;margin:0}
 .boite{background:#FAF6ED;border-radius:12px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center}
@@ -30,6 +30,6 @@ body{font-family:Georgia,'Times New Roman',serif;background:{{ $espace['code'] =
   </form>
   <p class="pied">Accès réservé — les consultations sont journalisées.</p>
 </div>
-<script src="{{ asset('assets/js/layout.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/layout.js') }}"></script>
 </body>
 </html>

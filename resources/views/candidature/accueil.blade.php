@@ -163,6 +163,6 @@
     <div class="foot-line">© {{ date('Y') }} {{ $universite->nom }} — Portail de Préinscription</div>
   </div>
 </footer>
-<script src="{{ asset('assets/js/candidature.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/candidature.js') }}"></script>
 </body>
 </html>

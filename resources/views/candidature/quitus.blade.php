@@ -95,7 +95,7 @@
 <div class="sig-r"><div>Signature du candidat</div><div class="sig-space"></div></div>
 <div class="ftr"><strong>{{ $universite->nom }} - Service Central de la Scolarité</strong><br>N° {{ $numeroQuitus }}</div>
 </div>
-<script src="{{ asset('assets/js/qrcode.js') }}"></script>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/qrcode.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

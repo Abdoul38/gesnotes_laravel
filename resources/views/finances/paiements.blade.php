@@ -243,5 +243,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/paiements.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/paiements.js') }}"></script>
 @endpush

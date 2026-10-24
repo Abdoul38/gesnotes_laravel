@@ -123,6 +123,6 @@ table.valides tr:nth-child(even) td{background:#fafafa}
 </div>
 
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

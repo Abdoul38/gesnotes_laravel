@@ -235,7 +235,7 @@
 
 @push('scripts')
 @if (in_array($onglet, ['stats', 'avancees'], true))
-<script src="{{ asset('assets/js/chart.min.js') }}"></script>
-<script src="{{ asset('assets/js/candidatures-admin.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/chart.min.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/candidatures-admin.js') }}"></script>
 @endif
 @endpush

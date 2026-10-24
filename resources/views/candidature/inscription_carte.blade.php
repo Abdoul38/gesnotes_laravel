@@ -32,6 +32,6 @@
     <a href="{{ route('candidature.inscription.etape', ['id' => $ins->id, 'etape' => 3]) }}" style="display:block;margin-top:12px;color:#6b7280;font-size:12px;text-align:center">← Changer de mode de paiement</a>
   </div></div>
 </div>
-<script src="{{ asset('assets/js/inscription-en-ligne.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/inscription-en-ligne.js') }}"></script>
 </body>
 </html>

@@ -144,5 +144,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/ped-masse.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/ped-masse.js') }}"></script>
 @endpush

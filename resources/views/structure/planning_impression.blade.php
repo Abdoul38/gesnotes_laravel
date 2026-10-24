@@ -50,6 +50,6 @@ td{border:0.5px solid #aaa;padding:3px 5px;vertical-align:middle}
     <div style="text-align:center;flex:1"><div style="border-top:0.5px solid #000;padding-top:3px;font-style:italic;margin:15mm 20px 0">Le Doyen</div></div>
   </div>
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

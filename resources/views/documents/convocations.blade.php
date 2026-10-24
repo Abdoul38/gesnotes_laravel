@@ -144,6 +144,6 @@ table.mat td.center{text-align:center}
 @empty
 <div class="conv"><div class="conv-inner" style="text-align:center;padding-top:60mm;font-style:italic;color:#888">Aucun étudiant à convoquer pour ce PV.</div></div>
 @endforelse
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

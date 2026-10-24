@@ -363,5 +363,5 @@
 @endpush
 
 @push('scripts')
-<script src="{{ asset('assets/js/pv-detail.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/pv-detail.js') }}"></script>
 @endpush

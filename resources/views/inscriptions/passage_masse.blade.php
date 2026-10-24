@@ -174,5 +174,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/passage-masse.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/passage-masse.js') }}"></script>
 @endpush

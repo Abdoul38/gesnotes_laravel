@@ -124,5 +124,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/signataires.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/signataires.js') }}"></script>
 @endpush

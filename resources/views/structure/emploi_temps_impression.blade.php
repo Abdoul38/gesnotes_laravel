@@ -52,6 +52,6 @@ table.edt td.heure{background:#f5f5f5;font-weight:bold;text-align:center;width:6
   </table>
   <div style="margin-top:6mm;display:flex;gap:12px;font-size:8pt">@foreach (EDT::TYPES as [$lib, $col])<span style="background:{{ $col }};color:#fff;padding:2px 8px;border-radius:3px">{{ $lib }}</span>@endforeach</div>
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

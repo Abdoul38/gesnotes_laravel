@@ -318,6 +318,6 @@
 @endsection
 
 @push('scripts')
-@if ($onglet === 'apercu')<script src="{{ asset('assets/js/chart.min.js') }}"></script>@endif
-<script src="{{ asset('assets/js/finances.js') }}"></script>
+@if ($onglet === 'apercu')<script src="{{ \App\Support\Ressource::url('assets/js/chart.min.js') }}"></script>@endif
+<script src="{{ \App\Support\Ressource::url('assets/js/finances.js') }}"></script>
 @endpush

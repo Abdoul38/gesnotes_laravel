@@ -195,7 +195,7 @@ body { font-family: Georgia, 'Times New Roman', Times, serif; background: #e8e5d
   </div>
 </div>
 </div>
-<script src="{{ asset('assets/js/qrcode.js') }}"></script>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/qrcode.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>

@@ -225,7 +225,7 @@ body.mesure-impression .td-name{min-width:90px !important}
 </div>
 
 </div>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
-<script src="{{ asset('assets/js/pv-impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/pv-impression.js') }}"></script>
 </body>
 </html>

@@ -117,5 +117,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/choix-options.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/choix-options.js') }}"></script>
 @endpush

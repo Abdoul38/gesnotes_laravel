@@ -280,5 +280,5 @@
 @endpush
 
 @push('scripts')
-<script src="{{ asset('assets/js/enseignants.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/enseignants.js') }}"></script>
 @endpush

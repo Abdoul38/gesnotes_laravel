@@ -79,5 +79,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/pv-creer.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/pv-creer.js') }}"></script>
 @endpush

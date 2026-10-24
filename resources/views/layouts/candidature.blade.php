@@ -32,6 +32,6 @@
   @endforeach
   @yield('contenu')
 </div>
-<script src="{{ asset('assets/js/candidature.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/candidature.js') }}"></script>
 </body>
 </html>

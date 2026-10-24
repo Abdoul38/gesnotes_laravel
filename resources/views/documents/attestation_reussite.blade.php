@@ -205,7 +205,7 @@ body { font-family: Georgia, 'Times New Roman', serif; background:#e8e5df; color
 @empty
 <div class="page"><div class="content" style="text-align:center;padding-top:60mm;font-style:italic;color:#888">Aucun étudiant admis dans ce PV.</div></div>
 @endforelse
-<script src="{{ asset('assets/js/qrcode.js') }}"></script>
-<script src="{{ asset('assets/js/impression.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/qrcode.js') }}"></script>
+<script src="{{ \App\Support\Ressource::url('assets/js/impression.js') }}"></script>
 </body>
 </html>
