@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Portails;
 
 use App\Http\Controllers\Controller;
 use App\Models\Utilisateur;
+use App\Services\HistoriqueNotes;
 use App\Services\Journal;
 use App\Services\NotesEnseignants;
 use App\Services\Pv;
@@ -520,11 +521,11 @@ class PortailEnseignantController extends Controller
 
             return;
         }
-        DB::transaction(function () use ($u, $pv, $mat, $tc, $valeurs) {
+        app(HistoriqueNotes::class)->suivre((int) $pv->id, 'portail enseignant (administration)', fn () => DB::transaction(function () use ($u, $pv, $mat, $tc, $valeurs) {
             foreach ($this->saisie->enregistrerComposante($pv, $mat, $tc, $valeurs, (int) $u->id) as $et) {
                 $this->resultats->recalculer((int) $pv->id, (int) $et);
             }
-        });
+        }), array_keys($valeurs));
     }
 
     /**

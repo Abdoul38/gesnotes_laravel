@@ -15,7 +15,7 @@ class JournauxController extends Controller
 
     public const STYLES = [
         'connexion' => ['🔑', '#1e40af', '#dbeafe'], 'deconnexion' => ['🚪', '#6b7280', '#f3f4f6'],
-        'creer' => ['➕', '#166534', '#dcfce7'], 'modifier' => ['✏️', '#854d0e', '#fef9c3'],
+        'creer' => ['➕', '#166534', '#dcfce7'], 'modifier' => ['✏️', '#854d0e', '#fef9c3'], 'modifier_note' => ['📝', '#9a3412', '#ffedd5'],
         'supprimer' => ['🗑️', '#991b1b', '#fee2e2'], 'consulter' => ['👁️', '#374151', '#f3f4f6'],
         'exporter' => ['📤', '#5b21b6', '#ede9fe'], 'importer' => ['📥', '#0369a1', '#e0f2fe'],
         'sauvegarder' => ['💾', '#166534', '#dcfce7'], 'inscrire' => ['🎓', '#0369a1', '#e0f2fe'],

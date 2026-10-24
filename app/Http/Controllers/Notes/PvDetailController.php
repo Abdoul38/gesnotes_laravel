@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Notes;
 
 use App\Http\Controllers\Controller;
+use App\Services\HistoriqueNotes;
 use App\Services\Journal;
 use App\Services\Parametres;
 use App\Services\PresidentsJury;
@@ -125,12 +126,13 @@ class PvDetailController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($pv, $lignes) {
+            // Ancienne → nouvelle valeur de chaque note modifiée, dans les journaux d'activité
+            app(HistoriqueNotes::class)->suivre($pv->id, 'saisie du PV', fn () => DB::transaction(function () use ($pv, $lignes) {
                 foreach (array_chunk($lignes, 500) as $paquet) {
                     DB::table('notes')->upsert($paquet, ['pv_id', 'etudiant_id', 'matiere_id'], ['note_examen', 'note_cc', 'note_finale', 'defaillant', 'saisie_par', 'updated_at']);
                 }
                 $this->recalculerTout($pv);
-            });
+            }), array_values(array_unique(array_column($lignes, 'etudiant_id'))));
         } catch (Throwable $e) {
             Log::error("Enregistrement des notes du PV {$pv->id} : ".$e->getMessage());
 
@@ -238,14 +240,14 @@ class PvDetailController extends Controller
                 if (! $this->pvs->ues($pv)->pluck('matieres')->flatten(1)->contains('id', $mat)) {
                     return redirect($retour)->with('erreur', 'Matière non spécifiée.');
                 }
-                $nb = DB::transaction(function () use ($pv, $mat) {
+                $nb = app(HistoriqueNotes::class)->suivre($pv->id, 'matière vidée', fn () => DB::transaction(function () use ($pv, $mat) {
                     $nb = DB::table('notes')->where(['pv_id' => $pv->id, 'matiere_id' => $mat])->delete();
                     foreach (DB::table('resultats_semestre')->where('pv_id', $pv->id)->pluck('etudiant_id') as $et) {
                         $this->resultats->recalculer($pv->id, (int) $et);
                     }
 
                     return $nb;
-                });
+                }));
                 $this->journal->action('supprimer', 'notes', "Notes de la matière #$mat vidées ($nb) — {$pv->libelle}", $pv->id);
 
                 return redirect($retour)->with('succes', "🗑️ $nb note(s) supprimée(s) pour cette matière.");

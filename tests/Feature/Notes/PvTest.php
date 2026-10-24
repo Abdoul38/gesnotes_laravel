@@ -376,6 +376,27 @@ class PvTest extends TestCase
         $this->connecte($this->creerUtilisateur('enseignant'))->get($this->url("releve?pv_id={$this->pv}&et_id=$a"))->assertRedirect($this->url('pv'));
     }
 
+    public function test_journal_des_modifications_de_notes(): void
+    {
+        $a = $this->etudiant('ALPHA');
+        $journal = fn () => DB::table('audit_log')->where('action', 'modifier_note')->pluck('description');
+
+        // Première saisie : pas une modification
+        $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '12']]])->assertSessionHas('succes');
+        $this->assertCount(0, $journal());
+
+        // Modification : ancienne et nouvelle valeur, étudiant, matière, PV, origine
+        $this->saisir([$a => [$this->m1 => ['exam' => '30', 'cc' => '15'], $this->m2 => ['exam' => '14.5']]])->assertSessionHas('succes');
+        $numero = DB::table('etudiants')->where('id', $a)->value('numero');
+        $this->assertSame(["Note modifiée — ALPHA X ($numero) — Statistiques — PV S1 Éco : Examen 12 → 14,5 ; Note finale 12 → 14,5 [saisie du PV]"],
+            $journal()->all());
+        $this->connecte($this->admin)->get($this->url('logs?action=modifier_note'))->assertOk()->assertSee('Examen 12 → 14,5');
+
+        // Matière vidée : notes supprimées tracées
+        $this->post($this->url("pv/{$this->pv}/action"), ['action_pv' => 'vider_matiere', 'matiere_id' => $this->m1])->assertSessionHas('succes');
+        $this->assertStringContainsString('Microéconomie — PV S1 Éco : note supprimée (Examen 30, TD 15, Note finale 45) [matière vidée]', $journal()->last());
+    }
+
     public function test_verification_du_releve_affiche_ses_notes(): void
     {
         $a = $this->etudiant('ALPHA');

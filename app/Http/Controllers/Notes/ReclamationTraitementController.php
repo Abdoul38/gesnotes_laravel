@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Notes;
 
 use App\Http\Controllers\Controller;
+use App\Services\HistoriqueNotes;
 use App\Services\Journal;
 use App\Services\Reclamations;
 use App\Services\Resultats;
@@ -93,40 +94,43 @@ class ReclamationTraitementController extends Controller
 
         $noteCorrigee = null;
         $verrouilleEntreTemps = false;
-        DB::transaction(function () use ($r, $v, $exam, $cc, $finale, $maxCc, $request, $resultats, $journal, &$noteCorrigee, &$verrouilleEntreTemps) {
-            // Verrouillé pendant le traitement : rien n'est enregistré
-            if ($v['action'] === 'fondee' && DB::table('pv_sessions')->where('id', $r->pv_id)->lockForUpdate()->value('verrouille')) {
-                $verrouilleEntreTemps = true;
+        // Ancienne → nouvelle note dans les journaux d'activité
+        app(HistoriqueNotes::class)->suivre((int) $r->pv_id, 'réclamation fondée', function () use ($r, $v, $exam, $cc, $finale, $maxCc, $request, $resultats, $journal, &$noteCorrigee, &$verrouilleEntreTemps) {
+            DB::transaction(function () use ($r, $v, $exam, $cc, $finale, $maxCc, $request, $resultats, $journal, &$noteCorrigee, &$verrouilleEntreTemps) {
+                // Verrouillé pendant le traitement : rien n'est enregistré
+                if ($v['action'] === 'fondee' && DB::table('pv_sessions')->where('id', $r->pv_id)->lockForUpdate()->value('verrouille')) {
+                    $verrouilleEntreTemps = true;
 
-                return;
-            }
-            if ($v['action'] === 'fondee') {
-                $actuelle = $this->noteActuelle($r);
-                if ($maxCc > 0 && $cc === null) {
-                    $cc = $actuelle?->note_cc !== null ? (float) $actuelle->note_cc : null;
+                    return;
                 }
-                if ($finale !== null) {
-                    $noteCorrigee = round($finale, 2);
-                    $exam ??= $noteCorrigee;
-                } elseif ($exam !== null) {
-                    $noteCorrigee = round($exam + ($cc ?? 0), 2);
+                if ($v['action'] === 'fondee') {
+                    $actuelle = $this->noteActuelle($r);
+                    if ($maxCc > 0 && $cc === null) {
+                        $cc = $actuelle?->note_cc !== null ? (float) $actuelle->note_cc : null;
+                    }
+                    if ($finale !== null) {
+                        $noteCorrigee = round($finale, 2);
+                        $exam ??= $noteCorrigee;
+                    } elseif ($exam !== null) {
+                        $noteCorrigee = round($exam + ($cc ?? 0), 2);
+                    }
+                    $cle = ['pv_id' => $r->pv_id, 'etudiant_id' => $r->etudiant_id, 'matiere_id' => $r->matiere_id];
+                    $valeurs = ['note_examen' => $exam, 'note_cc' => $cc, 'note_finale' => $noteCorrigee];
+                    if ($actuelle) {
+                        DB::table('notes')->where($cle)->update($valeurs + ['updated_at' => now()]);
+                    } else {
+                        DB::table('notes')->insert($cle + $valeurs + ['saisie_par' => $request->user()->id]);
+                    }
+                    $resultats->recalculer((int) $r->pv_id, (int) $r->etudiant_id);
                 }
-                $cle = ['pv_id' => $r->pv_id, 'etudiant_id' => $r->etudiant_id, 'matiere_id' => $r->matiere_id];
-                $valeurs = ['note_examen' => $exam, 'note_cc' => $cc, 'note_finale' => $noteCorrigee];
-                if ($actuelle) {
-                    DB::table('notes')->where($cle)->update($valeurs + ['updated_at' => now()]);
-                } else {
-                    DB::table('notes')->insert($cle + $valeurs + ['saisie_par' => $request->user()->id]);
-                }
-                $resultats->recalculer((int) $r->pv_id, (int) $r->etudiant_id);
-            }
-            DB::table('reclamations')->where('id', $r->id)->update([
-                'statut' => $v['action'], 'note_corrigee' => $noteCorrigee, 'commentaire' => ($v['commentaire'] ?? '') ?: null,
-                'traitee_par' => $request->user()->id, 'traitee_le' => now(), 'updated_at' => now(),
-            ]);
-            $journal->audit('reclamation_'.$v['action'], 'reclamations', (int) $r->id, "Réclamation de {$r->nom} {$r->prenoms} sur {$r->matiere} — PV #{$r->pv_id}");
-            $journal->action('modifier', 'reclamation', "Traitement réclamation ({$v['action']}) — {$r->nom} {$r->prenoms}, {$r->matiere}", (int) $r->id);
-        });
+                DB::table('reclamations')->where('id', $r->id)->update([
+                    'statut' => $v['action'], 'note_corrigee' => $noteCorrigee, 'commentaire' => ($v['commentaire'] ?? '') ?: null,
+                    'traitee_par' => $request->user()->id, 'traitee_le' => now(), 'updated_at' => now(),
+                ]);
+                $journal->audit('reclamation_'.$v['action'], 'reclamations', (int) $r->id, "Réclamation de {$r->nom} {$r->prenoms} sur {$r->matiere} — PV #{$r->pv_id}");
+                $journal->action('modifier', 'reclamation', "Traitement réclamation ({$v['action']}) — {$r->nom} {$r->prenoms}, {$r->matiere}", (int) $r->id);
+            });
+        }, [(int) $r->etudiant_id]);
 
         if ($verrouilleEntreTemps) {
             return back()->withInput()->with('erreur', self::PV_VERROUILLE);

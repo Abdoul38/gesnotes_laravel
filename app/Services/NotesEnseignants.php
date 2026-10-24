@@ -106,9 +106,11 @@ class NotesEnseignants
                 }
                 $valeurs = $this->brouillons((int) $pv->id, (int) $mat->id, $c)->all();
                 if ($valeurs) {
-                    foreach ($this->saisie->enregistrerComposante($pv, $mat, $c, $valeurs, $utilisateur) as $et) {
-                        $this->resultats->recalculer((int) $pv->id, (int) $et);
-                    }
+                    app(HistoriqueNotes::class)->suivre((int) $pv->id, 'finalisation par l\'enseignant', function () use ($pv, $mat, $c, $valeurs, $utilisateur) {
+                        foreach ($this->saisie->enregistrerComposante($pv, $mat, $c, $valeurs, $utilisateur) as $et) {
+                            $this->resultats->recalculer((int) $pv->id, (int) $et);
+                        }
+                    }, array_keys($valeurs));
                     $nb += count($valeurs);
                 }
                 DB::table('notes_enseignants')->where(['pv_id' => $pv->id, 'matiere_id' => $mat->id, 'composante' => $c])->delete();

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Notes;
 
 use App\Http\Controllers\Controller;
 use App\Models\Utilisateur;
+use App\Services\HistoriqueNotes;
 use App\Services\Journal;
 use App\Services\Pv;
 use App\Services\Resultats;
@@ -155,19 +156,21 @@ class NotesImportController extends Controller
             $saisies[$et->id][$matId] = [$exam, $td];
         }
 
-        $resultat['ok'] = DB::transaction(function () use ($pv, $saisies, $matId, $request, &$resultat) {
-            $nb = $this->saisie->enregistrer($pv, $saisies, $request->user()->id);
-            $touches = array_keys($saisies);
-            if ($pv->type_session === 'rattrapage' && $pv->pv_normale_id) {
-                $absents = $this->saisie->marquerAbsents($pv, [$matId], $saisies, $request->user()->id);
-                $resultat['absents'] = count($absents);
-                $touches = array_unique([...$touches, ...$absents]);
-            }
-            foreach ($touches as $et) {
-                $this->resultats->recalculer($pv->id, (int) $et);
-            }
+        $resultat['ok'] = app(HistoriqueNotes::class)->suivre($pv->id, 'import de notes', function () use ($pv, $saisies, $matId, $request, &$resultat) {
+            return DB::transaction(function () use ($pv, $saisies, $matId, $request, &$resultat) {
+                $nb = $this->saisie->enregistrer($pv, $saisies, $request->user()->id);
+                $touches = array_keys($saisies);
+                if ($pv->type_session === 'rattrapage' && $pv->pv_normale_id) {
+                    $absents = $this->saisie->marquerAbsents($pv, [$matId], $saisies, $request->user()->id);
+                    $resultat['absents'] = count($absents);
+                    $touches = array_unique([...$touches, ...$absents]);
+                }
+                foreach ($touches as $et) {
+                    $this->resultats->recalculer($pv->id, (int) $et);
+                }
 
-            return $nb;
+                return $nb;
+            });
         });
         $resultat['total'] = $this->pvs->etudiants($pv)->count();
         $this->journal->action('importer', 'notes', "Import des notes de « {$mat->libelle} » ({$resultat['ok']}) — {$pv->libelle}", $pv->id);
@@ -211,7 +214,7 @@ class NotesImportController extends Controller
             }
         }
         if ($iEntete === null) {
-            return redirect()->route('notes_importer', ['pv_id' => $pvId])->with('erreur', "Format non reconnu : utilisez le fichier produit par « Exporter Excel » du PV.");
+            return redirect()->route('notes_importer', ['pv_id' => $pvId])->with('erreur', 'Format non reconnu : utilisez le fichier produit par « Exporter Excel » du PV.');
         }
 
         $index = $this->saisie->parMatricule($pv);
@@ -258,7 +261,7 @@ class NotesImportController extends Controller
         }
         $saisies = array_filter($saisies);
 
-        DB::transaction(function () use ($pv, $saisies, $matieres, $request) {
+        app(HistoriqueNotes::class)->suivre($pv->id, 'import du PV', fn () => DB::transaction(function () use ($pv, $saisies, $matieres, $request) {
             $this->saisie->enregistrer($pv, $saisies, $request->user()->id);
             $touches = array_keys($saisies);
             if ($pv->type_session === 'rattrapage' && $pv->pv_normale_id) {
@@ -267,7 +270,7 @@ class NotesImportController extends Controller
             foreach ($touches as $et) {
                 $this->resultats->recalculer($pv->id, (int) $et);
             }
-        });
+        }));
         $nb = count($saisies);
         $this->journal->action('importer', 'notes', "Import du PV complet ($nb étudiant(s)) — {$pv->libelle}", $pv->id);
         if (! $nb) {
