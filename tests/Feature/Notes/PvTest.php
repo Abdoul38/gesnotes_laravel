@@ -387,6 +387,11 @@ class PvTest extends TestCase
         $this->saisir([$a => [$this->m1 => ['exam' => '20', 'cc' => '19']]], $ratt)->assertSessionHas('succes');
         $n = DB::table('notes')->where(['pv_id' => $ratt, 'etudiant_id' => $a, 'matiere_id' => $this->m1])->first();
         $this->assertSame(['20.00', '10.00', '30.00'], [$n->note_examen, $n->note_cc, $n->note_finale]);
+        // Rattrapage moins bon que la 1ère session : examen, TD et note de 1ère session gardés
+        $this->saisir([$a => [$this->m1 => ['exam' => '17', 'cc' => '7']]])->assertSessionHas('succes');   // 1ère session : 17 + 7 = 24
+        $this->saisir([$a => [$this->m1 => ['exam' => '12']]], $ratt)->assertSessionHas('succes');           // rattrapage : 12 + 6 = 18 < 24
+        $n = DB::table('notes')->where(['pv_id' => $ratt, 'etudiant_id' => $a, 'matiere_id' => $this->m1])->first();
+        $this->assertSame(['17.00', '7.00', '24.00'], [$n->note_examen, $n->note_cc, $n->note_finale]);
         // TD affiché, non modifiable, dans le PV de rattrapage
         $this->get($this->url("pv/$ratt"))->assertOk()->assertSee("le TD est la note d'examen ramenée au barème du TD", false)
             ->assertDontSee("notes[$a][{$this->m1}][cc]", false);

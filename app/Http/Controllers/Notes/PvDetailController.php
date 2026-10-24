@@ -463,6 +463,10 @@ class PvDetailController extends Controller
         $etudiants = $this->pvs->etudiants($pv)->whereIn('e.id', $ids)->pluck('e.nom', 'e.id');
         $cellules = $this->cellules($pv, $etudiants->keys()->map(fn ($i) => (int) $i)->all());
         $matieres = $this->pvs->ues($pv)->pluck('matieres')->flatten(1)->keyBy('id');
+        // Rattrapage : notes de 1ère session, pour garder la meilleure des deux
+        $session1 = ($pv->type_session === 'rattrapage' && $pv->pv_normale_id)
+            ? DB::table('notes')->where('pv_id', $pv->pv_normale_id)->whereIn('etudiant_id', $ids)->get()->groupBy('etudiant_id')->map->keyBy('matiere_id')
+            : collect();
         $lignes = [];
         $erreurs = [];
 
@@ -496,11 +500,16 @@ class PvDetailController extends Controller
                 // Rattrapage : seul l'examen est composé, le TD en découle (règle de l'université)
                 $cc = $pv->type_session === 'rattrapage' ? SaisieNotes::tdRattrapage($exam, $m)
                     : ((float) $m->note_max_cc > 0 ? $lire('cc', (float) $m->note_max_cc) : null);
+                // Même calcul que l'ancienne saisie (le moteur juge ensuite le TD manquant)
+                $finale = ($exam !== null || $cc !== null) ? ($exam ?? 0) + ($cc ?? 0) : null;
+                // Rattrapage moins bon que la 1ère session : examen, TD et note de 1ère session gardés (comme l'import)
+                $n1 = $session1[$et][$mat] ?? null;
+                if ($exam !== null && $n1 && $n1->note_finale !== null && (float) $n1->note_finale > $finale) {
+                    [$exam, $cc, $finale] = [$n1->note_examen, $n1->note_cc, (float) $n1->note_finale];
+                }
                 $lignes[] = [
                     'pv_id' => $pv->id, 'etudiant_id' => $et, 'matiere_id' => $mat, 'note_examen' => $exam, 'note_cc' => $cc,
-                    // Même calcul que l'ancienne saisie (le moteur juge ensuite le TD manquant)
-                    'note_finale' => ($exam !== null || $cc !== null) ? ($exam ?? 0) + ($cc ?? 0) : null,
-                    'defaillant' => 0, 'saisie_par' => $utilisateur, 'updated_at' => now(),
+                    'note_finale' => $finale, 'defaillant' => 0, 'saisie_par' => $utilisateur, 'updated_at' => now(),
                 ];
             }
         }
